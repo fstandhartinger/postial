@@ -17,3 +17,11 @@ export function getPublisher(provider: Provider): Publisher {
 export function availableProviders(): Provider[] {
   return Object.keys(registry) as Provider[];
 }
+
+import { bluesky } from './bluesky';
+import { mastodon } from './mastodon';
+import { telegram } from './telegram';
+
+registerPublisher(bluesky);
+registerPublisher(mastodon);
+registerPublisher(telegram);
