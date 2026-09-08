@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@theme inline { --font-sans: var(--font-geist-sans); }
+body { background: #f9fafb; color: #111827; }
+a, button, input { -webkit-tap-highlight-color: transparent; }

@@ -1,0 +1,1 @@
+export default function Page() { return <article className="max-w-2xl"><h1 className="text-3xl font-semibold">Impressum</h1><p className="mt-5 text-gray-600">Placeholder — this page is being prepared before launch.</p><p className="mt-4 text-gray-600">productivity-boost.com Betriebs UG · Passau, Germany</p></article>; }
