@@ -80,8 +80,8 @@ included explicitly alongside the standalone Next.js output.
 
 Foundation: workspace ownership, auth and billing are implemented.
 Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
-Product: channel connections, calendar, approval links, publishing, API and n8n
-remain milestone 2 work, advertised as early access with a September 2026 rollout.
+Product: brands, channel connections, composer, calendar and publishing worker are
+implemented. Customer approval links, public API and n8n remain milestone 2 work.
 The owner must verify company registration details and provide the DPA on request. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 Network integrations and production deployment are separate work.
@@ -198,3 +198,39 @@ only creates uncompleted Checkout sessions and deletes the temporary customers.
   missing-DB redirects and (with DATABASE_URL) temporary database-session UI
   fixtures for automatic checkout continuation, retry and expired Portal login.
   Checkout is intercepted in this UI test; no provider login or payment occurs.
+
+## Product core
+
+`/app` provides workspace navigation, brands and channel connections, a composer,
+post status/history with retry and skip controls, and month/week calendars.
+Starter supports 3 brands, Agency 15; without an active subscription/trial the
+Starter limit applies. Credentials are AES-256-GCM encrypted at rest using
+`APP_ENCRYPTION_KEY` (base64, exactly 32 random bytes). Preserve this key across
+restarts; replacing it requires reconnecting channels. Never expose it publicly.
+Reconnecting the same provider account updates its existing channel credentials.
+
+The composer validates channel ownership, provider text limits, four HTTPS media
+URLs, and dates in the brand's IANA timezone. Ambiguous/nonexistent DST minutes
+are rejected. Drafts and approval requests cannot publish. Approval tokens/notes
+are modeled for part B; customer approval links are not yet available. An approval
+flow must set the post status to `approved`; the worker activates held targets at
+`scheduled_at`. Editing is restricted to drafts and pending/changes-requested posts.
+
+The Node instrumentation starts one publishing timer per process (30 seconds).
+`POST /api/internal/tick` also runs a batch, authenticated by `x-cron-secret`
+matching server-only `CRON_SECRET`. PostgreSQL `FOR UPDATE SKIP LOCKED` reserves
+10 due targets before network calls. Attempts fence stale responses; retries use
+1/4/15/60-minute delays and provider Retry-After, with failure after five attempts.
+Authentication expiry requires reconnection; rejected content fails immediately.
+Attempts interrupted for ten minutes are recovered with a visible history event.
+A stable target ID is passed as provider idempotency key. Providers without remote
+idempotency cannot guarantee exactly-once delivery if a process dies after the
+remote service accepts a post but before the local result is committed.
+
+Verification: `npm run db:generate`, `npm run db:migrate`, `npm run lint`,
+`npx tsc --noEmit`, `npm run build`, and `npx tsx scripts/verify-core.ts`.
+The core script uses PostgreSQL fixtures and a test-process-only Mastodon adapter;
+it publishes no real content and deletes fixtures. Run `npx tsx scripts/verify-core-http.ts` against a local server on port 3993
+(or set `CORE_HTTP_URL`) to check session-protected routes and cron authentication.
+Keep the worker fixture run separate from a running worker, which would otherwise
+try to process synthetic channels.
