@@ -37,7 +37,7 @@ export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id").notNull().unique().references(() => workspaces.id, { onDelete: "cascade" }),
   stripeCustomerId: text("stripe_customer_id").unique(), stripeSubscriptionId: text("stripe_subscription_id").unique(),
-  plan: plan("plan").notNull().default("starter"), status: text("status").notNull().default("trialing"),
+  plan: plan("plan").notNull().default("starter"), status: text("status").notNull().default("incomplete"),
   trialEnd: timestamp("trial_end", { withTimezone: true }), currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

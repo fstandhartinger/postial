@@ -18,9 +18,8 @@ async function main() {
     const members = await db.select().from(workspaceMembers).where(eq(workspaceMembers.userId, id));
     assert.equal(members.length, 1);
     assert.equal(members[0].role, "owner");
-    const [trial] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, owned[0].id));
-    assert.equal(trial.status, "trialing");
-    assert.ok(Math.abs(trial.trialEnd!.getTime() - Date.now() - 14 * 86400000) < 10000);
+    const records = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, owned[0].id));
+    assert.equal(records.length, 0);
     const adapter = DrizzleAdapter(db, { usersTable: users, accountsTable: accounts, sessionsTable: sessions, verificationTokensTable: verificationTokens });
     const token = crypto.randomUUID();
     await adapter.createSession!({ sessionToken: token, userId: id, expires: new Date(Date.now() + 60000) });
@@ -28,7 +27,7 @@ async function main() {
     assert.equal(found?.user.id, id);
     await adapter.deleteSession!(token);
     assert.equal(await adapter.getSessionAndUser!(token), null);
-    console.log("PASS: concurrent onboarding, owner membership, 14-day trial, database session lifecycle");
+    console.log("PASS: concurrent onboarding, owner membership, no unearned trial, database session lifecycle");
   } finally {
     await db.delete(users).where(eq(users.id, id));
     await db.$client.end();
