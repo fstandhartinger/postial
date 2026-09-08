@@ -234,3 +234,22 @@ export const postEvents = pgTable("post_events", {
     .notNull()
     .defaultNow(),
 });
+
+export const approvalDecision = pgEnum("approval_decision", ["approved", "changes_requested"]);
+export const approvalDecisions = pgTable("approval_decisions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  decision: approvalDecision("decision").notNull(),
+  comment: text("comment").notNull().default(""),
+  reviewerName: text("reviewer_name").notNull(),
+  reviewerIpHash: text("reviewer_ip_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("approval_decisions_post_created").on(t.postId, t.createdAt)]);
+
+// Persistent, atomic limits shared by every application replica. No raw IPs or tokens.
+export const approvalRateLimits = pgTable("approval_rate_limits", {
+  key: text("key").primaryKey(),
+  postId: uuid("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  attempts: integer("attempts").notNull().default(1),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});

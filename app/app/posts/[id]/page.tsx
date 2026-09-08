@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ApprovalPanel } from "@/components/approvals/panel";
 import { eq, asc } from "drizzle-orm";
 import { channels, postTargets, postEvents } from "@/db/schema";
 import { ownPost } from "@/lib/core";
@@ -40,6 +41,7 @@ export default async function PostPage({
           </Link>
         )}
       </Card>
+      <ApprovalPanel post={post} />
       {targets.map(({ target: t, name }) => (
         <Card key={t.id}>
           <h2 className="text-xl font-semibold">{name}</h2>

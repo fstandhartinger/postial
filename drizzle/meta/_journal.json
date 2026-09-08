@@ -29,6 +29,13 @@
       "when": 1788909792596,
       "tag": "0003_slimy_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788910513508,
+      "tag": "0004_outgoing_shiver_man",
+      "breakpoints": true
     }
   ]
 }
