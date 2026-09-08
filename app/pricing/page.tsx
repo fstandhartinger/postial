@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { Card } from "@/components/ui/card";
-import { buttonClass } from "@/components/ui/button";
-import { PLANS, TRIAL_DAYS } from "@/lib/plans";
-export default function Pricing() { return <div className="mx-auto max-w-3xl"><h1 className="text-4xl font-semibold tracking-tight">Room for every brand.</h1><p className="mt-4 text-gray-600">{TRIAL_DAYS} days free. No card required.</p><div className="mt-10 grid gap-6 sm:grid-cols-2">{Object.values(PLANS).map(plan => <Card key={plan.name}><h2 className="text-xl font-semibold">{plan.name}</h2><p className="my-6"><span className="text-4xl font-semibold">€{plan.monthlyPriceEur}</span><span className="text-gray-500"> / month</span></p><Link href="/login" className={buttonClass}>Start free</Link></Card>)}</div></div>; }
+import { Plans } from '@/components/marketing/Plans';
+import { FAQ } from '@/components/marketing/FAQ';
+import { words } from '@/components/marketing/copy';
+export const metadata = { title: 'Pricing', description: 'Starter €19 or Agency €49 per month, including VAT. 14-day free trial, no card needed.', alternates: { canonical: '/pricing' } };
+export default function Pricing() { return <div className="pricing-page"><header><p className="eyebrow">Pricing</p><h1>{words('Pricing', 'H2')}</h1><p>{words('Pricing', 'Sub')}</p><p>14-day free trial, no card needed</p></header><Plans checkout /><section className="section faq-section"><h2>{words('FAQ', 'H2')}</h2><FAQ short /></section></div>; }

@@ -1,1 +1,4 @@
-export default function Page() { return <article className="max-w-2xl"><h1 className="text-3xl font-semibold">Privacy</h1><p className="mt-5 text-gray-600">Placeholder — this page is being prepared before launch.</p><p className="mt-4 text-gray-600">productivity-boost.com Betriebs UG · Passau, Germany</p></article>; }
+import source from '@/content/privacy.json';
+import { LegalDocument } from '@/components/marketing/LegalDocument';
+export const metadata = { title: 'Privacy Policy', description: 'How SocialMint processes personal data, cookies, payments, retention, and your privacy rights.', alternates: { canonical: '/privacy' } };
+export default function Privacy() { return <LegalDocument source={source} />; }

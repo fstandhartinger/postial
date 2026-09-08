@@ -1,0 +1,528 @@
+{
+  "Navigation": [
+    {
+      "label": "Brand",
+      "text": "SocialMint"
+    },
+    {
+      "label": "Link → #features",
+      "text": "Features"
+    },
+    {
+      "label": "Link → #demo",
+      "text": "Demo"
+    },
+    {
+      "label": "Link → #pricing",
+      "text": "Pricing"
+    },
+    {
+      "label": "Link → #faq",
+      "text": "FAQ"
+    },
+    {
+      "label": "Link → /login",
+      "text": "Sign in"
+    },
+    {
+      "label": "CTA → /signup",
+      "text": "Start free — no card needed"
+    },
+    {
+      "label": "Mobile menu accessible label",
+      "text": "Open navigation"
+    },
+    {
+      "label": "Mobile close accessible label",
+      "text": "Close navigation"
+    }
+  ],
+  "Hero": [
+    {
+      "label": "Eyebrow",
+      "text": "Social scheduling for agencies and freelancers"
+    },
+    {
+      "label": "H1",
+      "text": "More brands. Fewer approval chases."
+    },
+    {
+      "label": "Sub",
+      "text": "Plan posts across client brands, collect approvals, and track publishing with clear errors and visible retries. Keep your team and clients on the same page."
+    },
+    {
+      "label": "Primary CTA → /signup",
+      "text": "Start free — no card needed"
+    },
+    {
+      "label": "Secondary CTA → #demo",
+      "text": "Try the interactive demo"
+    },
+    {
+      "label": "Trial note",
+      "text": "14 days free. No credit card required."
+    },
+    {
+      "label": "Plan note",
+      "text": "Client approval links, API, and n8n are included with Agency."
+    }
+  ],
+  "Social-proof alternative": [
+    {
+      "label": "Statement",
+      "text": "Built for agencies managing 3–15 brands."
+    },
+    {
+      "label": "Supporting label",
+      "text": "One place for drafts, client decisions, and publishing status."
+    }
+  ],
+  "Pain points": [
+    {
+      "label": "H2",
+      "text": "Spend less time chasing each post"
+    },
+    {
+      "label": "H3",
+      "text": "Approvals buried in messages"
+    },
+    {
+      "label": "Body",
+      "text": "WhatsApp threads and email replies make the latest decision hard to find. Give clients one link to review the post and respond."
+    },
+    {
+      "label": "H3",
+      "text": "Failed posts noticed too late"
+    },
+    {
+      "label": "Body",
+      "text": "A scheduled time is only part of the job. See publishing failures, understand what went wrong, and follow each retry."
+    },
+    {
+      "label": "H3",
+      "text": "Seat costs that complicate your budget"
+    },
+    {
+      "label": "Body",
+      "text": "Choose a monthly plan with a clear team allowance: one user on Starter or five on Agency. Client reviewers do not need a paid seat."
+    }
+  ],
+  "Features": [
+    {
+      "label": "H2",
+      "text": "From the first draft to the published post"
+    },
+    {
+      "label": "H3",
+      "text": "Brands & workspaces"
+    },
+    {
+      "label": "Body",
+      "text": "Organize posts by client brand. Keep each brand’s accounts and content together as you move between workspaces."
+    },
+    {
+      "label": "H3",
+      "text": "Approval links without client login"
+    },
+    {
+      "label": "Badge",
+      "text": "Agency"
+    },
+    {
+      "label": "Body",
+      "text": "Send a review link. Clients can approve a post or request changes without creating an account."
+    },
+    {
+      "label": "H3",
+      "text": "Publishing you can follow"
+    },
+    {
+      "label": "Body",
+      "text": "See whether a post is scheduled, published, or needs attention. Read errors in plain language and follow retries when a temporary failure can be retried."
+    },
+    {
+      "label": "Note",
+      "text": "Some errors need your action, such as reconnecting an account. A retry is not a guarantee of publication."
+    },
+    {
+      "label": "H3",
+      "text": "Calendar & scheduling"
+    },
+    {
+      "label": "Body",
+      "text": "Plan upcoming posts in a shared view and choose when each one should go out."
+    },
+    {
+      "label": "H3",
+      "text": "API + n8n node"
+    },
+    {
+      "label": "Badge",
+      "text": "Agency"
+    },
+    {
+      "label": "Body",
+      "text": "Connect your workflows to SocialMint through its API and n8n node. Bring automated post preparation into the same review and publishing process."
+    }
+  ],
+  "How it works": [
+    {
+      "label": "H2",
+      "text": "A clear path from draft to live"
+    },
+    {
+      "label": "Step 1 label",
+      "text": "1. Prepare"
+    },
+    {
+      "label": "Step 1 body",
+      "text": "Choose a brand, connect a supported account, and draft your post."
+    },
+    {
+      "label": "Step 2 label",
+      "text": "2. Get approval"
+    },
+    {
+      "label": "Step 2 body",
+      "text": "On Agency, share a review link and collect your client’s decision. On Starter, review the draft yourself."
+    },
+    {
+      "label": "Step 3 label",
+      "text": "3. Schedule and follow through"
+    },
+    {
+      "label": "Step 3 body",
+      "text": "Set the publishing time. Check the result and follow any errors or retries in the post’s status."
+    }
+  ],
+  "Interactive demo": [
+    {
+      "label": "H2",
+      "text": "Try the client’s side of approval"
+    },
+    {
+      "label": "Sub",
+      "text": "Approve a sample post, or request a change. Then follow a simulated publishing retry."
+    },
+    {
+      "label": "Disclosure",
+      "text": "Interactive demo · Sample content · Nothing is sent or published."
+    },
+    {
+      "label": "Card strings and behavior",
+      "text": "Use the exact demo specification in design-brief.md."
+    }
+  ],
+  "Networks": [
+    {
+      "label": "H2",
+      "text": "Start with these networks"
+    },
+    {
+      "label": "Available labels",
+      "text": "X · Bluesky · Mastodon · Telegram · Threads"
+    },
+    {
+      "label": "Roadmap label",
+      "text": "Planned: LinkedIn, Instagram, and Facebook"
+    },
+    {
+      "label": "Roadmap body",
+      "text": "Platform approvals are pending. These integrations are not available yet, and we have no confirmed release dates."
+    }
+  ],
+  "Pricing": [
+    {
+      "label": "H2",
+      "text": "Pick a plan for your client roster"
+    },
+    {
+      "label": "Sub",
+      "text": "Monthly plans with included users. Start with a 14-day free trial."
+    }
+  ],
+  "Starter card": [
+    {
+      "label": "Plan name",
+      "text": "Starter"
+    },
+    {
+      "label": "Price",
+      "text": "€19"
+    },
+    {
+      "label": "Price suffix",
+      "text": "/ month"
+    },
+    {
+      "label": "Audience",
+      "text": "For freelancers managing a few brands."
+    },
+    {
+      "label": "Feature",
+      "text": "3 brands"
+    },
+    {
+      "label": "Feature",
+      "text": "1 user"
+    },
+    {
+      "label": "Feature",
+      "text": "Brand workspaces"
+    },
+    {
+      "label": "Feature",
+      "text": "Calendar and scheduling"
+    },
+    {
+      "label": "Feature",
+      "text": "X, Bluesky, Mastodon, Telegram, and Threads"
+    },
+    {
+      "label": "Feature",
+      "text": "Publishing status, clear errors, and visible retries"
+    },
+    {
+      "label": "Boundary note",
+      "text": "Client approval links, API, and n8n require Agency."
+    },
+    {
+      "label": "CTA → /signup?plan=starter",
+      "text": "Start free — no card needed"
+    }
+  ],
+  "Agency card": [
+    {
+      "label": "Plan name",
+      "text": "Agency"
+    },
+    {
+      "label": "Price",
+      "text": "€49"
+    },
+    {
+      "label": "Price suffix",
+      "text": "/ month"
+    },
+    {
+      "label": "Audience",
+      "text": "For teams managing more client brands."
+    },
+    {
+      "label": "Feature",
+      "text": "15 brands"
+    },
+    {
+      "label": "Feature",
+      "text": "5 users"
+    },
+    {
+      "label": "Feature",
+      "text": "Everything in Starter"
+    },
+    {
+      "label": "Feature",
+      "text": "Client approval links without client login"
+    },
+    {
+      "label": "Feature",
+      "text": "API access"
+    },
+    {
+      "label": "Feature",
+      "text": "n8n node"
+    },
+    {
+      "label": "Reviewer note",
+      "text": "Client reviewers do not use your team’s included seats."
+    },
+    {
+      "label": "CTA → /signup?plan=agency",
+      "text": "Start free — no card needed"
+    }
+  ],
+  "Shared pricing notes": [
+    {
+      "label": "Trial note",
+      "text": "Try your chosen plan free for 14 days. No card required. A paid subscription starts only when you choose one and complete checkout."
+    },
+    {
+      "label": "Cancellation note",
+      "text": "Cancel anytime in the customer portal. Your paid plan stays active until the end of the current billing period."
+    }
+  ],
+  "Comparison": [
+    {
+      "label": "H2",
+      "text": "Why not Hootsuite / Postiz?"
+    },
+    {
+      "label": "Body",
+      "text": "Looking for a Hootsuite alternative for agencies or a Postiz alternative? Start with the work your clients need you to do: prepare, approve, schedule, and check the result."
+    },
+    {
+      "label": "H3",
+      "text": "A defined monthly team price"
+    },
+    {
+      "label": "Body",
+      "text": "SocialMint Agency is €49 per month for up to 15 brands and 5 users."
+    },
+    {
+      "label": "H3",
+      "text": "A simple client review step"
+    },
+    {
+      "label": "Body",
+      "text": "Agency includes approval links that clients can use without a SocialMint login."
+    },
+    {
+      "label": "H3",
+      "text": "Room for your workflows"
+    },
+    {
+      "label": "Body",
+      "text": "Agency includes API access and an n8n node for connecting your own automations."
+    },
+    {
+      "label": "Fair-comparison note",
+      "text": "Compare current plans, network support, and workflow requirements before choosing. These are SocialMint’s plan details, not claims that other tools lack these features."
+    }
+  ],
+  "FAQ": [
+    {
+      "label": "H2",
+      "text": "Questions before you start"
+    },
+    {
+      "label": "Question 1",
+      "text": "What is included in the free trial?"
+    },
+    {
+      "label": "Answer 1",
+      "text": "You get 14 days to try your chosen plan with its listed brand and user limits. If you do not start a paid subscription, publishing stops when the trial ends."
+    },
+    {
+      "label": "Question 2",
+      "text": "Do I need a credit card?"
+    },
+    {
+      "label": "Answer 2",
+      "text": "No. You can start the trial without a card. You only enter payment details if you choose a paid subscription."
+    },
+    {
+      "label": "Question 3",
+      "text": "How do I cancel?"
+    },
+    {
+      "label": "Answer 3",
+      "text": "Cancel anytime in the customer portal. Cancellation takes effect at the end of your current monthly billing period. There are no partial-period refunds unless required by law."
+    },
+    {
+      "label": "Question 4",
+      "text": "Which networks can I use?"
+    },
+    {
+      "label": "Answer 4",
+      "text": "X, Bluesky, Mastodon, Telegram, and Threads are supported at launch. LinkedIn, Instagram, and Facebook are planned, subject to platform approval, with no confirmed release dates."
+    },
+    {
+      "label": "Question 5",
+      "text": "Does my client need an account to approve posts?"
+    },
+    {
+      "label": "Answer 5",
+      "text": "No. On Agency, send a review link so your client can approve or request changes without signing in. Keep the link private: anyone with access to it may be able to review the post."
+    },
+    {
+      "label": "Question 6",
+      "text": "Is my data hosted in Germany or the EU?"
+    },
+    {
+      "label": "Answer 6",
+      "text": "SocialMint’s application data is hosted with Hetzner in Germany. Payment processing, optional Google sign-in, and connected social networks may involve processing outside the EU. See our Privacy Policy for details."
+    },
+    {
+      "label": "Question 7",
+      "text": "Can I use the API or n8n?"
+    },
+    {
+      "label": "Answer 7",
+      "text": "Yes. Agency includes API access and an n8n node. Automations use the same brand limits and connected-network permissions as your account."
+    }
+  ],
+  "Final CTA": [
+    {
+      "label": "H2",
+      "text": "Give every client post a clear next step"
+    },
+    {
+      "label": "Body",
+      "text": "Start with your next draft and a 14-day free trial."
+    },
+    {
+      "label": "CTA → /signup",
+      "text": "Start free — no card needed"
+    }
+  ],
+  "Footer": [
+    {
+      "label": "Brand",
+      "text": "SocialMint"
+    },
+    {
+      "label": "Description",
+      "text": "Social scheduling and client approvals for agencies."
+    },
+    {
+      "label": "Link → #features",
+      "text": "Features"
+    },
+    {
+      "label": "Link → #demo",
+      "text": "Interactive demo"
+    },
+    {
+      "label": "Link → #pricing",
+      "text": "Pricing"
+    },
+    {
+      "label": "Link → /privacy",
+      "text": "Privacy Policy"
+    },
+    {
+      "label": "Link → /terms",
+      "text": "Terms of Service"
+    },
+    {
+      "label": "Link → /impressum",
+      "text": "Impressum"
+    },
+    {
+      "label": "Link → mailto:info@productivity-boost.com",
+      "text": "Contact"
+    },
+    {
+      "label": "Copyright",
+      "text": "© 2026 productivity-boost.com Betriebs UG (haftungsbeschränkt) & Co. KG"
+    }
+  ],
+  "SEO": [
+    {
+      "label": "<title>",
+      "text": "SocialMint | Social Scheduling & Client Approvals"
+    },
+    {
+      "label": "Meta description",
+      "text": "Plan posts across client brands, get approvals without client logins, and track publishing retries. From €19/month. Try SocialMint free for 14 days."
+    },
+    {
+      "label": "OG title",
+      "text": "SocialMint — From Client Draft to Published Post"
+    },
+    {
+      "label": "OG description",
+      "text": "Manage client brands, collect approvals, and follow publishing retries. Agency includes API + n8n. Try it free for 14 days, no card needed."
+    }
+  ]
+}
