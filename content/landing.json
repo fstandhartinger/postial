@@ -344,7 +344,7 @@
   "Shared pricing notes": [
     {
       "label": "Trial note",
-      "text": "Try your chosen plan free for 14 days. No card required. A paid subscription starts only when you choose one and complete checkout."
+      "text": "The 14-day trial starts in Checkout without a card. Without a payment method, your subscription ends automatically at trial end and you are not charged. If you add a payment method in the customer portal during the trial, billing starts at the displayed price when the trial ends. You can cancel anytime."
     },
     {
       "label": "Cancellation note",
@@ -400,7 +400,7 @@
     },
     {
       "label": "Answer 1",
-      "text": "You get 14 days to try your chosen plan with its listed brand and user limits. If you do not start a paid subscription, publishing stops when the trial ends."
+      "text": "The 14-day trial starts in Checkout without a card. Without a payment method, your subscription ends automatically at trial end and you are not charged. If you add a payment method in the customer portal during the trial, billing starts at the displayed price when the trial ends. You can cancel anytime."
     },
     {
       "label": "Question 2",
@@ -408,7 +408,7 @@
     },
     {
       "label": "Answer 2",
-      "text": "No. You can start the trial without a card. You only enter payment details if you choose a paid subscription."
+      "text": "The 14-day trial starts in Checkout without a card. Without a payment method, your subscription ends automatically at trial end and you are not charged. If you add a payment method in the customer portal during the trial, billing starts at the displayed price when the trial ends. You can cancel anytime."
     },
     {
       "label": "Question 3",

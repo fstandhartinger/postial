@@ -1,0 +1,90 @@
+import postgres from 'postgres';
+import { randomUUID } from 'node:crypto';
+import assert from 'node:assert/strict';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const base = process.env.BROWSER_BASE_URL || 'http://localhost:3992';
+const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+try {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('response', response => { if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`); });
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const route of ['/', '/pricing', '/login?next=/pricing&plan=agency', '/impressum', '/privacy', '/terms']) {
+      const response = await page.goto(base + route);
+      await page.waitForLoadState('networkidle');
+      assert.equal(response.status(), 200);
+      const headers = response.headers();
+      assert.equal(headers['strict-transport-security'], 'max-age=31536000; includeSubDomains');
+      assert.equal(headers['x-content-type-options'], 'nosniff');
+      assert.equal(headers['x-frame-options'], 'DENY');
+      assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
+      assert.ok(headers['permissions-policy']);
+      assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
+      if (route === '/' || route === '/pricing') assert.ok(await page.getByText('Early access', { exact: true }).count());
+      if (route === '/pricing') assert.ok(await page.getByText(/Available now: brand workspaces/).count());
+      if (route === '/pricing' && width === 1440) await page.screenshot({ path: '/tmp/socialmint-fixer-pricing.png', fullPage: true });
+      if (route === '/' && width === 320) await page.screenshot({ path: '/tmp/socialmint-fixer-mobile.png', fullPage: true });
+    }
+  }
+  await page.goto(base + '/pricing');
+  await page.getByRole('button', { name: 'Start free trial', exact: true }).nth(1).click();
+  await page.waitForURL('**/login?next=/pricing&plan=agency');
+  assert.equal(new URL(page.url()).search, '?next=/pricing&plan=agency');
+  assert.deepEqual(errors, []);
+  console.log('PASS browser: six routes at 320/1440, all security headers, no overflow, no console/page/HTTP errors, Agency CTA preserves plan without 401');
+  for (const route of ['/app', '/app/billing', '/app/continue?next=/pricing&plan=agency']) {
+    const response = await fetch('http://localhost:3995' + route, { redirect: 'manual' });
+    assert.equal(response.status, 307);
+    const target = new URL(response.headers.get('location'), 'http://localhost:3995');
+    assert.equal(target.pathname, '/login'); assert.ok(target.searchParams.get('next'));
+  }
+  const noDbHealth = await fetch('http://localhost:3995/healthz');
+  assert.equal(noDbHealth.status, 503);
+  console.log('PASS missing DB: protected routes redirect with next before DB access; healthz intentionally 503');
+  // Local DB session fixtures exercise authenticated UI without any provider login.
+  if (process.env.DATABASE_URL) {
+    const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
+    const userId = randomUUID(), token = randomUUID(), workspaceId = randomUUID();
+    try {
+      await sql`insert into users (id, name) values (${userId}, 'UI verification fixture')`;
+      await sql`insert into sessions (session_token, user_id, expires) values (${token}, ${userId}, ${new Date(Date.now() + 600000)})`;
+      await sql`insert into workspaces (id, owner_user_id, name, slug, trial_used_at) values (${workspaceId}, ${userId}, 'UI fixture', ${'fixture-' + workspaceId}, now())`;
+      await sql`insert into workspace_members (workspace_id, user_id, role) values (${workspaceId}, ${userId}, 'owner')`;
+      await sql`insert into subscriptions (workspace_id, stripe_customer_id, stripe_subscription_id, status) values (${workspaceId}, ${'cus_fixture_' + workspaceId}, ${'sub_fixture_' + workspaceId}, 'canceled')`;
+      const context = await browser.newContext();
+      await context.addCookies([{ name: 'authjs.session-token', value: token, url: base }]);
+      const member = await context.newPage();
+      const pageErrors = []; member.on('pageerror', error => pageErrors.push(error.message));
+      let calls = 0;
+      await member.route('**/api/stripe/checkout', async route => {
+        calls++;
+        assert.deepEqual(route.request().postDataJSON(), { plan: 'agency' });
+        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Fixture: checkout resumed' }) });
+      });
+      await member.goto(base + '/app/continue?next=/pricing&plan=agency');
+      await member.getByRole('alert').filter({ hasText: 'Fixture: checkout resumed' }).waitFor();
+      assert.equal(calls, 1);
+      await member.getByRole('button', { name: 'Continue to checkout' }).click();
+      await member.getByRole('alert').filter({ hasText: 'Fixture: checkout resumed' }).waitFor();
+      assert.equal(calls, 2);
+      await member.goto(base + '/app/billing');
+      assert.equal(await member.getByRole('button', { name: 'Restart plan' }).count(), 2);
+      await sql`update sessions set expires = ${new Date(0)} where session_token = ${token}`;
+      await member.getByRole('button', { name: 'Manage billing' }).click();
+      await member.waitForURL('**/login?next=/app/billing');
+      assert.deepEqual(pageErrors, []);
+      await context.close();
+      console.log('PASS authenticated UI: continuation automatically posts Agency once, retry works, paid Restart plan buttons, expired Portal session returns to login with next. No provider login or Stripe request.');
+    } finally {
+      await sql`delete from users where id = ${userId}`;
+      assert.equal((await sql`select id from workspaces where id = ${workspaceId}`).length, 0);
+      await sql.end();
+      console.log('UI fixture cleanup complete');
+    }
+  }
+
+} finally { await browser.close(); }

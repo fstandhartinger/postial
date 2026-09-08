@@ -24,6 +24,7 @@ export const verificationTokens = pgTable("verification_tokens", {
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(), name: text("name").notNull(), slug: text("slug").notNull().unique(),
   ownerUserId: text("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  trialUsedAt: timestamp("trial_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export const memberRole = pgEnum("member_role", ["owner", "admin", "member"]);

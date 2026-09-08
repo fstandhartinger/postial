@@ -10,6 +10,8 @@ export function CheckoutButton({ plan, children = 'Start 14-day free trial' }: {
     if (busy) return;
     setBusy(true); setError(null);
     try {
+      const session = await fetch('/api/auth/session').then(response => response.json());
+      if (!session?.user) { router.push(`/login?next=/pricing&plan=${plan}`); return; }
       const response = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
       if (response.status === 401) { router.push(`/login?next=/pricing&plan=${plan}`); return; }
       const data: { url?: string; error?: string } = await response.json();

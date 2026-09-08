@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { subscriptions, workspaces } from '@/db/schema';
-import { billingState, stripeEvents } from '@/db/billing-schema';
+import { billingState, stripeEvents, retiredSubscriptions } from '@/db/billing-schema';
 import { stripe, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans, type Plan } from '@/lib/plans';
 import { lockWorkspace } from '@/lib/billing';
@@ -45,43 +45,64 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
   if (!known && preliminary.metadata.app !== 'socialmint') return;
   const workspaceId = known?.workspaceId ?? preliminary.metadata.workspace_id;
   if (!workspaceId) throw new Error('Missing workspace mapping');
-  await getDb().transaction(async tx => {
-    await lockWorkspace(tx, workspaceId);
-    const [seen] = await tx.select().from(stripeEvents).where(eq(stripeEvents.id, event.id));
-    if (seen) return;
-    // Fetch under the same lock as Checkout and persistence: late events cannot restore old status.
+  // Optimistic revision check: retrieve Stripe outside the transaction; if any
+  // concurrent writer changed this workspace, fetch again before applying it.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const [snapshot] = await getDb().select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
     const current = await stripe().subscriptions.retrieve(stripeSubscriptionId, { expand: ['latest_invoice'] });
-    const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId));
-    if (!workspace) throw new Error('Workspace not found');
-    const [local] = await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
-    if (local?.stripeCustomerId && local.stripeCustomerId !== customerId) throw new Error('Customer mismatch');
-    if (current.metadata.workspace_id && current.metadata.workspace_id !== workspaceId) throw new Error('Workspace mismatch');
-    if (local?.stripeSubscriptionId && local.stripeSubscriptionId !== current.id) {
-      // Never let a canceled previous subscription overwrite the replacement.
-      if (!['canceled', 'incomplete_expired'].includes(current.status)) throw new Error('Multiple workspace subscriptions');
-      await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-      return;
-    }
     const plan = await resolvePlan(current);
-    const [state] = await tx.select().from(billingState).where(eq(billingState.workspaceId, workspaceId));
-    let pastDueSince: Date | null = null;
-    if (current.status === 'past_due') {
-      const invoice = typeof current.latest_invoice === 'object' ? current.latest_invoice : null;
-      const began = invoice?.due_date ?? invoice?.status_transitions.finalized_at ?? invoice?.created;
-      pastDueSince = state?.pastDueSince ?? new Date((began ?? Math.floor(Date.now() / 1000)) * 1000);
-    }
-    const values = {
-      workspaceId, stripeCustomerId: customerId, stripeSubscriptionId: current.id, plan, status: current.status,
-      trialEnd: current.trial_end ? new Date(current.trial_end * 1000) : null,
-      currentPeriodEnd: new Date(current.items.data[0]!.current_period_end * 1000),
-      cancelAtPeriodEnd: current.cancel_at_period_end, updatedAt: new Date(),
-    };
-    await tx.insert(subscriptions).values({ id: randomUUID(), ...values })
-      .onConflictDoUpdate({ target: subscriptions.workspaceId, set: values });
-    await tx.insert(billingState).values({ workspaceId, pastDueSince })
-      .onConflictDoUpdate({ target: billingState.workspaceId, set: { pastDueSince } });
-    await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-  });
+    const applied = await getDb().transaction(async tx => {
+      await lockWorkspace(tx, workspaceId);
+      const [seen] = await tx.select().from(stripeEvents).where(eq(stripeEvents.id, event.id));
+      if (seen) return true;
+      const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+      if (!workspace) throw new Error('Workspace not found');
+      const [local] = await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
+      if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return false;
+      if (local?.stripeCustomerId && local.stripeCustomerId !== customerId) throw new Error('Customer mismatch');
+      if (current.metadata.workspace_id && current.metadata.workspace_id !== workspaceId) throw new Error('Workspace mismatch');
+      const [retired] = await tx.select().from(retiredSubscriptions).where(eq(retiredSubscriptions.id, current.id));
+      if (retired) {
+        await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
+        return true;
+      }
+      if (local?.stripeSubscriptionId && local.stripeSubscriptionId !== current.id) {
+        const ended = ['canceled', 'incomplete_expired', 'unpaid'];
+        if (ended.includes(local.status) && ['active', 'trialing'].includes(current.status)) {
+          await tx.insert(retiredSubscriptions).values({ id: local.stripeSubscriptionId, workspaceId }).onConflictDoNothing();
+        } else {
+          if (!ended.includes(current.status)) console.warn('Conflicting workspace subscriptions ignored');
+          await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
+          return true;
+        }
+      }
+      if (current.trial_start || current.trial_end) {
+        if (!workspace.trialUsedAt) await tx.update(workspaces).set({ trialUsedAt: new Date() }).where(eq(workspaces.id, workspaceId));
+      }
+      const [state] = await tx.select().from(billingState).where(eq(billingState.workspaceId, workspaceId));
+      let pastDueSince: Date | null = null;
+      if (current.status === 'past_due') {
+        const invoice = typeof current.latest_invoice === 'object' ? current.latest_invoice : null;
+        const began = invoice?.due_date ?? invoice?.status_transitions.finalized_at ?? invoice?.created;
+        pastDueSince = state?.pastDueSince ?? new Date((began ?? Math.floor(Date.now() / 1000)) * 1000);
+      }
+      const values = {
+        workspaceId, stripeCustomerId: customerId, stripeSubscriptionId: current.id, plan, status: current.status,
+        trialEnd: current.trial_end ? new Date(current.trial_end * 1000) : null,
+        currentPeriodEnd: new Date(current.items.data[0]!.current_period_end * 1000),
+        // A strictly increasing revision also detects two writes in one millisecond.
+        cancelAtPeriodEnd: current.cancel_at_period_end, updatedAt: new Date(Math.max(Date.now(), (local?.updatedAt.getTime() ?? 0) + 1)),
+      };
+      await tx.insert(subscriptions).values({ id: randomUUID(), ...values })
+        .onConflictDoUpdate({ target: subscriptions.workspaceId, set: values });
+      await tx.insert(billingState).values({ workspaceId, pastDueSince })
+        .onConflictDoUpdate({ target: billingState.workspaceId, set: { pastDueSince } });
+      await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
+      return true;
+    });
+    if (applied) return;
+  }
+  throw new Error("Concurrent billing update; retry event");
 }
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');

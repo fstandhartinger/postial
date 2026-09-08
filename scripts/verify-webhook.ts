@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "../db";
 import { users, workspaces, subscriptions } from "../db/schema";
@@ -16,6 +16,7 @@ async function main() {
   const db = getDb(), client = stripe();
   const userId = crypto.randomUUID(), workspaceId = crypto.randomUUID();
   const eventId = `evt_fixture_${crypto.randomUUID()}`;
+  const eventIds = [eventId];
   const subscriptionId = `sub_fixture_${crypto.randomUUID()}`;
   const customerId = `cus_fixture_${crypto.randomUUID()}`;
   const now = Math.floor(Date.now() / 1000);
@@ -26,9 +27,10 @@ async function main() {
     latest_invoice: null,
     items: { data: [{ price: { id: "price_fixture" }, current_period_end: now + 14 * 86400 }] },
   } as unknown as Stripe.Subscription;
+  const fixtures = new Map([[subscriptionId, fixture]]);
   const retrieve = client.subscriptions.retrieve, priceRetrieve = client.prices.retrieve;
   client.subscriptions.retrieve = (async (id: string) => {
-    assert.equal(id, subscriptionId); return fixture;
+    const found = fixtures.get(id); assert.ok(found); return found;
   }) as typeof retrieve;
   client.prices.retrieve = (async () => ({
     id: "price_fixture", lookup_key: "socialmint_agency_monthly", metadata: {},
@@ -67,11 +69,50 @@ async function main() {
     assert.ok(hasAccess("past_due", new Date(Date.now() - 6 * 86400000)));
     assert.equal(hasAccess("past_due", new Date(0), new Date(7 * 86400000)), false);
     assert.equal(hasAccess("past_due"), false); assert.equal(hasAccess("canceled"), false);
+    assert.ok((await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)))[0].trialUsedAt);
+    async function deliver(target: Stripe.Subscription) {
+      const id = `evt_fixture_${crypto.randomUUID()}`; eventIds.push(id);
+      return post(JSON.stringify({ id, type: "customer.subscription.updated", data: { object: target } }));
+    }
+    const currentId = async () => (await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)))[0].stripeSubscriptionId;
+    // A terminated predecessor permits a new active subscription under the lock.
+    fixture.status = 'canceled';
+    assert.equal((await deliver(fixture)).status, 200);
+    const replacement = { ...fixture, id: `sub_fixture_${crypto.randomUUID()}`, status: 'active' } as Stripe.Subscription;
+    fixtures.set(replacement.id, replacement);
+    assert.equal((await deliver(replacement)).status, 200);
+    assert.equal(await currentId(), replacement.id);
+    // Late events from the retired predecessor never overwrite the replacement.
+    assert.equal((await deliver(fixture)).status, 200);
+    assert.equal(await currentId(), replacement.id);
+    // Two distinct active contracts are acknowledged, warned about and ignored.
+    const duplicate = { ...replacement, id: `sub_fixture_${crypto.randomUUID()}` };
+    fixtures.set(duplicate.id, duplicate);
+    let warnings = 0;
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => { assert.deepEqual(args, ['Conflicting workspace subscriptions ignored']); warnings++; };
+    try { assert.equal((await deliver(duplicate)).status, 200); } finally { console.warn = warn; }
+    assert.equal(warnings, 1); assert.equal(await currentId(), replacement.id);
+    // Even an active late predecessor cannot replace a subsequently ended successor.
+    replacement.status = 'canceled';
+    assert.equal((await deliver(replacement)).status, 200);
+    fixture.status = 'active';
+    assert.equal((await deliver(fixture)).status, 200);
+    assert.equal(await currentId(), replacement.id);
+    for (const ended of ['incomplete_expired', 'unpaid'] as const) {
+      await db.update(subscriptions).set({ status: ended }).where(eq(subscriptions.workspaceId, workspaceId));
+      const next = { ...replacement, id: `sub_fixture_${crypto.randomUUID()}`, status: 'trialing' } as Stripe.Subscription;
+      fixtures.set(next.id, next);
+      assert.equal((await deliver(next)).status, 200);
+      assert.equal(await currentId(), next.id);
+    }
+    assert.equal((await db.select().from(stripeEvents).where(inArray(stripeEvents.id, eventIds))).length, eventIds.length);
+    console.log('PASS replacements: ended predecessor replaced, late retired events ignored, duplicate active warned/200, incomplete_expired/unpaid replacement, trial eligibility persisted');
     console.log("PASS webhook HTTP :3992: signed update 200, concurrent/repeated replay one row/event, invalid/missing signature 400, unknown event 200, access boundaries");
   } finally {
     client.subscriptions.retrieve = retrieve; client.prices.retrieve = priceRetrieve;
     if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-    await db.delete(stripeEvents).where(eq(stripeEvents.id, eventId));
+    await db.delete(stripeEvents).where(inArray(stripeEvents.id, eventIds));
     await db.delete(users).where(eq(users.id, userId));
     assert.equal((await db.select().from(billingState).where(eq(billingState.workspaceId, workspaceId))).length, 0);
     await db.$client.end();

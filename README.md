@@ -3,7 +3,7 @@
 Approve and publish social posts across brands, with recoverable failures. API + n8n node.
 
 Milestone 1A foundation: Next.js 16 (App Router, standalone), strict TypeScript,
-Tailwind CSS v4, Geist via next/font, small UI primitives, Drizzle + PostgreSQL,
+Tailwind CSS v4, locally bundled Inter, small UI primitives, Drizzle + PostgreSQL,
 and Auth.js v5 beta with the Drizzle adapter and database sessions.
 
 ## Local development
@@ -45,7 +45,7 @@ npm start
   `/api/auth/callback/nodemailer`. Never configure real email delivery for smoke tests.
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: server-only billing credentials.
   Redirect-only Checkout does not require a publishable key.
-- `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_AGENCY`: optional price identifiers exposed
+- `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_AGENCY`: required billing price identifiers exposed
   by `lib/plans.ts`; Starter €19/month, Agency €49/month, trial 14 days.
 - `NEXT_PUBLIC_APP_URL`: public canonical origin, reserved for integrations.
 
@@ -63,7 +63,7 @@ https://socialmint.app.mintapis.com. Container port: **3000**. Healthcheck:
 **GET /healthz** (200 with `{ok:true,db:true,version}`; database failure or a
 2-second deadline returns 503 with `{ok:false}`). Supply secrets as runtime
 environment variables, never build arguments. The build needs no database or auth
-credentials; next/font downloads Geist during the build.
+credentials; Inter is bundled locally and requires no font download.
 
 ```sh
 sudo -n docker build -t socialmint:dev .
@@ -78,8 +78,11 @@ included explicitly alongside the standalone Next.js output.
 
 ## Scope and validation
 
-Landing, pricing, legal pages and channel connection UI are placeholders. Legal
-content must be completed before launch. Google/SMTP credentials enable their
+Foundation: workspace ownership, auth and billing are implemented.
+Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
+Product: channel connections, calendar, approval links, publishing, API and n8n
+remain milestone 2 work, advertised as early access with a September 2026 rollout.
+The owner must verify company registration details and provide the DPA on request. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 Network integrations and production deployment are separate work.
 
@@ -102,8 +105,8 @@ at trial end. Success returns to
 `/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`; cancellation returns to
 `/pricing?checkout=cancelled`. The success banner grants no access.
 `/app/billing` displays the reconciled plan, status and dates, and opens Stripe's
-Portal through `POST /api/stripe/portal`. Canceled subscriptions use the portal
-or support; repeated free trials are not offered.
+Portal through `POST /api/stripe/portal`. Canceled/incomplete_expired/unpaid
+subscriptions can restart through a paid Checkout; repeated free trials are not offered.
 
 Set server-only `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
 `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_AGENCY`, and `STRIPE_PORTAL_CONFIG`.
@@ -117,7 +120,8 @@ transactional advisory locks and `stripe_processed_events` make updates
 idempotent. `stripe_billing_state` persists Checkout and the fixed past-due grace
 start, with cascading workspace cleanup. The Node webhook reads `request.text()`,
 verifies the Stripe signature, ignores unknown events with 200, and fetches the
-latest subscription under the workspace lock before upserting.
+latest subscription outside transactions, then checks the local revision under
+the workspace lock before upserting (retrying on concurrent changes).
 Register checkout.session.completed, customer.subscription.created/updated/deleted,
 invoice.paid and invoice.payment_failed at `/api/stripe/webhook`.
 
@@ -144,10 +148,53 @@ Set NEXT_PUBLIC_APP_URL and AUTH_URL to `http://localhost:3992`.
 - Start the built application with `PORT=3992 npm start`, then run
   `npx tsx scripts/verify-billing.ts`: anonymous 401, protected page redirect,
   authenticated Checkout and Portal URLs, reusable Checkout, correct redirects,
-  and cross-origin 403. This explicitly creates a temporary Stripe customer and
+  paid restart without a second trial, shared 429/Retry-After, and cross-origin 403. This explicitly creates a temporary Stripe customer and
   an uncompleted Checkout, expires the session, deletes the customer and database
   fixtures. It never follows Checkout or creates a payment. Use LIVE only with
   explicit authorization; use sandbox for ordinary development.
 - In a Stripe sandbox, complete Checkout and test trial expiry, plan changes,
   cancellation, failed invoices and recovery through real delivered webhooks.
   Payment lifecycle testing is separate from the non-purchasing LIVE smoke test.
+
+## Early-access billing and operations
+
+The 14-day trial starts in Checkout without a card. Without a payment method, your subscription ends automatically at trial end and you are not charged. If you add a payment method in the customer portal during the trial, billing starts at the displayed price when the trial ends. You can cancel anytime.
+
+`workspaces.trial_used_at` records consumed trial eligibility independently from
+subscription purchase eligibility. Migration backfills historical subscriptions.
+Retired subscription IDs prevent late events from replacing a newer contract.
+Checkout uses a ten-minute persistent lease, short DB writes and targeted Stripe
+customer metadata search. The customer mapping is saved before Checkout creation.
+Checkout and Portal share a limit of five calls per user per minute (429 with
+Retry-After). This limit is in memory per process; use a shared store before
+running multiple replicas. Stripe requests time out after ten seconds per attempt.
+Startup warns about missing configuration by variable name only. `/healthz`
+remains database liveness, not auth/billing feature readiness. Anonymous protected
+pages redirect before adapter/database access, including without DATABASE_URL.
+Login retains validated internal `next` and starter/agency `plan` through both
+providers' Auth.js callbackUrl; the continuation page starts a same-origin POST.
+Security headers apply centrally; inline scripts/styles support Next's renderer.
+
+## Known issues
+
+Dependency check (2026-09-08): `npm outdated nodemailer next-auth
+@auth/drizzle-adapter` and `npm audit` show no compatible patched version of the
+Auth.js v5 beta chain. Nodemailer 10.0.1 is published, but installed Auth.js/core
+accept only ^7.0.7 or ^8.0.5; current 8.0.11 is affected by the raw/resolveContent
+advisories (GHSA-p6gq-j5cr-w38f, GHSA-8m3c-c648-2xjj). Auth.js supplies fixed mail
+content; this app exposes neither raw nor resolveContent as user-controlled input.
+The audit reports four high package nodes in that chain and four moderate nodes
+from esbuild/Drizzle development tooling. No forced or unsupported major downgrade
+was applied. Do not expose development servers publicly. Recheck compatible Auth.js
+releases before enabling production email login. External provider login and a
+complete payment lifecycle require a separate acceptance test; LIVE verification
+only creates uncompleted Checkout sessions and deletes the temporary customers.
+
+### Browser regression tests
+
+- `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/verify-fixer-browser.mjs`:
+  run the production app on 3992 plus a second instance without DATABASE_URL on
+  3995. Checks public pages/security headers at 320/1440, anonymous Agency CTA,
+  missing-DB redirects and (with DATABASE_URL) temporary database-session UI
+  fixtures for automatic checkout continuation, retry and expired Portal login.
+  Checkout is intercepted in this UI test; no provider login or payment occurs.
