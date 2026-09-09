@@ -49,7 +49,7 @@ export function isUuid(s: string) {
     s,
   );
 }
-export async function composerData() {
+export async function composerData(includeInactive = false) {
   const ctx = await coreContext();
   const bs = await ctx.db
     .select()
@@ -61,6 +61,7 @@ export async function composerData() {
       brandId: channels.brandId,
       provider: channels.provider,
       meta: channels.meta,
+      status: channels.status,
       displayName: channels.displayName,
     })
     .from(channels)
@@ -68,7 +69,7 @@ export async function composerData() {
     .where(
       and(
         eq(brands.workspaceId, ctx.workspace.id),
-        eq(channels.status, "active"),
+        includeInactive ? undefined : eq(channels.status, "active"),
       ),
     );
   const access = await workspaceEntitlements(ctx.workspace);

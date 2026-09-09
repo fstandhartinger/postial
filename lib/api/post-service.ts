@@ -53,7 +53,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
       ).filter((c) => ids.includes(c.id));
       if (selected.length !== ids.length) throw new ApiError(404, "not_found", "Channel not found.");
       check(
-        selected.every(c => c.status === "active"),
+        str(form,"intent") === "draft" || selected.every(c => c.status === "active"),
         "A selected channel is unavailable.",
       );
       for (const c of selected) {
@@ -232,4 +232,24 @@ export async function changeTarget(ctx: PostContext, form: FormData, action: "re
         return row.post.id;
       };
       return transaction ? change(transaction) : db.transaction(change);
+}
+
+/** Copy under the workspace lock so retention cannot remove inherited media. */
+export async function duplicatePost(ctx: PostContext, id: string) {
+  check(isUuid(id), 'Post not found.');
+  const access = ctx.access ?? await workspaceEntitlements(ctx.workspace);
+  return ctx.db.transaction(async tx => {
+    await tx.select({id:workspaces.id}).from(workspaces).where(eq(workspaces.id,ctx.workspace.id)).for('update');
+    const [source] = await tx.select({post:posts}).from(posts).innerJoin(brands,eq(brands.id,posts.brandId))
+      .where(and(eq(posts.id,id),eq(brands.workspaceId,ctx.workspace.id))).for('share',{of:posts});
+    check(source,'Post not found.');
+    const p = source.post;
+    check(access.activeBrandIds.includes(p.brandId),'This brand is read-only under your plan. Review Billing.');
+    const [copy] = await tx.insert(posts).values({brandId:p.brandId, authorUserId:ctx.userId, body:p.body,
+      mediaUrls:p.mediaUrls, linkUrl:p.linkUrl, status:'draft', scheduledAt:null, requiresApproval:false}).returning();
+    const targets = await tx.select({channelId:postTargets.channelId}).from(postTargets).where(eq(postTargets.postId,id));
+    if(targets.length) await tx.insert(postTargets).values(targets.map(t=>({postId:copy.id,channelId:t.channelId,nextAttemptAt:null})));
+    await tx.insert(postEvents).values({postId:copy.id,type:'draft',message:'Draft duplicated from an existing post'});
+    return copy.id;
+  });
 }

@@ -1,3 +1,5 @@
+import { checkChannelHealth } from "./health";
+import { mediaRetentionTick } from "@/lib/media/retention";
 import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
 function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads'].includes(provider); }
@@ -256,7 +258,7 @@ export async function tick() {
           if (error.code === "AUTH_EXPIRED")
             await tx
               .update(channels)
-              .set({ status: "token_expired" })
+              .set({ status: "token_expired", lastCheckedAt: new Date() })
               .where(and(eq(channels.id, c.id), eq(channels.status, "active"), eq(channels.credentialsEnc, c.credentialsEnc)));
           await tx.insert(postEvents).values({
             postId: p.id,
@@ -272,5 +274,7 @@ export async function tick() {
       });
     }),
   );
+  await checkChannelHealth().catch(() => console.error("Channel health tick failed"));
+  await mediaRetentionTick().catch(() => console.error("Media retention tick failed"));
   return { claimed: claimed.length };
 }

@@ -171,6 +171,7 @@ export const channels = pgTable("channels", {
   meta: jsonb("meta").$type<{ maxTextLength?: number }>().notNull().default({}),
   status: channelStatus("status").notNull().default("active"),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+  lastHealthError: text("last_health_error"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -330,3 +331,8 @@ export const workspaceInvites = pgTable("workspace_invites", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 }, t => [index("workspace_invites_workspace_created").on(t.workspaceId, t.createdAt)]);
+
+export const maintenanceRuns = pgTable("maintenance_runs", {
+  name: text("name").primaryKey(),
+  completedAt: timestamp("completed_at", {withTimezone:true}).notNull(),
+});

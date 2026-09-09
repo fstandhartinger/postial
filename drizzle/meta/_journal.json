@@ -78,6 +78,13 @@
       "when": 1788925499067,
       "tag": "0010_mysterious_ultragirl",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788929287689,
+      "tag": "0011_chief_wolf_cub",
+      "breakpoints": true
     }
   ]
 }

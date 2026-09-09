@@ -37,7 +37,7 @@ export function ActionForm({
       <Button disabled={pending || disabled}>
         {pending
           ? "Saving…"
-          : action === "retry"
+          : action === "duplicate" ? "Duplicate" : action === "check_channel" ? "Check now" : action === "retry"
             ? "Retry now"
             : action === "skip"
               ? "Skip channel"

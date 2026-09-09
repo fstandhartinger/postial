@@ -18,7 +18,7 @@ export default async function EditPost({
         <Link href={`/app/posts/${post.id}`}>View status</Link>
       </p>
     );
-  const data = await composerData(),
+  const data = await composerData(true),
     targets = await db
       .select()
       .from(postTargets)

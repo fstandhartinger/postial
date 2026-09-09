@@ -304,6 +304,7 @@ export default async function Overview({
         </Card>
         <Card>
           <h2>Needs attention</h2>
+          <Link href="/app/channels" className="text-emerald-700 underline">Review channel health</Link>
           <ul className="divide-y divide-zinc-200">
             {expired.map((c) => (
               <li key={c.id} className="space-y-2 py-4">

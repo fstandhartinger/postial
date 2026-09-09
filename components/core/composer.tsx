@@ -14,6 +14,7 @@ type Channel = {
   displayName: string;
   provider: string;
   max: number;
+  status?: string;
 };
 export function Composer({
   brands,
@@ -139,7 +140,7 @@ export function Composer({
                     )
                   }
                 />{" "}
-                {c.displayName}
+                {c.displayName}{c.status && c.status !== "active" ? " (reconnect before publishing)" : ""}
               </label>
             ))}
           {!channels.some((c) => c.brandId === brand) && (

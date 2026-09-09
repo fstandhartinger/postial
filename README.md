@@ -436,3 +436,31 @@ user’s keys. Membership removal does not delete the user record.
 
 Image processing reference: [Sharp output metadata policy](https://sharp.pixelplumbing.com/api-output/).
 Linux-musl support: [Sharp installation](https://sharp.pixelplumbing.com/install/).
+
+## Pilot operations (cycle 6)
+
+`/app/channels` lists connection health across workspace brands, with reconnect,
+manual validation (at most once per minute), disconnect, last successful post and
+latest error. The publishing tick validates at most five channels per tick and
+one time per 24 hours per channel, skipping disconnected accounts. Channel row
+locks serialize checks with OAuth token refresh/reconnect; logs include only
+provider and safe error code. Run migration 0011 before starting the worker.
+
+`/app/approvals` groups Agency approval posts into Awaiting, Changes requested,
+Approved and Published, with brand filtering, latest customer feedback, copy and
+regenerate controls. Drafts remain Awaiting; delivery/failure states stay under
+Approved with their exact status visible. Published links cannot be regenerated.
+Starter sees an Agency upgrade notice.
+
+Duplicate on the post list/status creates a fresh draft and opens the composer.
+Text, media, brand, link and channel selections are retained (including inactive
+channels); schedule, approval links/decisions and publishing attempts are reset.
+Inactive channels must reconnect before scheduling, but drafts remain saveable.
+
+The worker also removes uploads older than 30 days if no post references them.
+A daily process guard plus transactional `maintenance_runs` DB guard prevents
+repeat cleanup across replicas. Workspace locks coordinate deletion with post
+writes. Logs contain removed count and bytes; referenced assets survive across
+app-origin changes. Run `npx tsx scripts/verify-retention.ts` and
+`npx tsx scripts/verify-pilot.ts` against an isolated local test database, before
+starting a standalone worker. Both remove their fixtures.

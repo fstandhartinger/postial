@@ -7,6 +7,8 @@ const items = [
   ["Calendar", "/app/calendar", "M4 5h16v16H4z M8 3v4 M16 3v4 M4 11h16"],
   ["Posts", "/app/posts", "M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5"],
   ["Brands", "/app/brands", "M3 7h18v14H3z M8 7V3h8v4 M3 12h18"],
+  ["Channels", "/app/channels", "M4 8h16 M4 16h16 M8 4v16"],
+  ["Approvals", "/app/approvals", "M4 12l5 5L20 6"],
   ["Billing", "/app/billing", "M3 5h18v14H3z M3 10h18 M7 15h4"],
   [
     "Settings",
@@ -28,7 +30,7 @@ export function Navigation({
       className={mobile ? "app-bottom-nav" : "space-y-2"}
     >
       {items
-        .slice(0, mobile ? 4 : settingsHref ? 6 : 5)
+        .filter(([label]) => label !== "Settings" || !!settingsHref)
         .map(([label, route, icon]) => {
           const href = label === "Settings" ? settingsHref! : route;
           return (

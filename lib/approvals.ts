@@ -93,3 +93,18 @@ export async function rotateApprovalLink(postId: string, workspaceId: string, le
     return true;
   });
 }
+
+export const approvalGroups = ['Awaiting', 'Changes requested', 'Approved', 'Published'] as const;
+export function approvalGroup(status: string): typeof approvalGroups[number] {
+  if (status === 'changes_requested') return 'Changes requested';
+  if (status === 'published') return 'Published';
+  if (['draft','pending_approval'].includes(status)) return 'Awaiting';
+  return 'Approved';
+}
+export async function listApprovals(workspaceId: string, brandId?: string) {
+  const rows = await getDb().select({post:posts, brand:brands,
+    lastDecision:sql<{decision:string;comment:string;at:string}|null>`(select json_build_object('decision',d.decision,'comment',d.comment,'at',d.created_at) from approval_decisions d where d.post_id = ${posts.id} order by d.created_at desc, d.id desc limit 1)`
+  }).from(posts).innerJoin(brands,eq(brands.id,posts.brandId))
+    .where(and(eq(brands.workspaceId,workspaceId),eq(posts.requiresApproval,true),brandId ? eq(brands.id,brandId) : undefined)).orderBy(desc(posts.updatedAt));
+  return approvalGroups.map(group=>({group,rows:rows.filter(r=>approvalGroup(r.post.status)===group)}));
+}

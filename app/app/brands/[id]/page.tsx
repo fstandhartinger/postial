@@ -1,5 +1,5 @@
 import { ConnectError } from '@/components/core/connect-error';
-import { Badge } from "@/components/ui/badge";
+import { ChannelStatusBadge } from "@/components/app/channel-status-badge";
 import { ProviderBadge } from "@/components/app/provider-badge";
 import { canEditBrand } from "@/lib/entitlements";
 import { eq } from "drizzle-orm";
@@ -37,7 +37,7 @@ export default async function BrandPage({
             <h2 className="text-xl">{c.displayName}</h2>
           </div>
           <p>
-            {c.provider} · <Badge>{c.status.replaceAll("_", " ")}</Badge>
+            {c.provider} · <ChannelStatusBadge status={c.status}/>
           </p>
           {writable && c.status !== "disconnected" && (
             <ActionForm action="disconnect">

@@ -30,6 +30,7 @@ export default async function PostPage({
   return (
     <>
       <h1 className="text-3xl font-semibold">Post status</h1>
+      <ActionForm action="duplicate" disabled={!writable}><input type="hidden" name="postId" value={post.id}/></ActionForm>
       <p>
         {brand.name} · {post.status.replaceAll("_", " ")}
         {post.status === "published" &&

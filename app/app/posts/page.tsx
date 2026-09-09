@@ -1,3 +1,4 @@
+import { ActionForm } from "@/components/core/forms";
 import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -83,6 +84,7 @@ export default async function PostsPage({
             )}
           </p>
           <ApprovalStatusBadge post={p} />
+          <ActionForm action="duplicate"><input type="hidden" name="postId" value={p.id}/></ActionForm>
           {p.scheduledAt && (
             <p className="text-sm text-gray-500">
               {p.scheduledAt.toLocaleString("en-GB", { timeZone: b.timezone })}{" "}

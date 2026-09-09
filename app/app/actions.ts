@@ -16,9 +16,10 @@ import {
 } from "@/lib/publishers";
 import { validateConnection } from "@/lib/publishers/connection";
 import { workspaceEntitlements } from '@/lib/entitlements';
+import { checkChannelHealth } from "@/lib/publishing/health";
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 import { ApiError } from "@/lib/api/errors";
-import { InputError, check, https, savePost, changeTarget } from "@/lib/api/post-service";
+import { InputError, check, https, savePost, changeTarget, duplicatePost } from "@/lib/api/post-service";
 export async function coreAction(
   _state: { error: string },
   form: FormData,
@@ -111,6 +112,7 @@ export async function coreAction(
           url: account.url && https(account.url) ? account.url : null,
           meta: account.meta ?? {},
           lastCheckedAt: new Date(),
+          lastHealthError: null,
           status: "active" as const,
         };
         await db.transaction(async (tx) => {
@@ -144,7 +146,17 @@ export async function coreAction(
           .set({ status: "disconnected", credentialsEnc: "" })
           .where(and(eq(channels.id, id), eq(channels.brandId, brandId)));
       }
-      destination = `/app/brands/${brandId}`;
+      destination = str(form,"returnTo") === "channels" ? "/app/channels" : `/app/brands/${brandId}`;
+    } else if (action === "check_channel") {
+      const id = str(form,"channelId");
+      check(isUuid(id), "Choose a channel.");
+      const [c] = await db.select({brandId:channels.brandId}).from(channels).innerJoin(brands,eq(brands.id,channels.brandId)).where(and(eq(channels.id,id),eq(brands.workspaceId,workspace.id)));
+      check(c && access.activeBrandIds.includes(c.brandId), "Channel unavailable or brand read-only.");
+      await checkChannelHealth(id,workspace.id);
+      destination = "/app/channels";
+    } else if (action === "duplicate") {
+      const id = await duplicatePost({db,workspace,userId},str(form,"postId"));
+      destination = `/app/posts/${id}/edit`;
     } else if (action === "post") {
       const postId = await savePost({db, workspace, userId}, form);
       destination = `/app/posts/${postId}`;
