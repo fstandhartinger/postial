@@ -4,5 +4,5 @@ import { apiError } from '@/lib/api/errors';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try { const {workspace,userId} = await mediaSession(request); return await uploadMedia(request,workspace.id,userId); }
-  catch (e) { return apiError(e); }
+  catch (e) { return apiError(e, '/api/media'); }
 }

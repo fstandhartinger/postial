@@ -15,7 +15,7 @@ async function authorizeBrand(brandId: string, userId: string) {
   const [row] = await getDb().select({ brand: brands, role: workspaceMembers.role }).from(brands)
     .innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, brands.workspaceId))
     .where(and(eq(brands.id, brandId), eq(workspaceMembers.userId, userId)));
-  if (!row || row.role !== 'owner' || !await canEditBrand(row.brand.workspaceId, brandId)) throw failure('AUTH_EXPIRED', 'You cannot connect channels for this brand.');
+  if (!row || !await canEditBrand(row.brand.workspaceId, brandId)) throw failure('AUTH_EXPIRED', 'You cannot connect channels for this brand.');
 }
 /** Server action entry point; identity always comes from the current session. */
 export async function startAuth(provider: OAuthProvider, brandId: string) {
@@ -39,16 +39,20 @@ export async function createAuth(provider: OAuthProvider, brandId: string, userI
   }).toString();
   return url.href;
 }
+export class OAuthCallbackError extends Error {
+  constructor(public code: 'denied' | 'expired' | 'provider_error', public brandId?: string) { super(code); }
+}
 export async function finishAuth(provider: OAuthProvider, state: string, code: string | null, userId: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw failure('AUTH_EXPIRED', 'Connection expired. Start again.');
+  if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw new OAuthCallbackError('expired');
   const db = getDb();
   // Atomic consumption commits BEFORE the provider call, including denied or failed exchanges.
   const [saved] = await db.delete(oauthStates).where(and(eq(oauthStates.state, state), eq(oauthStates.provider, provider), eq(oauthStates.userId, userId), gt(oauthStates.expiresAt, new Date()))).returning();
-  if (!saved) throw failure('AUTH_EXPIRED', 'Connection expired or already used. Start again.');
-  await authorizeBrand(saved.brandId, userId);
-  if (!code || code.length > 4096) throw failure('AUTH_EXPIRED', 'Connection was not authorized. Start again.');
+  if (!saved) throw new OAuthCallbackError('expired');
+  try { await authorizeBrand(saved.brandId, userId); } catch { throw new OAuthCallbackError('expired'); }
+  if (!code || code.length > 4096) throw new OAuthCallbackError('denied', saved.brandId);
+  try {
   const config = oauthConfig(provider);
-  if (!config) throw failure('AUTH_EXPIRED', 'Connection is not configured.');
+  if (!config) throw new OAuthCallbackError('provider_error', saved.brandId);
   let token: TokenResponse;
   if (provider === 'x') token = await xToken({ grant_type: 'authorization_code', code, code_verifier: decryptCredentials(saved.codeVerifier).verifier, redirect_uri: callbackUrl(provider) });
   else {
@@ -66,4 +70,5 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     else await tx.insert(channels).values(values);
   });
   return saved.brandId;
+  } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
 }

@@ -1,6 +1,5 @@
-import { validatePublicUrl } from './safe-fetch';
 import type { Credentials, Publisher } from './types';
-import { publishingDeadline, checkLength, guarded, json, jsonBody, postText } from './http';
+import { downloadImage, publishingDeadline, checkLength, guarded, json, jsonBody, postText } from './http';
 
 type Chat = { id: number; title?: string; username?: string };
 type Message = { message_id: number; chat: Chat };
@@ -15,7 +14,7 @@ function captionSplit(text: string) {
   return [text.slice(0, end), text.slice(end)];
 }
 export const telegram: Publisher = {
-  provider: 'telegram', maxTextLength: 4096,
+  provider: 'telegram', maxMediaBytes: 10000000, maxTextLength: 4096,
   credentialFields: [
     { key: 'botToken', label: 'Bot token', secret: true, help: 'Create a bot and get its token from @BotFather.' },
     { key: 'chatId', label: 'Channel username or chat ID', secret: false, placeholder: '@yourchannel', help: 'Use @name or a numeric ID. The bot must be an administrator in the channel.' },
@@ -29,7 +28,7 @@ export const telegram: Publisher = {
     const text = postText(input);
     checkLength('Telegram', text, 4096);
     const media = input.mediaUrls?.slice(0, 10) ?? [];
-    for (const url of media) await validatePublicUrl(url);
+    for (const url of media) await downloadImage('Telegram', url, telegram.maxMediaBytes);
     const base = { chat_id: credentials.chatId };
     const warnings: string[] = [];
     if ((input.mediaUrls?.length ?? 0) > 10) warnings.push('Telegram allows ten images per album; extra images were omitted.');

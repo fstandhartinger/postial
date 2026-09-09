@@ -68,8 +68,8 @@ export async function safeFetch(value: string, init: RequestInit = {}, maxBytes 
           next = new URL(location, url).href;
           continue;
         }
-        const limit = response.ok ? Math.min(maxBytes, 5 * 1024 * 1024) : 64 * 1024;
-        const tooLarge = () => new PublishError({ code: 'CONTENT_REJECTED', retryable: false, humanMessage: 'The response exceeds the download limit (5 MB images, 64 KB JSON).' });
+        const limit = response.ok ? maxBytes : 64 * 1024;
+        const tooLarge = () => new PublishError({ code: 'CONTENT_REJECTED', retryable: false, humanMessage: `The response exceeds the ${limit} byte download limit.` });
         if (Number(response.headers.get('content-length')) > limit) { await response.body?.cancel(); throw tooLarge(); }
         const reader = response.body?.getReader();
         const chunks: Uint8Array<ArrayBuffer>[] = [];

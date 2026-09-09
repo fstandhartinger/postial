@@ -1,39 +1,72 @@
+import sharp from 'sharp';
 import { ApiError } from '@/lib/api/errors';
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-export function imageInfo(b: Buffer) {
-  const invalid = () => new ApiError(422, 'invalid_image', 'Upload a valid JPEG, PNG, WebP or GIF image.');
-  if (b.length > MAX_IMAGE_BYTES) throw new ApiError(413, 'image_too_large', 'Each image must be at most 5 MB.');
-  let mime = '', width = 0, height = 0;
+const MAX_PIXELS = 25_000_000;
+const invalid = () => new ApiError(422, 'invalid_image', 'Upload a complete, valid JPEG, PNG, WebP or GIF image (up to 25 megapixels).');
+// Bound the GIF envelope as well as decoding pixels. Only animation/control
+// extensions are retained; arbitrary comments/application payloads are rejected.
+function gifEnvelope(input: Buffer) {
+  let p = 13;
+  if (input.length < p) throw invalid();
+  if (input[10] & 128) p += 3 * (1 << ((input[10] & 7) + 1));
+  let frames = 0;
+  const blocks = () => {
+    while (p < input.length) { const size = input[p++]; if (!size) return; p += size; }
+    throw invalid();
+  };
+  while (p < input.length) {
+    const marker = input[p++];
+    if (marker === 0x3b) { if (p !== input.length || !frames) throw invalid(); return; }
+    if (marker === 0x2c) {
+      if (p+9 > input.length || ++frames > 200) throw invalid();
+      const packed = input[p+8]; p += 9;
+      if (packed & 128) p += 3 * (1 << ((packed & 7) + 1));
+      p++; blocks();
+    } else if (marker === 0x21) {
+      const label = input[p++];
+      if (label === 0xff) {
+        if (input[p] !== 11 || !['NETSCAPE2.0','ANIMEXTS1.0'].includes(input.toString('ascii',p+1,p+12))) throw invalid();
+      } else if (label !== 0xf9) throw invalid();
+      blocks();
+    } else throw invalid();
+  }
+  throw invalid();
+}
+/** Decode before storage; never trust client MIME, dimensions or header-only parsers. */
+export async function normalizeImage(input: Buffer) {
+  if (input.length > MAX_IMAGE_BYTES) throw new ApiError(413, 'image_too_large', 'Each image must be at most 5 MB.');
   try {
-    if (b.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')) && b.readUInt32BE(8) === 13 && b.toString('ascii', 12, 16) === 'IHDR') {
-      mime = 'image/png'; width = b.readUInt32BE(16); height = b.readUInt32BE(20);
-      if (b.length < 45 || !b.subarray(-12).equals(Buffer.from('0000000049454e44ae426082','hex'))) throw invalid();
-    } else if (['GIF87a', 'GIF89a'].includes(b.toString('ascii', 0, 6))) {
-      mime = 'image/gif'; width = b.readUInt16LE(6); height = b.readUInt16LE(8);
-      if (b.length < 14 || b[b.length - 1] !== 0x3b) throw invalid();
-    } else if (b[0] === 0xff && b[1] === 0xd8 && b[b.length - 2] === 0xff && b[b.length - 1] === 0xd9) {
-      mime = 'image/jpeg'; let p = 2;
-      while (p < b.length - 2) {
-        if (b[p++] !== 0xff) throw invalid();
-        while (b[p] === 0xff) p++;
-        const marker = b[p++];
-        if (marker === 0xda || marker === 0xd9) break;
-        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-        const size = b.readUInt16BE(p);
-        if (size < 2 || p + size > b.length) throw invalid();
-        if ([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker)) {
-          if (size < 8) throw invalid(); height = b.readUInt16BE(p+3); width = b.readUInt16BE(p+5); break;
-        }
-        p += size;
-      }
-    } else if (b.toString('ascii',0,4) === 'RIFF' && b.toString('ascii',8,12) === 'WEBP' && b.readUInt32LE(4) + 8 === b.length) {
-      mime = 'image/webp'; const kind = b.toString('ascii',12,16);
-      if (b.readUInt32LE(16) + 20 > b.length) throw invalid();
-      if (kind === 'VP8X' && b.readUInt32LE(16) === 10) { width = b.readUIntLE(24,3)+1; height = b.readUIntLE(27,3)+1; }
-      else if (kind === 'VP8L' && b[20] === 0x2f) { const bits = b.readUInt32LE(21); width = (bits & 0x3fff)+1; height = ((bits >>> 14) & 0x3fff)+1; }
-      else if (kind === 'VP8 ' && b.subarray(23,26).equals(Buffer.from([0x9d,0x01,0x2a]))) { width = b.readUInt16LE(26)&0x3fff; height = b.readUInt16LE(28)&0x3fff; }
+    const metadata = await sharp(input, {failOn:'warning', limitInputPixels:MAX_PIXELS}).metadata();
+    const {format, width, height} = metadata;
+    if (!format || !['jpeg','png','webp','gif'].includes(format) || !width || !height) throw invalid();
+    const pages = metadata.pages ?? 1, frameHeight = metadata.pageHeight ?? height;
+    if (width * frameHeight > MAX_PIXELS) throw invalid();
+    if (format === 'gif') {
+      if (pages > 200 || width * frameHeight * pages > 50_000_000) throw new ApiError(422, 'animation_too_large', 'GIFs must have at most 200 frames and 50 megapixels across all frames.');
+      // All frames must decode, including the last frame. Preserve the original GIF.
+      gifEnvelope(input);
+      await sharp(input, {animated:true, failOn:'warning', limitInputPixels:50_000_000}).timeout({seconds:10}).stats();
+      return {data:input, mime:'image/gif', width, height:frameHeight};
     }
-  } catch { throw invalid(); }
-  if (!mime || !width || !height) throw invalid();
-  return {mime, width, height};
+    if (pages !== 1) throw new ApiError(422, 'invalid_image', 'Use a still JPEG, PNG or WebP image, or a GIF animation.');
+    // Reject appended alternate payloads; normalization discards metadata and
+    // ancillary chunks, so none of their content reaches public image responses.
+    if (format === 'jpeg' && !input.subarray(-2).equals(Buffer.from([255,217]))) throw invalid();
+    if (format === 'png' && !input.subarray(-12).equals(Buffer.from('0000000049454e44ae426082','hex'))) throw invalid();
+    if (format === 'webp' && input.readUInt32LE(4)+8 !== input.length) throw invalid();
+    for (const quality of [90,75,55,35]) {
+      let pipeline = sharp(input, {failOn:'warning', limitInputPixels:MAX_PIXELS}).rotate().timeout({seconds:10});
+      pipeline = format === 'jpeg' ? pipeline.jpeg({quality}) : format === 'webp' ? pipeline.webp({quality}) : pipeline.png(quality === 90 ? {compressionLevel:9} : {palette:true,quality,compressionLevel:9});
+      const {data,info} = await pipeline.toBuffer({resolveWithObject:true});
+      if (data.length <= MAX_IMAGE_BYTES) return {data,mime:`image/${format}`,width:info.width,height:info.height};
+    }
+    throw new ApiError(422, 'image_too_large', 'The processed image exceeds 5 MB. Resize it and try again.');
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw invalid();
+  }
+}
+export async function imageInfo(input: Buffer) {
+  const {mime,width,height} = await normalizeImage(input);
+  return {mime,width,height};
 }

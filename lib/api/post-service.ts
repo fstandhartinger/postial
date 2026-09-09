@@ -38,11 +38,11 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         "Write your post (up to 100,000 characters).",
       );
       check(
-        mediaUrls.length <= 4 && mediaUrls.every(u => https(u) || localMediaUrl(u)),
+        mediaUrls.length <= 4 && mediaUrls.every(u => https(u) || localMediaUrl(u) || !!ownMediaId(u)),
         "Use up to four HTTPS media URLs.",
       );
       for (const [index, url] of mediaUrls.entries()) {
-        try { await validatePublicUrl(url); }
+        try { if (!ownMediaId(url)) await validatePublicUrl(url); }
         catch { throw new InputError(`media_urls[${index}]: Use a reachable public HTTPS media URL. DNS may be temporarily unavailable; check the URL and try again.`); }
       }
       check(!linkUrl || https(linkUrl), "Use an HTTPS link.");

@@ -20,6 +20,7 @@ const session = { did: 'did:plc:alice', handle: 'alice.test', accessJwt: 'tempor
 const message = { message_id: 42, chat: { id: -123, username: 'channel' } };
 function response(body: unknown, status = 200, headers: HeadersInit = {}) { return new Response(JSON.stringify(body), { status, headers }); }
 function ok(url: string): Response {
+  if (url.includes('image.test')) return new Response('image', {headers:{'content-type':'image/png'}});
   if (url.endsWith('createSession')) return response(session);
   if (url.includes('getRecord?')) return response({ error: 'RecordNotFound' }, 400);
   if (url.endsWith('createRecord')) return response({ uri: 'at://did:plc:alice/app.bsky.feed.post/key' });
@@ -154,8 +155,9 @@ for (const count of [1, 2]) test(`Telegram ${count} images split caption and fol
   const calls = mock();
   const text = 'x'.repeat(1023) + '😀' + 'y'.repeat(100);
   await getPublisher('telegram').publish(credentials.telegram, { text, mediaUrls: Array(count).fill('https://image.test/small'), idempotencyKey: 'k' });
-  const first = JSON.parse(String(calls[0].init.body));
-  const rest = JSON.parse(String(calls[1].init.body));
+  const sends = calls.filter(c => c.init.method === 'POST');
+  const first = JSON.parse(String(sends[0].init.body));
+  const rest = JSON.parse(String(sends[1].init.body));
   const caption = count === 1 ? first.caption : first.media[0].caption;
   assert.equal(caption.length, 1023); assert.equal(caption + rest.text, text);
   if (count === 2) assert.equal(first.media[1].caption, undefined);
@@ -335,7 +337,7 @@ test('X refresh rotates tokens, honors expiry, fails closed', async () => {
 test('Threads text, image and carousel containers publish only after processing', async () => {
   for (const images of [[], ['https://image.test/1.png'], ['https://image.test/1.png', 'https://image.test/2.png']]) {
     let sequence = 0;
-    const calls = mock(url => response(url.includes('fields=status') ? { status: 'FINISHED' } : { id: String(++sequence) }));
+    const calls = mock(url => url.includes('image.test') ? ok(url) : response(url.includes('fields=status') ? { status: 'FINISHED' } : { id: String(++sequence) }));
     await getPublisher('threads').publish({ accessToken: 'test-secret' }, { text: 'hello', mediaUrls: images, idempotencyKey: 'threads' });
     const writes = calls.filter(c => c.init.method === 'POST').map(c => ({ path: new URL(c.url).pathname, body: Object.fromEntries(new URLSearchParams(String(c.init.body))) }));
     assert.equal(writes.at(-1)?.path, '/v1.0/me/threads_publish');
@@ -353,4 +355,13 @@ test('Threads refresh extends long-lived tokens and refuses expired ones', async
   assert.equal(renewed?.accessToken, 'renewed'); assert(calls[0].url.includes('/refresh_access_token?grant_type=th_refresh_token'));
   assert.equal(await adapter.refreshCredentials!(renewed!), null);
   await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
+});
+
+for (const provider of ['x','bluesky','mastodon','telegram','threads'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
+  const adapter = getPublisher(provider), limit = adapter.maxMediaBytes;
+  const {downloadImage} = await import('../lib/publishers/http');
+  mock(() => new Response(new Uint8Array(limit),{headers:{'content-type':'image/png'}}));
+  assert.equal((await downloadImage(provider,'https://image.test/limit',limit)).size,limit);
+  mock(() => new Response(new Uint8Array(limit+1),{headers:{'content-type':'image/png'}}));
+  await assert.rejects(downloadImage(provider,'https://image.test/over',limit), errorCode('CONTENT_REJECTED',false));
 });

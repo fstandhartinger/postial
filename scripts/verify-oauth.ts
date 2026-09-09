@@ -19,11 +19,13 @@ async function main() {
   process.env.X_CLIENT_ID = 'local-x'; process.env.X_CLIENT_SECRET = 'local-x-secret';
   process.env.THREADS_APP_ID = 'local-threads'; process.env.THREADS_APP_SECRET = 'local-threads-secret';
   const db = getDb(), userId = crypto.randomUUID(), foreignId = crypto.randomUUID(), sessionToken = randomBytes(32).toString('hex');
+  let tokenFailure = false;
   const requests: { path: string; body: URLSearchParams }[] = [];
   const endpoint = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const url = new URL(req.url!, 'http://127.0.0.1'), body = new URLSearchParams(Buffer.concat(chunks).toString());
     requests.push({ path: url.pathname, body });
+    if (tokenFailure) { res.writeHead(503, {'Content-Type':'application/json'}).end('{}'); return; }
     const responses: Record<string, unknown> = {
       '/2/oauth2/token': { access_token: 'x-access', refresh_token: 'x-refresh', expires_in: 7200 },
       '/2/users/me': { data: { id: 'x-account', username: 'test' } },
@@ -76,27 +78,37 @@ async function main() {
         assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
         assert.equal(url.searchParams.get('code_challenge'), createHash('sha256').update(decryptCredentials(saved.codeVerifier).verifier).digest('base64url'));
       }
-      assert.equal((await callback(provider, state, '')).status, 401);
-      assert.equal((await callback(provider, state, `authjs.session-token=${foreignToken}`)).status, 400);
-      assert.equal((await callback(provider === 'x' ? 'threads' : 'x', state)).status, 400);
+      assert.match((await callback(provider, state, '')).headers.get('location')!, /connect_error=expired$/);
+      assert.match((await callback(provider, state, `authjs.session-token=${foreignToken}`)).headers.get('location')!, /connect_error=expired$/);
+      assert.match((await callback(provider === 'x' ? 'threads' : 'x', state)).headers.get('location')!, /connect_error=expired$/);
       const completed = await callback(provider, state); assert.equal(completed.status, 303);
       assert(completed.headers.get('location')?.includes(`/app/brands/${brand.id}`));
       const [channel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider as 'x' | 'threads')));
       assert.equal(channel.status, 'active'); assert(!channel.credentialsEnc.includes('access'));
       const credentials = decryptCredentials(channel.credentialsEnc); assert(Number(credentials.expiresAt) > Date.now());
       assert.equal(credentials.accessToken, provider === 'x' ? 'x-access' : 'threads-long');
-      const before = requests.length; assert.equal((await callback(provider, state)).status, 400); assert.equal(requests.length, before);
+      const before = requests.length; assert.match((await callback(provider, state)).headers.get('location')!, /connect_error=expired$/); assert.equal(requests.length, before);
       const restarted = new URL((await start(provider)).headers.get('location')!);
       const race = await Promise.all([callback(provider, restarted.searchParams.get('state')!), callback(provider, restarted.searchParams.get('state')!)]);
-      assert.deepEqual(race.map(r => r.status).sort(), [303, 400]);
+      assert(race.every(r => r.status === 303)); assert.equal(race.filter(r => r.headers.get('location')?.includes('connect_error=expired')).length, 1);
       assert.equal((await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider as 'x' | 'threads')))).length, 1);
       const expired = new URL((await start(provider)).headers.get('location')!).searchParams.get('state')!;
       await db.update(oauthStates).set({ expiresAt: new Date(0) }).where(eq(oauthStates.state, expired));
-      assert.equal((await callback(provider, expired)).status, 400);
+      assert.match((await callback(provider, expired)).headers.get('location')!, /connect_error=expired$/);
     }
     assert.equal(requests.find(r => r.path === '/2/oauth2/token')?.body.get('grant_type'), 'authorization_code');
     assert.equal(requests.find(r => r.path === '/oauth/access_token')?.body.get('client_id'), 'local-threads');
     // Worker integration: two targets sharing one channel must rotate only once.
+    // Editors can connect, with safe brand-bound browser error navigation.
+    await db.update(workspaceMembers).set({role:'editor'}).where(eq(workspaceMembers.userId,userId));
+    const deniedState = new URL((await start('x')).headers.get('location')!).searchParams.get('state')!;
+    const denied = await fetch(`${appUrl}/api/oauth/x/callback?state=${deniedState}&error=access_denied`, {headers,redirect:'manual'});
+    assert.equal(denied.status,303); assert.equal(denied.headers.get('location'), `${appUrl}/app/brands/${brand.id}?connect_error=denied`);
+    const failedState = new URL((await start('x')).headers.get('location')!).searchParams.get('state')!;
+    tokenFailure = true;
+    const failed = await callback('x',failedState); tokenFailure = false;
+    assert.equal(failed.status,303); assert.equal(failed.headers.get('location'), `${appUrl}/app/brands/${brand.id}?connect_error=provider_error`);
+    await db.update(workspaceMembers).set({role:'owner'}).where(eq(workspaceMembers.userId,userId));
     await db.insert(subscriptions).values({ workspaceId: workspace.id, status: 'active', currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: `fixture-${userId}` });
     const [xChannel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, 'x')));
     await db.update(channels).set({ credentialsEnc: encryptCredentials({ accessToken: 'old', refreshToken: 'rotate', expiresAt: String(Date.now() + 1000) }) }).where(eq(channels.id, xChannel.id));

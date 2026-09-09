@@ -6,10 +6,11 @@ import { mediaAssets } from '@/db/media-schema';
 import { workspaceEntitlements } from '@/lib/entitlements';
 import { ApiError } from '@/lib/api/errors';
 import { isUuid } from '@/lib/api/input';
-import { imageInfo } from './image';
+import { normalizeImage } from './image';
 import { mediaUrl } from './url';
 export async function storeMedia(workspaceId: string, userId: string, data: Buffer, brandId?: string) {
-  const info = imageInfo(data), access = await workspaceEntitlements(workspaceId);
+  const {data:normalized, ...info} = await normalizeImage(data), access = await workspaceEntitlements(workspaceId);
+  data = normalized;
   if (brandId && (!isUuid(brandId) || !access.activeBrandIds.includes(brandId))) throw new ApiError(422, 'invalid_brand', 'Choose an editable brand in this workspace.');
   const id = randomBytes(32).toString('base64url'), url = mediaUrl(id);
   await getDb().transaction(async tx => {

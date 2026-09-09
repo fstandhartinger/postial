@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { desc, eq, and, isNull } from 'drizzle-orm';
 import { coreContext } from '@/lib/core';
 import { agencyAccess } from '@/lib/api/auth';
-import { apiKeys, webhookDeliveries, webhookEndpoints } from '@/db/schema';
+import { apiKeys, webhookDeliveries, webhookEndpoints, users } from '@/db/schema';
 import { ApiForm } from '@/components/settings/ApiForms';
 export const metadata = {title: 'API settings'};
 export default async function ApiSettings() {
@@ -10,7 +10,7 @@ export default async function ApiSettings() {
   if (role !== 'owner') return <p>Only the workspace owner can manage API settings.</p>;
   const allowed = await agencyAccess(workspace.id);
   const keys = await db.select({id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.keyPrefix, scopes: apiKeys.scopes,
-    lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt}).from(apiKeys).where(eq(apiKeys.workspaceId, workspace.id)).orderBy(desc(apiKeys.createdAt));
+    creatorName: users.name, creatorEmail: users.email, lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt}).from(apiKeys).leftJoin(users, eq(users.id, apiKeys.createdByUserId)).where(eq(apiKeys.workspaceId, workspace.id)).orderBy(desc(apiKeys.createdAt));
   const endpoints = await db.select({id: webhookEndpoints.id, url: webhookEndpoints.url, events: webhookEndpoints.events, active: webhookEndpoints.active})
     .from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId, workspace.id), isNull(webhookEndpoints.deletedAt))).orderBy(desc(webhookEndpoints.createdAt));
   const deliveries = await db.select({id: webhookDeliveries.id, url: webhookEndpoints.url, event: webhookDeliveries.event,
@@ -23,8 +23,8 @@ export default async function ApiSettings() {
       {!allowed && <p><Link className="underline" href="/app/billing">Upgrade to Agency</Link> to create keys and connect your workflows.</p>}
       <p><Link className="underline" href="/docs/api">API documentation</Link> · <a className="underline" href="/openapi.json">OpenAPI specification</a></p>
       <pre className="mt-4 overflow-x-auto text-sm">{'curl https://socialmint.app.mintapis.com/api/v1/me \\\n  -H "Authorization: Bearer $SOCIALMINT_API_KEY"'}</pre></div>
-    <section className="space-y-4"><h2 className="text-xl font-bold">API keys</h2>{allowed && <ApiForm kind="create_key"/>}
-      {!keys.length && <p>No API keys yet.</p>}{keys.map(key => <article className="rounded border p-4" key={key.id}><h3 className="font-bold">{key.name}</h3><p>Prefix: {key.prefix}… · {key.scopes.join(', ')}</p><p>Last used: {key.lastUsedAt?.toISOString() ?? 'Never'}</p>{key.revokedAt ? <p>Revoked</p> : <ApiForm kind="revoke" id={key.id}/>}</article>)}</section>
+    <section className="space-y-4"><h2 className="text-xl font-bold">API keys</h2><p>Keys and webhooks belong to the workspace and remain valid when their creator leaves. Review and revoke keys or rotate webhook secrets during offboarding.</p>{allowed && <ApiForm kind="create_key"/>}
+      {!keys.length && <p>No API keys yet.</p>}{keys.map(key => <article className="rounded border p-4" key={key.id}><h3 className="font-bold">{key.name}</h3><p>Prefix: {key.prefix}… · {key.scopes.join(', ')}</p><p>Created by: {key.creatorName || key.creatorEmail || "Deleted user"}</p><p>Last used: {key.lastUsedAt?.toISOString() ?? 'Never'}</p>{key.revokedAt ? <p>Revoked</p> : <ApiForm kind="revoke" id={key.id}/>}</article>)}</section>
     <section className="space-y-4"><h2 className="text-xl font-bold">Webhook endpoints</h2><p>Use a public HTTPS URL. Save the signing secret when creating an endpoint. Delivery is asynchronous; refresh this page for updates.</p>{allowed && <ApiForm kind="create_webhook"/>}
       {!endpoints.length && <p>No webhook endpoints yet.</p>}{endpoints.map(endpoint => <article className="space-y-2 rounded border p-4" key={endpoint.id}><h3 className="break-all font-bold">{endpoint.url}</h3><p>{endpoint.events.join(', ')}</p>{endpoint.active ? <>{allowed && <ApiForm kind="test_webhook" id={endpoint.id}/>}<ApiForm kind="disable_webhook" id={endpoint.id}/></> : <><p>Disabled</p>{allowed && <ApiForm kind="enable_webhook" id={endpoint.id}/>}</>}<ApiForm kind="delete_webhook" id={endpoint.id}/></article>)}</section>
     <section><h2 className="text-xl font-bold">Latest 20 deliveries</h2><ul className="space-y-3 md:hidden" aria-label="Delivery log">{deliveries.map(d => <li key={d.id} className="mt-3 space-y-2 rounded border p-4 text-sm">

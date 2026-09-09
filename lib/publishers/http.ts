@@ -117,5 +117,5 @@ export async function downloadImage(provider: string, url: string, maxBytes: num
       }
     } finally { await reader.cancel(); }
     return new Blob(chunks, { type });
-  }, Math.min(maxBytes, 5 * 1024 * 1024));
+  }, maxBytes);
 }

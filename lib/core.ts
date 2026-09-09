@@ -7,18 +7,21 @@ import { ensureWorkspace } from "@/lib/workspaces";
 import { getDb } from "@/db";
 import { brands, channels, posts, workspaceMembers } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-export async function coreContext() {
+export async function sessionContext() {
   const session = await auth();
-  if (!session?.user?.id) return requireLogin();
+  if (!session?.user?.id) return null;
   const workspace = await ensureWorkspace(session.user.id, (await cookies()).get("sm_ws")?.value);
   const [member] = await getDb().select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, workspace.id), eq(workspaceMembers.userId, session.user.id)));
-  if (!member) return requireLogin();
+  if (!member) return null;
   return {
     role: member.role,
     userId: session.user.id,
     workspace,
     db: getDb(),
   };
+}
+export async function coreContext() {
+  return await sessionContext() ?? requireLogin();
 }
 export async function ownBrand(id: string) {
   const ctx = await coreContext();

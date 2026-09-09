@@ -1,3 +1,4 @@
+import { ConnectError } from '@/components/core/connect-error';
 import { Badge } from "@/components/ui/badge";
 import { ProviderBadge } from "@/components/app/provider-badge";
 import { canEditBrand } from "@/lib/entitlements";
@@ -8,9 +9,10 @@ import { availableProviders, getPublisher } from "@/lib/publishers";
 import { ActionForm, ConnectForm } from "@/components/core/forms";
 import { Card } from "@/components/ui/card";
 export default async function BrandPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{connect_error?:string | string[]}>;
 }) {
   const { db, brand, workspace } = await ownBrand((await params).id);
   const writable = await canEditBrand(workspace, brand.id);
@@ -27,6 +29,7 @@ export default async function BrandPage({
     <>
       <h1 className="text-3xl font-semibold">{brand.name}</h1>
       <p>{brand.timezone}</p>
+      <ConnectError code={(await searchParams).connect_error}/>
       {list.map((c) => (
         <Card key={c.id}>
           <div className="mb-3 flex items-center gap-3">

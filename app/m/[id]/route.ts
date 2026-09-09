@@ -5,10 +5,12 @@ export const runtime = 'nodejs';
 export async function GET(request: Request, {params}: {params: Promise<{id:string}>}) {
   const {id} = await params;
   if (!/^[A-Za-z0-9_-]{43}$/.test(id)) return new Response(null,{status:404});
-  const [asset] = await getDb().select().from(mediaAssets).where(eq(mediaAssets.id,id));
+  const [asset] = await getDb().select({mime:mediaAssets.mime, sha256:mediaAssets.sha256, bytes:mediaAssets.bytes}).from(mediaAssets).where(eq(mediaAssets.id,id));
   if (!asset) return new Response(null,{status:404});
   const etag = `"${asset.sha256}"`;
   const headers = {'Content-Type':asset.mime,'Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff',ETag:etag};
   if (request.headers.get('if-none-match')?.split(',').some(v => v.trim().replace(/^W\//,'') === etag || v.trim() === '*')) return new Response(null,{status:304,headers});
-  return new Response(new Uint8Array(asset.data),{headers:{...headers,'Content-Length':String(asset.bytes)}});
+  const [content] = await getDb().select({data:mediaAssets.data}).from(mediaAssets).where(eq(mediaAssets.id,id));
+  if (!content) return new Response(null,{status:404});
+  return new Response(new Uint8Array(content.data.buffer as ArrayBuffer, content.data.byteOffset, content.data.byteLength),{headers:{...headers,'Content-Length':String(asset.bytes)}});
 }

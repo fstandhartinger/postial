@@ -24,7 +24,7 @@ async function main() {
     calls = 0;
   registerPublisher({
     provider: "mastodon",
-    maxTextLength: 500,
+    maxMediaBytes: 16000000, maxTextLength: 500,
     credentialFields: [],
     async validate() {
       return { externalId: "fake", displayName: "Fake" };
@@ -276,7 +276,7 @@ async function main() {
     const originalTransaction = db.transaction.bind(db);
     for (const provider of ["mastodon", "telegram", "bluesky"] as const) {
       let remoteCalls = 0; const remoteKeys = new Set<string>(); let failCommit = true;
-      registerPublisher({ provider, maxTextLength: 500, credentialFields: [], async validate() { return { externalId: "fixture", displayName: "fixture" }; }, async publish(_c, input) {
+      registerPublisher({ provider, maxMediaBytes: 16000000, maxTextLength: 500, credentialFields: [], async validate() { return { externalId: "fixture", displayName: "fixture" }; }, async publish(_c, input) {
         remoteCalls++; remoteKeys.add(input.idempotencyKey);
         if (failCommit) db.transaction = (async () => { throw new Error("Injected result commit failure"); }) as typeof db.transaction;
         return { remoteId: input.idempotencyKey };

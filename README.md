@@ -233,7 +233,7 @@ check the channel, then manually retry or skip. No automatic retry leaves needs_
 Manual retry starts a new five-attempt budget. Published warnings persist on the target,
 in history and on the status page; add omitted content manually to avoid duplicates.
 Outbound HTTPS validates every DNS address, pins connections, bounds redirects and streams
-(1 MB images, 64 KB JSON). Channel metadata persists the Mastodon instance text limit.
+(adapter image limits, 64 KB JSON). Channel metadata persists the Mastodon instance text limit.
 
 Connect channels via **Brands → select a brand → Connect a channel**:
 [Bluesky](docs/connect-bluesky.md), [Mastodon](docs/connect-mastodon.md),
@@ -335,14 +335,18 @@ post. Unused uploads remain until explicitly deleted; automatic retention is fut
 `brand_id`. `POST /api/v1/media` requires Agency API scope `posts:write` and accepts
 the same multipart body or JSON `{ "data": "<standard Base64>", "brand_id": "<optional UUID>" }`.
 Both return 201 `{id,url,width,height,bytes}`. Pass returned absolute URLs in
-`media_urls` when creating posts. Magic bytes and image headers determine type and
-dimensions without re-encoding: JPEG, PNG, WebP and GIF, maximum 5 MiB each and four
-images per post. Workspace storage: Starter 200 MiB; active Agency 2 GiB. Oversize
+`media_urls` when creating posts. Sharp fully decodes images and determines dimensions. JPEG, PNG and WebP are
+re-encoded in their original format, applying orientation and stripping metadata.
+GIFs retain their bytes after decoding all frames; arbitrary comment/application
+extensions are rejected. Limits are at most 200 frames and 50 million
+pixels across frames. Each frame/still image is limited to 25 megapixels. Input
+and output are at most 5 MiB; output quality is reduced if needed, or rejected with
+422. Damaged/incomplete images and appended payloads are rejected. Four images per post. Workspace storage: Starter 200 MiB; active Agency 2 GiB. Oversize
 returns 413, invalid images/exhausted storage return 422. Uploads have a 30/minute
 per-user/workspace process budget (use shared storage before multiple replicas);
 API keys additionally retain their persistent API budget.
 
-Postgres `media_assets` stores the original bytes (`bytea`). Set
+Postgres `media_assets` stores the normalized bytes (validated original bytes for GIF) (`bytea`). Set
 `NEXT_PUBLIC_APP_URL` to the public HTTPS origin. `GET /m/{id}` is unauthenticated,
 with 256-bit random IDs, immutable one-year caching, ETag and nosniff. Never reuse
 IDs. `DELETE /api/media/{id}` requires a session in the owning workspace and
@@ -352,11 +356,36 @@ Provider downloads retain DNS validation and connection pinning, including our
 own public host. `MEDIA_ALLOW_LOOPBACK=1` permits only canonical
 `http://127.0.0.1:<port>/m/{id}` during non-production verification; it cannot enable
 private addresses in production. Provider-specific limits still apply (Bluesky
-currently limits its download to 1 MB); no image resizing is performed.
+limits its download to 1 MB). Adapter limits are X 5 MB, Bluesky 1 MB,
+Mastodon 16 MB, Telegram 10 MB and Threads 8 MB (decimal). Over-limit downloads
+produce CONTENT_REJECTED or the adapter’s persisted omission warning. Telegram and
+Threads preflight image downloads before passing public URLs to their providers.
 
-Verification: `npx tsx scripts/verify-media.ts`; optional `MEDIA_HTTP_URL` points to
-a running development app for session/API/Playwright checks at 390 and 1280 pixels.
-Screenshots are saved under `work/media-evidence/`.
+Verification against the **production standalone server**, without a loopback
+publishing exception:
+
+```sh
+npm run build
+# Export DATABASE_URL, AUTH_SECRET, APP_ENCRYPTION_KEY in both shells first.
+# Terminal 1 (server):
+unset MEDIA_ALLOW_LOOPBACK
+PORT=4005 HOSTNAME=127.0.0.1 AUTH_URL=http://localhost:4005 \
+APP_URL=http://localhost:4005 NEXT_PUBLIC_APP_URL=http://localhost:4005 npm start
+# Terminal 2 (verifier runs outside NODE_ENV=production):
+MEDIA_HTTP_URL=http://localhost:4005 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
+npx tsx scripts/verify-media.ts
+```
+
+`server.js` sets NODE_ENV=production. Upload URL construction supports HTTP on
+literal loopback/localhost for local tests and never performs a network fetch.
+Publisher downloads still reject private addresses in production, even if
+MEDIA_ALLOW_LOOPBACK=1. The verifier enables the exception only in its own test
+process, then explicitly verifies the production denial. Missing/invalid upload
+origin configuration returns 422 with a readable message. Unexpected API errors
+return 500 with X-Request-ID; structured logs contain route, error class and request
+ID, without payloads, user data or exception messages. Screenshots are saved under
+`work/fixer5-evidence/`, including OAuth error banners at 390/1280.
+
 ## Teams and workspace selection
 
 Owners manage members and seven-day invitation links at `/app/settings/team`.
@@ -388,3 +417,22 @@ The verifier creates and deletes synthetic database sessions, exercises the real
 join POST, checks editor billing 403, settings guards, roles, seat limits,
 concurrent consumption, expiry, revocation, last-owner protection, rate limits and
 workspace switching. Screenshots at 390/1280 are in `work/team-evidence/`.
+
+### Workspace credentials and offboarding
+
+The active workspace is resolved from `sm_ws` and current membership for media,
+quotas, API-key/webhook management, Team and Billing. Invalid or foreign selectors
+are cleared and fall back to the oldest membership. Editors can connect all
+supported channels, including OAuth; Billing, Team, API keys and webhooks remain
+owner-only.
+
+API keys and webhook endpoints belong to the workspace. Removing their creator
+from the team does **not** revoke keys or disable webhooks. API settings show each
+key’s creator; Team shows the member’s active key count before removal. During
+offboarding, review and revoke any exposed keys and replace webhook endpoints to
+rotate their signing secrets. Actual deletion of a user record is different: the
+existing API-key creator foreign key uses ON DELETE CASCADE and deletes that
+user’s keys. Membership removal does not delete the user record.
+
+Image processing reference: [Sharp output metadata policy](https://sharp.pixelplumbing.com/api-output/).
+Linux-musl support: [Sharp installation](https://sharp.pixelplumbing.com/install/).

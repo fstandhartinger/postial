@@ -1,6 +1,6 @@
 import { customType, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { brands, users, workspaces } from './schema';
-const bytea = customType<{data: Buffer; driverData: Buffer}>({dataType: () => 'bytea', toDriver: value => value, fromDriver: value => Buffer.from(value)});
+const bytea = customType<{data: Buffer; driverData: Buffer}>({dataType: () => 'bytea', toDriver: value => value, fromDriver: value => value});
 export const mediaAssets = pgTable('media_assets', {
   id: text('id').primaryKey(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, {onDelete:'cascade'}),

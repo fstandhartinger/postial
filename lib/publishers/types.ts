@@ -68,6 +68,7 @@ export interface Publisher {
   readonly provider: Provider;
   /** Hard text limit the composer shows; 0 = unlimited. */
   readonly maxTextLength: number;
+  readonly maxMediaBytes: number;
   /** Fields the connect form must collect, in order. */
   readonly credentialFields: ReadonlyArray<{ key: string; label: string; help?: string; secret: boolean; placeholder?: string }>;
   /** Verifies credentials against the provider and returns the account we would post as. Throws PublishError(AUTH_EXPIRED|NETWORK|...). */

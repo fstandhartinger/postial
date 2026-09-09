@@ -7,7 +7,7 @@ export function oauthConfig(provider: OAuthProvider) {
 }
 export function appOrigin() {
   const url = new URL(process.env.APP_URL || process.env.AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-  if (url.username || url.password || (process.env.NODE_ENV === 'production' && url.protocol !== 'https:')) throw new Error('Invalid APP_URL');
+  if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname)))) throw new Error('Invalid APP_URL');
   return url.origin;
 }
 export function callbackUrl(provider: OAuthProvider) { return `${appOrigin()}/api/oauth/${provider}/callback`; }

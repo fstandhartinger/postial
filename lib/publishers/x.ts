@@ -3,7 +3,7 @@ import { downloadImage, failure, guarded, jsonBody, postText, publishingDeadline
 import { countXText } from '../text-limits';
 import { bearer, oauthJson, tokenCredentials, xToken } from './oauth-http';
 export const x: Publisher = {
-  provider: 'x', maxTextLength: 280, credentialFields: [],
+  provider: 'x', maxMediaBytes: 5000000, maxTextLength: 280, credentialFields: [],
   async validate(c) {
     return guarded('X', async () => {
       const r = await oauthJson<{ data: { id: string; username: string } }>('x', '/2/users/me', { headers: bearer(c) });
@@ -23,7 +23,7 @@ export const x: Publisher = {
       if (countXText(text) > 280 || images.length > 4) throw failure('CONTENT_REJECTED', 'X allows 280 weighted characters and up to four images.');
       const ids: string[] = [];
       for (const url of images) {
-        const blob = await downloadImage('X', url, 1000000);
+        const blob = await downloadImage('X', url, x.maxMediaBytes);
         const r = await oauthJson<{ data: { id: string; processing_info?: { state: string } } }>('x', '/2/media/upload', { ...jsonBody({ media: Buffer.from(await blob.arrayBuffer()).toString('base64'), media_type: blob.type, media_category: 'tweet_image' }), headers: { ...bearer(c), 'Content-Type': 'application/json' } });
         if (!r.data?.id || (r.data.processing_info && r.data.processing_info.state !== 'succeeded')) throw failure('CONTENT_REJECTED', 'X could not finish processing this image.');
         ids.push(r.data.id);

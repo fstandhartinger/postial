@@ -43,6 +43,6 @@ export type ApiContext = Awaited<ReturnType<typeof authenticate>>;
 export function endpoint(scope: Scope | undefined, handler: (request: Request, ctx: ApiContext, id?: string) => Promise<Response>) {
   return async (request: Request, route?: {params?: Promise<{id?: string}>}) => {
     try { return await handler(request, await authenticate(request, scope), (await route?.params)?.id); }
-    catch (e) { return apiError(e); }
+    catch (e) { return apiError(e, new URL(request.url).pathname === '/api/v1/media' ? '/api/v1/media' : '/api/v1'); }
   };
 }

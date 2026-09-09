@@ -1,9 +1,8 @@
 import type { Publisher } from './types';
-import { checkLength, failure, guarded, pollingPause, postText, publishingDeadline } from './http';
-import { validatePublicUrl } from './safe-fetch';
+import { downloadImage, checkLength, failure, guarded, pollingPause, postText, publishingDeadline } from './http';
 import { bearer, oauthJson, tokenCredentials, type TokenResponse } from './oauth-http';
 export const threads: Publisher = {
-  provider: 'threads', maxTextLength: 500, credentialFields: [],
+  provider: 'threads', maxMediaBytes: 8000000, maxTextLength: 500, credentialFields: [],
   async validate(c) {
     return guarded('Threads', async () => {
       const r = await oauthJson<{ id: string; username: string }>('threads', '/v1.0/me?fields=id,username', { headers: bearer(c) });
@@ -24,7 +23,7 @@ export const threads: Publisher = {
       const text = postText(input), images = input.mediaUrls ?? [];
       checkLength('Threads', text, 500);
       if (images.length > 4) throw failure('CONTENT_REJECTED', 'SocialMint supports up to four images.');
-      for (const url of images) await validatePublicUrl(url);
+      for (const url of images) await downloadImage('Threads', url, threads.maxMediaBytes);
       const post = async (path: string, body: Record<string, string>) => {
         const r = await oauthJson<{ id: string }>('threads', `/v1.0${path}`, { method: 'POST', headers: { ...bearer(c), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) });
         if (!r.id) throw failure('UNKNOWN', 'Threads did not confirm the request. Check the account before retrying.');

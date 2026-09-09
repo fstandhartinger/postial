@@ -16,7 +16,7 @@ async function textLimit(origin: string) {
   }
 }
 export const mastodon: Publisher = {
-  provider: 'mastodon', maxTextLength: 500,
+  provider: 'mastodon', maxMediaBytes: 16000000, maxTextLength: 500,
   credentialFields: [
     { key: 'instanceUrl', label: 'Instance URL', placeholder: 'https://mastodon.social', secret: false },
     { key: 'accessToken', label: 'Access token', secret: true, help: 'Preferences → Development → New application. Select write:statuses, write:media and read:accounts.' },
@@ -34,7 +34,7 @@ export const mastodon: Publisher = {
     const headers = { Authorization: `Bearer ${credentials.accessToken}` };
     const ids: string[] = [];
     for (const url of input.mediaUrls?.slice(0, 4) ?? []) {
-      const file = await downloadImage('Mastodon', url, 16 * 1024 * 1024);
+      const file = await downloadImage('Mastodon', url, mastodon.maxMediaBytes);
       const form = new FormData(); form.append('file', file, 'image');
       let media = await json<{ id: string; url?: string | null }>('Mastodon', `${origin}/api/v2/media`, { method: 'POST', headers, body: form });
       const id = media.id;

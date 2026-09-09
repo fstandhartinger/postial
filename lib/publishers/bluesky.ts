@@ -44,7 +44,7 @@ function facets(text: string) {
   });
 }
 export const bluesky: Publisher = {
-  provider: 'bluesky', maxTextLength: 300,
+  provider: 'bluesky', maxMediaBytes: 1000000, maxTextLength: 300,
   credentialFields: [
     { key: 'identifier', label: 'Handle or email', secret: false },
     { key: 'appPassword', label: 'App password', secret: true, help: 'Create an app password in Settings → App Passwords. Never use your main password.' },
@@ -68,7 +68,7 @@ export const bluesky: Publisher = {
     if ((input.mediaUrls?.length ?? 0) > 4) warnings.push('Bluesky allows four images; extra images were omitted.');
     for (const url of input.mediaUrls?.slice(0, 4) ?? []) {
       try {
-        const blob = await downloadImage('Bluesky', url, 1_000_000);
+        const blob = await downloadImage('Bluesky', url, bluesky.maxMediaBytes);
         const uploaded = await json<{ blob: unknown }>('Bluesky', `${auth.pds}/xrpc/com.atproto.repo.uploadBlob`, { method: 'POST', headers: { ...headers, 'Content-Type': blob.type }, body: blob });
         images.push({ alt: '', image: uploaded.blob });
       } catch (error) {

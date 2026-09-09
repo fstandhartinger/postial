@@ -1,3 +1,4 @@
+import { ConnectError } from '@/components/core/connect-error';
 import { workspaceEntitlements } from '@/lib/entitlements';
 import Link from "next/link";
 import { eq } from "drizzle-orm";
@@ -6,7 +7,7 @@ import { coreContext } from "@/lib/core";
 import { BrandForm } from "@/components/core/forms";
 import { Card } from "@/components/ui/card";
 
-export default async function BrandsPage() {
+export default async function BrandsPage({searchParams}: {searchParams: Promise<{connect_error?:string | string[]}>}) {
   const { db, workspace } = await coreContext();
   const list = await db
     .select()
@@ -17,6 +18,7 @@ export default async function BrandsPage() {
   return (
     <>
       <h1 className="text-3xl font-semibold">Brands</h1>
+      <ConnectError code={(await searchParams).connect_error}/>
       <p>
         {list.length} / {entitlement.limit} brands
         {!active &&
