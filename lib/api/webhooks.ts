@@ -1,3 +1,4 @@
+import { notifyWorkspace } from '@/lib/notifications';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, lt, lte, sql, inArray, isNull } from 'drizzle-orm';
 import { getDb } from '@/db';
@@ -39,8 +40,9 @@ export async function createWebhook(workspaceId: string, url: string, events: st
 export async function emit(tx: Tx, postId: string, event: WebhookEvent, data: Record<string, unknown> = {}) {
   const [row] = await tx.select({workspaceId: brands.workspaceId, brandId: brands.id}).from(posts).innerJoin(brands, eq(brands.id, posts.brandId)).where(eq(posts.id, postId));
   if (!row) return;
+  if (event !== 'post.published') await notifyWorkspace(tx,row.workspaceId,event === 'post.failed' ? 'failed' : event === 'post.needs_review' ? 'needs_review' : 'approval.decided',postId);
   const endpoints = await tx.select({id: webhookEndpoints.id, events: webhookEndpoints.events}).from(webhookEndpoints)
-    .where(and(eq(webhookEndpoints.workspaceId, row.workspaceId), eq(webhookEndpoints.active, true))).for('share');
+    .where(and(eq(webhookEndpoints.workspaceId, row.workspaceId), eq(webhookEndpoints.kind, "api"), eq(webhookEndpoints.active, true))).for('share');
   // Never persist caller-supplied free text; each event has an explicit allowlist.
   const fields: Record<WebhookEvent, string[]> = {
     'approval.decided': ['decision', 'decided_at', 'has_comment'],
@@ -100,7 +102,7 @@ export async function deliverWebhooks() {
   const endpoints = await db.select().from(webhookEndpoints).where(and(eq(webhookEndpoints.active, true), isNull(webhookEndpoints.deletedAt)));
   for (const endpoint of endpoints) {
     if (Date.now() >= deadline) return {claimed: 0};
-    const allowed = await agencyAccess(endpoint.workspaceId);
+    const allowed = endpoint.kind !== "api" || await agencyAccess(endpoint.workspaceId);
     await db.transaction(async tx => {
       // Serialize automatic resume with Disable/Delete and new outbox events.
       const [current] = await tx.select({active: webhookEndpoints.active}).from(webhookEndpoints)
@@ -124,7 +126,7 @@ export async function deliverWebhooks() {
         .orderBy(webhookDeliveries.nextAttemptAt).limit(Math.min(4, 10 - total)).for('update', {of: webhookDeliveries, skipLocked: true});
       const ready: typeof rows = [];
       for (const row of rows) {
-        if (!await agencyAccess(row.endpoint.workspaceId)) {
+        if (row.endpoint.kind === "api" && !await agencyAccess(row.endpoint.workspaceId)) {
           await tx.update(webhookDeliveries).set({status: 'paused', pauseReason: 'Agency access required', nextAttemptAt: null}).where(eq(webhookDeliveries.id, row.delivery.id));
         } else if (Date.now() + 250 < deadline && !budgetSignal.aborted) {
           await tx.update(webhookDeliveries).set({attempts: row.delivery.attempts + 1, nextAttemptAt: new Date(Date.now() + 120000)}).where(eq(webhookDeliveries.id, row.delivery.id));
@@ -143,7 +145,8 @@ export async function deliverWebhooks() {
         const init: RequestInit = {method: 'POST', body, headers: {'Content-Type': 'application/json',
           'X-SocialMint-Delivery': delivery.id, 'X-SocialMint-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body)},
           signal: AbortSignal.any([budgetSignal, AbortSignal.timeout(5000)])};
-        const response = loopback(endpoint.url) ? await fetch(endpoint.url, {...init, redirect: 'manual'}) : await safeFetch(endpoint.url, init);
+        const url = endpoint.kind === 'api' ? endpoint.url : decryptCredentials(endpoint.secretEnc).url;
+        const response = loopback(url) ? await fetch(url, {...init, redirect: 'manual'}) : await safeFetch(url, init);
         responseStatus = response.status; ok = response.ok;
         await response.body?.cancel();
       } catch { /* Persist safe status only; never remote bodies or secrets. */ }

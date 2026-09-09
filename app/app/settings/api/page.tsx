@@ -12,13 +12,13 @@ export default async function ApiSettings() {
   const keys = await db.select({id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.keyPrefix, scopes: apiKeys.scopes,
     creatorName: users.name, creatorEmail: users.email, lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt}).from(apiKeys).leftJoin(users, eq(users.id, apiKeys.createdByUserId)).where(eq(apiKeys.workspaceId, workspace.id)).orderBy(desc(apiKeys.createdAt));
   const endpoints = await db.select({id: webhookEndpoints.id, url: webhookEndpoints.url, events: webhookEndpoints.events, active: webhookEndpoints.active})
-    .from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId, workspace.id), isNull(webhookEndpoints.deletedAt))).orderBy(desc(webhookEndpoints.createdAt));
+    .from(webhookEndpoints).where(and(eq(webhookEndpoints.kind, "api"), eq(webhookEndpoints.workspaceId, workspace.id), isNull(webhookEndpoints.deletedAt))).orderBy(desc(webhookEndpoints.createdAt));
   const deliveries = await db.select({id: webhookDeliveries.id, url: webhookEndpoints.url, event: webhookDeliveries.event,
     reason: webhookDeliveries.pauseReason, status: webhookDeliveries.status, attempts: webhookDeliveries.attempts, response: webhookDeliveries.responseStatus,
     next: webhookDeliveries.nextAttemptAt, createdAt: webhookDeliveries.createdAt}).from(webhookDeliveries)
     .innerJoin(webhookEndpoints, eq(webhookEndpoints.id, webhookDeliveries.endpointId))
     .where(eq(webhookEndpoints.workspaceId, workspace.id)).orderBy(desc(webhookDeliveries.createdAt)).limit(20);
-  return <div className="mx-auto max-w-5xl space-y-8 p-6"><h1 className="text-3xl font-bold">API &amp; webhooks</h1>
+  return <div className="mx-auto max-w-5xl space-y-8 p-6"><h1 className="text-3xl font-bold">API &amp; webhooks</h1><p><Link href="/app/settings/notifications">Notifications</Link> · <Link href="/app/settings/legal">Legal &amp; DPA</Link></p>
     <div className="rounded-xl bg-emerald-50 p-5"><p>API keys and webhooks require Agency, including an Agency trial. Each key permits 60 requests per minute.</p>
       {!allowed && <p><Link className="underline" href="/app/billing">Upgrade to Agency</Link> to create keys and connect your workflows.</p>}
       <p><Link className="underline" href="/docs/api">API documentation</Link> · <a className="underline" href="/openapi.json">OpenAPI specification</a></p>

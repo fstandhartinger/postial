@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { TimezoneSelect } from './timezone-select';
 import { coreAction } from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -37,7 +38,7 @@ export function ActionForm({
       <Button disabled={pending || disabled}>
         {pending
           ? "Saving…"
-          : action === "duplicate" ? "Duplicate" : action === "check_channel" ? "Check now" : action === "retry"
+          : action === "reschedule" ? "Reschedule" : action === "duplicate" ? "Duplicate" : action === "check_channel" ? "Check now" : action === "retry"
             ? "Retry now"
             : action === "skip"
               ? "Skip channel"
@@ -61,10 +62,7 @@ export function BrandForm() {
         Color
         <Input name="color" type="color" defaultValue="#047857" />
       </label>
-      <label className="block">
-        Timezone (IANA)
-        <Input name="timezone" defaultValue="Europe/Berlin" required />
-      </label>
+      <TimezoneSelect />
     </ActionForm>
   );
 }

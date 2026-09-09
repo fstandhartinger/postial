@@ -1,0 +1,41 @@
+{
+  "available": [
+    "Brand workspaces",
+    "Calendar and scheduling",
+    "Client approval links (Agency)",
+    "Publishing status and retries",
+    "Image uploads",
+    "Team (Agency)",
+    "REST API and webhooks (Agency)"
+  ],
+  "channels": [
+    "Bluesky",
+    "Mastodon",
+    "Telegram"
+  ],
+  "planned": [
+    "X",
+    "Threads",
+    "LinkedIn",
+    "Instagram/Facebook"
+  ],
+  "pending": "n8n node (Agency): npm publication pending",
+  "signIn": "Sign-in opens shortly",
+  "starter": [
+    "3 brands",
+    "1 user",
+    "Brand workspaces",
+    "Calendar and scheduling",
+    "Bluesky, Mastodon and Telegram",
+    "Publishing status, clear errors and retries",
+    "Image uploads"
+  ],
+  "agency": [
+    "15 brands",
+    "5 users",
+    "Everything in Starter",
+    "Client approval links without client login",
+    "REST API and webhooks",
+    "Team management"
+  ]
+}

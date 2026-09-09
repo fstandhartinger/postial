@@ -156,3 +156,5 @@ button:disabled { cursor: wait; opacity: .7; }
 
 .app-new-post-desktop { display: none; }
 @media (min-width: 768px) { .app-new-post-desktop { display: inline-flex; } }
+
+@media print { .site-header, .site-footer, .app-sidebar, .app-topbar, .mobile-nav { display:none !important; } .legal {max-width:none; color:black;} .legal a {text-decoration:underline;} }

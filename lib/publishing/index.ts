@@ -1,5 +1,6 @@
 import { checkChannelHealth } from "./health";
 import { mediaRetentionTick } from "@/lib/media/retention";
+import { notifyWorkspace } from '@/lib/notifications';
 import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
 function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads'].includes(provider); }
@@ -84,14 +85,14 @@ export async function tick() {
       await derivePostStatus(tx, t.postId);
     }
   });
-  const held = await db.select({ target: postTargets, workspaceId: brands.workspaceId, brandId: brands.id }).from(postTargets)
+  const held = await db.select({ target: postTargets, workspaceId: brands.workspaceId, brandId: brands.id, scheduledAt: posts.scheduledAt }).from(postTargets)
     .innerJoin(posts, eq(posts.id, postTargets.postId)).innerJoin(brands, eq(brands.id, posts.brandId))
     .where(and(eq(postTargets.status, "held"), inArray(posts.status, ["scheduled", "approved", "publishing"]), lt(postTargets.attempts, 5)));
   for (const workspaceId of [...new Set(held.map(r => r.workspaceId))]) {
     const access = await workspaceEntitlements(workspaceId);
     if (!access.publish) continue;
     for (const row of held.filter(r => r.workspaceId === workspaceId && access.activeBrandIds.includes(r.brandId))) {
-      await db.update(postTargets).set({ status: "queued", nextAttemptAt: new Date(), updatedAt: new Date() }).where(and(eq(postTargets.id, row.target.id), eq(postTargets.status, "held")));
+      await db.update(postTargets).set({ status: "queued", nextAttemptAt: row.scheduledAt && row.scheduledAt.getTime() > Date.now() ? row.scheduledAt : new Date(), updatedAt: new Date() }).where(and(eq(postTargets.id, row.target.id), eq(postTargets.status, "held")));
     }
   }
   const claimed = await db.transaction(async (tx) => {
@@ -108,7 +109,7 @@ export async function tick() {
           inArray(posts.status, ["scheduled", "approved", "publishing"]),
         ),
       )
-      .for("update", { of: postTargets, skipLocked: true })
+      .for("update", { of: [posts, postTargets], skipLocked: true })
       .limit(10);
     for (const { target: t } of rows)
       await tx
@@ -134,6 +135,7 @@ export async function tick() {
         await db.transaction(async tx => {
           const changed = await tx.update(postTargets).set({ status: "held", attempts: t.attempts, attemptStartedAt: null, nextAttemptAt: null, lastErrorHuman: !access.publish ? "Held: subscription inactive" : "Held: brand exceeds plan limit", updatedAt: new Date() })
             .where(and(eq(postTargets.id, t.id), eq(postTargets.status, "publishing"), eq(postTargets.attempts, attempt))).returning();
+          if (changed.length) await notifyWorkspace(tx,brand.workspaceId,"held",p.id);
           if (changed.length) await tx.insert(postEvents).values({ postId: p.id, targetId: t.id, type: "held", message: !access.publish ? "Held: subscription inactive" : "Held: brand exceeds plan limit" });
           await derivePostStatus(tx, p.id);
         });
@@ -176,6 +178,7 @@ export async function tick() {
           {
             text: p.body,
             mediaUrls: p.mediaUrls,
+            mediaAlt: p.mediaAlt,
             linkUrl: p.linkUrl ?? undefined,
             idempotencyKey: t.id,
             signal: controller.signal,
@@ -255,6 +258,7 @@ export async function tick() {
               updatedAt: new Date(),
             })
             .where(eq(postTargets.id, t.id));
+          if (error.code === "AUTH_EXPIRED") await notifyWorkspace(tx,brand.workspaceId,"token_expired",p.id);
           if (error.code === "AUTH_EXPIRED")
             await tx
               .update(channels)

@@ -35,7 +35,7 @@ export const mastodon: Publisher = {
     const ids: string[] = [];
     for (const url of input.mediaUrls?.slice(0, 4) ?? []) {
       const file = await downloadImage('Mastodon', url, mastodon.maxMediaBytes);
-      const form = new FormData(); form.append('file', file, 'image');
+      const form = new FormData(); form.append('file', file, 'image'); form.append('description', input.mediaAlt?.[url] ?? '');
       let media = await json<{ id: string; url?: string | null }>('Mastodon', `${origin}/api/v2/media`, { method: 'POST', headers, body: form });
       const id = media.id;
       for (let attempt = 0; !media.url && attempt < 20; attempt++) {

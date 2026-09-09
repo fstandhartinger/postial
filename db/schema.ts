@@ -185,6 +185,7 @@ export const posts = pgTable("posts", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   body: text("body").notNull(),
+  mediaAlt: jsonb("media_alt").$type<Record<string, string>>().notNull().default({}),
   mediaUrls: jsonb("media_urls").$type<string[]>().notNull().default([]),
   linkUrl: text("link_url"),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
@@ -287,6 +288,7 @@ export const apiIdempotency = pgTable("api_idempotency", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 }, t => [primaryKey({columns: [t.keyId, t.key]}), index("api_idempotency_expiry").on(t.expiresAt)]);
 export const webhookEndpoints = pgTable("webhook_endpoints", {
+  kind: text("kind").notNull().default("api"),
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
@@ -336,3 +338,22 @@ export const maintenanceRuns = pgTable("maintenance_runs", {
   name: text("name").primaryKey(),
   completedAt: timestamp("completed_at", {withTimezone:true}).notNull(),
 });
+
+export const notifications = pgTable('notifications', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: uuid('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+  userId: text('user_id').references(()=>users.id,{onDelete:'cascade'}),
+  type: text('type').notNull(),
+  postId: uuid('post_id').references(()=>posts.id,{onDelete:'cascade'}),
+  message: text('message').notNull(),
+  readAt: timestamp('read_at',{withTimezone:true}),
+  createdAt: timestamp('created_at',{withTimezone:true}).defaultNow().notNull(),
+}, t=>[index('notifications_workspace_unread').on(t.workspaceId,t.readAt,t.createdAt)]);
+export const dpaAcceptances = pgTable('dpa_acceptances', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: uuid('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+  userId: text('user_id').references(()=>users.id,{onDelete:'set null'}),
+  version: text('version').notNull(),
+  documentHash: text('document_hash').notNull(),
+  acceptedAt: timestamp('accepted_at',{withTimezone:true}).defaultNow().notNull(),
+},t=>[uniqueIndex('dpa_workspace_version').on(t.workspaceId,t.version)]);

@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import { AccessStatus } from '@/components/billing/AccessStatus';
+import availability from '@/content/availability.json';
 import Link from 'next/link';
 import { appUrl, description, items, words, type Section } from '@/components/marketing/copy';
 import { Plans } from '@/components/marketing/Plans';
@@ -13,13 +14,13 @@ function FactGrid({ section }: { section: Section }) {
 export default function Home() {
   const schema = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'SocialMint', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: appUrl, description, offers: [{ '@type': 'Offer', name: 'Starter', price: '19', priceCurrency: 'EUR', url: `${appUrl}/pricing` }, { '@type': 'Offer', name: 'Agency', price: '49', priceCurrency: 'EUR', url: `${appUrl}/pricing` }] };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
-    <section className="hero"><Badge>Early access</Badge><p className="note">Early access — features roll out over the next weeks; your trial is free and needs no card.</p><p className="eyebrow">{words('Hero', 'Eyebrow')}</p><h1>{words('Hero', 'H1')}</h1><p className="hero-sub">{words('Hero', 'Sub')}</p><div className="actions"><Link className="primary" href="/login">{words('Hero', 'Primary CTA → /signup')}</Link><DemoLink>{words('Hero', 'Secondary CTA → #demo')}</DemoLink></div><p className="note">{words('Hero', 'Trial note')}</p><p className="note">{words('Hero', 'Plan note')}</p></section>
+    <section className="hero"><AccessStatus /><p className="eyebrow">{words('Hero', 'Eyebrow')}</p><h1>{words('Hero', 'H1')}</h1><p className="hero-sub">{words('Hero', 'Sub')}</p><div className="actions"><Link className="primary" href="/login">{words('Hero', 'Primary CTA → /signup')}</Link><DemoLink>{words('Hero', 'Secondary CTA → #demo')}</DemoLink></div><p className="note">{words('Hero', 'Trial note')}</p><p className="note">{words('Hero', 'Plan note')}</p></section>
     <aside className="audience"><strong>{words('Social-proof alternative', 'Statement')}</strong><p>{words('Social-proof alternative', 'Supporting label')}</p></aside>
     <section className="section"><h2>{words('Pain points', 'H2')}</h2><FactGrid section="Pain points" /></section>
     <section className="section" id="features"><h2>{words('Features', 'H2')}</h2><FactGrid section="Features" /></section>
     <section className="section"><h2>{words('How it works', 'H2')}</h2><ol className="marketing-grid three steps">{[1, 2, 3].map(step => <li key={step}><h3>{words('How it works', `Step ${step} label`)}</h3><p>{words('How it works', `Step ${step} body`)}</p></li>)}</ol></section>
     <section className="section demo-section" id="demo"><h2 id="demo-heading" tabIndex={-1}>{words('Interactive demo', 'H2')}</h2><p>{words('Interactive demo', 'Sub')}</p><ApprovalDemo /></section>
-    <section className="section networks"><h2>{words('Networks', 'H2')}</h2><p className="network-list">{words('Networks', 'Available labels')}</p><p><strong>{words('Networks', 'Roadmap label')}</strong></p><p>{words('Networks', 'Roadmap body')}</p></section>
+    <section className="section networks"><h2>{words('Networks', 'H2')}</h2><p className="network-list">{availability.channels.join(', ')}</p><p><strong>{words('Networks', 'Roadmap label')}</strong></p><p>{availability.planned.join(', ')} — in preparation, subject to platform approvals, with no release date.</p></section>
     <section className="section" id="pricing"><h2>{words('Pricing', 'H2')}</h2><p>{words('Pricing', 'Sub')}</p><Plans /><Link className="text-link" href="/pricing">Pricing →</Link></section>
     <section className="section"><h2>{words('Comparison', 'H2')}</h2><p className="section-intro">{words('Comparison', 'Body')}</p><FactGrid section="Comparison" /><p className="note">{words('Comparison', 'Fair-comparison note')}</p></section>
     <section className="section faq-section" id="faq"><h2>{words('FAQ', 'H2')}</h2><FAQ /></section>

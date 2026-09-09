@@ -1,3 +1,5 @@
+import { statusLabel } from '@/lib/status-label';
+import { inZone } from '@/lib/timezone';
 import { workspaceEntitlements } from "@/lib/entitlements";
 import Link from "next/link";
 import { ApprovalPanel } from "@/components/approvals/panel";
@@ -15,7 +17,7 @@ export default async function PostPage({
   const access = await workspaceEntitlements(workspace);
   const writable = access.activeBrandIds.includes(brand.id);
   const targets = await db
-    .select({ target: postTargets, name: channels.displayName })
+    .select({ target: postTargets, name: channels.displayName, channelStatus: channels.status })
     .from(postTargets)
     .innerJoin(channels, eq(channels.id, postTargets.channelId))
     .where(eq(postTargets.postId, post.id));
@@ -24,15 +26,16 @@ export default async function PostPage({
     .from(postEvents)
     .where(eq(postEvents.postId, post.id))
     .orderBy(asc(postEvents.createdAt));
-  const editable = ["draft", "pending_approval", "changes_requested"].includes(
+  const editable = ["draft", "pending_approval", "changes_requested", "scheduled", "approved"].includes(
     post.status,
-  );
+  ) && !targets.some(({target:t}) => t.attempts > 0 || ["publishing", "published"].includes(t.status));
+  const reschedulable = ["scheduled","approved"].includes(post.status) && !targets.some(({target:t}) => ["publishing","published"].includes(t.status));
   return (
     <>
       <h1 className="text-3xl font-semibold">Post status</h1>
       <ActionForm action="duplicate" disabled={!writable}><input type="hidden" name="postId" value={post.id}/></ActionForm>
       <p>
-        {brand.name} · {post.status.replaceAll("_", " ")}
+        {brand.name} · {statusLabel(post.status)}
         {post.status === "published" &&
           targets.some((r) => r.target.warnings.length) && (
             <span className="ml-2 rounded bg-amber-100 p-2 text-amber-900">
@@ -42,7 +45,7 @@ export default async function PostPage({
       </p>
       <p
         role="status"
-        className="rounded-xl bg-emerald-50 p-4 text-emerald-800"
+        className={`rounded-xl p-4 ${["failed","partially_failed"].includes(post.status) ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}
       >
         {post.status === "draft"
           ? "Draft saved. Keep shaping it, then schedule when you’re ready."
@@ -50,7 +53,7 @@ export default async function PostPage({
             ? `Post scheduled for ${post.scheduledAt.toLocaleString("en-US", { timeZone: brand.timezone, dateStyle: "medium", timeStyle: "short" })} (${brand.timezone}).`
             : post.status === "pending_approval"
               ? "Post saved for client approval. Copy the link below to share it."
-              : `Post is ${post.status.replaceAll("_", " ")}.`}
+              : `${statusLabel(post.status)}.`}
       </p>
       <Card>
         <p className="whitespace-pre-wrap break-words">{post.body}</p>
@@ -63,12 +66,13 @@ export default async function PostPage({
           </Link>
         )}
       </Card>
+      {reschedulable && writable && <Card><ActionForm action="reschedule" disabled={!access.publish}><input type="hidden" name="postId" value={post.id}/><label className="block">New date and time ({brand.timezone})<input className="block rounded border p-3" type="datetime-local" name="scheduledAt" required defaultValue={post.scheduledAt ? inZone(post.scheduledAt,brand.timezone) : undefined}/></label><p>Changing only the date preserves client approval.</p></ActionForm></Card>}
       <ApprovalPanel post={post} />
-      {targets.map(({ target: t, name }) => (
+      {targets.map(({ target: t, name, channelStatus }) => (
         <Card key={t.id}>
           <h2 className="text-xl font-semibold">{name}</h2>
           <p>
-            {t.status} · {t.attempts} attempts
+            {statusLabel(t.status)} · Tried {t.attempts} of 5 times
           </p>
           {t.warnings.map((warning, index) => (
             <p
@@ -80,6 +84,8 @@ export default async function PostPage({
               manually; retrying could duplicate it.
             </p>
           ))}
+          {t.status === 'held' && <Link className="inline-block rounded border px-3 py-2" href="/app/billing">Update billing</Link>}
+          {channelStatus !== 'active' && <Link className="inline-block rounded border px-3 py-2" href={`/app/brands/${brand.id}#connect`}>Reconnect channel</Link>}
           {t.lastErrorHuman && (
             <p role="status" className="mt-2 text-red-700">
               {t.lastErrorHuman}
@@ -104,22 +110,22 @@ export default async function PostPage({
               View published post
             </a>
           )}
-          {!editable &&
+          {!["draft","pending_approval","changes_requested"].includes(post.status) &&
             ["queued", "failed", "needs_review", "held"].includes(t.status) && (
               <div className="mt-4 flex gap-6">
                 {(["failed", "needs_review", "held"].includes(t.status) ||
                   t.lastErrorCode) && (
                   <ActionForm
                     action="retry"
-                    disabled={!access.publish || !writable}
+                    disabled={!access.publish || !writable || channelStatus !== "active"}
                   >
                     <input type="hidden" name="targetId" value={t.id} />
-                    <p>Retry now</p>
+
                   </ActionForm>
                 )}
                 <ActionForm action="skip" disabled={!writable}>
                   <input type="hidden" name="targetId" value={t.id} />
-                  <p>Skip channel</p>
+
                 </ActionForm>
               </div>
             )}

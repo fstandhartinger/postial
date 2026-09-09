@@ -276,7 +276,7 @@
     },
     {
       "label": "Feature",
-      "text": "X, Bluesky, Mastodon, Telegram, and Threads"
+      "text": "Bluesky, Mastodon and Telegram"
     },
     {
       "label": "Feature",
@@ -424,7 +424,7 @@
     },
     {
       "label": "Answer 4",
-      "text": "X, Bluesky, Mastodon, Telegram, and Threads are supported at launch. LinkedIn, Instagram, and Facebook are planned, subject to platform approval, with no confirmed release dates."
+      "text": "Bluesky, Mastodon and Telegram are available today. X, Threads, LinkedIn, Instagram, and Facebook are planned, subject to platform approval, with no confirmed release dates."
     },
     {
       "label": "Question 5",
@@ -448,7 +448,7 @@
     },
     {
       "label": "Answer 7",
-      "text": "Yes. Agency includes API access and an n8n node. Automations use the same brand limits and connected-network permissions as your account."
+      "text": "Agency includes REST API and webhooks. The n8n node awaits npm publication. Automations use the same brand limits and connected-network permissions as your account."
     }
   ],
   "Final CTA": [

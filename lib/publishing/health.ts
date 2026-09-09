@@ -1,3 +1,4 @@
+import { notifyWorkspace } from '@/lib/notifications';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { brands, channels } from '@/db/schema';
@@ -10,7 +11,7 @@ export const healthErrorMessage = (code: string) => code === 'AUTH_EXPIRED'
 /** Row locks serialize validation with OAuth refresh and connection changes. */
 export async function checkChannelHealth(id?: string, workspaceId?: string) {
   return getDb().transaction(async tx => {
-    const rows = await tx.select({channel: channels}).from(channels)
+    const rows = await tx.select({channel: channels, workspaceId: brands.workspaceId}).from(channels)
       .innerJoin(brands, eq(brands.id, channels.brandId))
       .where(and(sql`${channels.status} <> 'disconnected'`,
         id ? eq(channels.id, id) : sql`(${channels.lastCheckedAt} is null or ${channels.lastCheckedAt} <= now() - interval '24 hours')`,
@@ -19,7 +20,7 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         id ? sql`(${channels.lastCheckedAt} is null or ${channels.lastCheckedAt} <= now() - interval '1 minute')` : undefined))
       .orderBy(sql`${channels.lastCheckedAt} asc nulls first`, channels.id)
       .limit(id ? 1 : 5).for('update', {of: channels, skipLocked: true});
-    for (const {channel: c} of rows) {
+    for (const {channel: c, workspaceId: ownerWorkspace} of rows) {
       let status = c.status, error: string | null = null;
       try {
         const publisher = getPublisher(c.provider);
@@ -39,6 +40,7 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         error = healthErrorMessage(code);
         console.warn('Channel health check failed', {provider: c.provider, code});
       }
+      if(status==='token_expired' && c.status!=='token_expired') await notifyWorkspace(tx,ownerWorkspace,'token_expired');
       await tx.update(channels).set({status, lastCheckedAt: new Date(), lastHealthError: error}).where(eq(channels.id,c.id));
     }
     return {checked: rows.length};

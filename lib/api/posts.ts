@@ -5,7 +5,7 @@ import { appUrl } from '@/lib/stripe';
 import { workspaceEntitlements } from '@/lib/entitlements';
 import { ApiError, json } from './errors';
 import { hash, type ApiContext } from './auth';
-import { changeTarget, isUuid, savePost, type Tx } from './post-service';
+import { changeTarget, reschedulePost, isUuid, savePost, type Tx } from './post-service';
 const input = z.object({
   brand_id: z.string().uuid(), body: z.string(), media_urls: z.array(z.string()).max(4).default([]),
   link_url: z.string().optional(), channel_ids: z.array(z.string().uuid()).max(100).default([]),
@@ -129,4 +129,12 @@ export async function listChannels(_request: Request, ctx: ApiContext, id?: stri
   await ownBrand(ctx, id!);
   return json({data: await ctx.db.select({id: channels.id, provider: channels.provider, display_name: channels.displayName, status: channels.status, url: channels.url})
     .from(channels).where(eq(channels.brandId, id!))});
+}
+
+export async function patchPost(request: Request, ctx: ApiContext, id?: string) {
+  const parsed = z.object({scheduled_at:z.string().datetime({offset:true})}).strict().safeParse(await readJson(request));
+  if (!parsed.success) throw new ApiError(422,'validation_error','Provide scheduled_at as an ISO date with timezone.');
+  await ownPost(ctx,id!);
+  await reschedulePost(ctx,id!,parsed.data.scheduled_at);
+  return getPost(request,ctx,id);
 }

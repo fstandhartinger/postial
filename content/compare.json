@@ -2,14 +2,13 @@
   "checkedAt": "2026-09-08",
   "priceFootnote": "Prices as listed on vendor sites, checked September 2026",
   "methodology": "SocialMint prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Fifteen brands can require many more than fifteen accounts. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
-  "earlyAccess": "SocialMint is a young, early-access product. Publishing, client approvals, API and n8n are rolling out in September 2026; verify availability in your workspace before moving client work. Launch networks: X, Bluesky, Mastodon, Telegram and Threads. LinkedIn, Instagram and Facebook follow after platform approval.",
   "socialmint": [
     "Starter: €19/month including VAT; 3 brands, 1 user.",
     "Agency: €49/month including VAT; 15 brands, 5 users.",
-    "Agency: client approval links without a reviewer login; September rollout.",
-    "Visible errors and retry per post; September rollout.",
-    "Agency: API + n8n; September rollout.",
-    "X, Bluesky, Mastodon, Telegram, Threads in the September rollout. LinkedIn, Instagram and Facebook pending platform approval.",
+    "Client approval links (Agency)",
+    "Publishing status and retries",
+    "REST API and webhooks (Agency); n8n npm publication pending",
+    "See the availability matrix above.",
     "Hosted in Germany. Publishing still sends content to the selected social networks.",
     "14 days, no card needed. Cancel anytime."
   ],

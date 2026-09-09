@@ -11,7 +11,7 @@ export default async function EditPost({
   params: Promise<{ id: string }>;
 }) {
   const { db, post, brand } = await ownPost((await params).id);
-  if (!["draft", "pending_approval", "changes_requested"].includes(post.status))
+  if (!["draft", "pending_approval", "changes_requested", "scheduled", "approved"].includes(post.status))
     return (
       <p>
         This post is already scheduled.{" "}
@@ -26,6 +26,7 @@ export default async function EditPost({
   return (
     <>
       <h1 className="text-3xl font-semibold">Edit post</h1>
+      {post.requiresApproval && <p role="status">Saving edits resets client approval. The revised post stays pending until the client approves again.</p>}
       <Composer
         canPublish={data.canPublish} approvalLinks={data.approvalLinks}
         brands={data.brands}

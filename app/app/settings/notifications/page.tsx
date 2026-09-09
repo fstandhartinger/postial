@@ -1,0 +1,14 @@
+import Link from 'next/link';
+import {and,eq,ne,isNull,desc} from 'drizzle-orm';
+import {coreContext} from '@/lib/core';
+import {webhookEndpoints,webhookDeliveries} from '@/db/schema';
+import {alertEvents} from '@/lib/notifications';
+import {statusLabel} from '@/lib/status-label';
+import {NotificationForm} from '@/components/settings/NotificationForm';
+export default async function NotificationSettings(){
+  const {db,workspace,role}=await coreContext();
+  if(role!=='owner') return <p>Only the workspace owner can manage alert destinations.</p>;
+  const destinations=await db.select({id:webhookEndpoints.id,kind:webhookEndpoints.kind,events:webhookEndpoints.events}).from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId,workspace.id),ne(webhookEndpoints.kind,'api'),isNull(webhookEndpoints.deletedAt)));
+  const logs=await db.select({id:webhookDeliveries.id,kind:webhookEndpoints.kind,status:webhookDeliveries.status,attempts:webhookDeliveries.attempts,event:webhookDeliveries.event}).from(webhookDeliveries).innerJoin(webhookEndpoints,eq(webhookEndpoints.id,webhookDeliveries.endpointId)).where(and(eq(webhookEndpoints.workspaceId,workspace.id),ne(webhookEndpoints.kind,'api'))).orderBy(desc(webhookDeliveries.createdAt)).limit(20);
+  return <><h1 className="text-3xl font-semibold">Notifications</h1><p><Link href="/app/settings/team">Team</Link> · <Link href="/app/settings/legal">Legal &amp; DPA</Link></p><h2 className="text-xl font-semibold">Alert destinations</h2><p>Send publishing problems and client decisions to a team channel. Webhook URLs are stored encrypted and never displayed again. Alerts remain enabled when your subscription pauses. Shared in-app notices are marked read for the workspace.</p><NotificationForm action="create"><label className="block">Destination<select name="kind" className="block rounded border p-3"><option value="slack">Slack</option><option value="discord">Discord</option><option value="mattermost">Mattermost</option></select></label><label className="block">Incoming webhook URL<input type="url" name="url" required autoComplete="off" className="block w-full rounded border p-3"/></label><fieldset><legend>Events</legend>{alertEvents.map(e=><label key={e} className="block"><input type="checkbox" name="event" value={e} defaultChecked/> {e==='approval.decided'?'Client approval decision':statusLabel(e)}</label>)}</fieldset></NotificationForm>{destinations.map(d=><article key={d.id} className="space-y-3 rounded border p-4"><h3 className="font-semibold">{d.kind}</h3><p>{d.events.map(statusLabel).join(', ')}</p><NotificationForm action="test" id={d.id}/><NotificationForm action="delete" id={d.id}/></article>)}<h2 className="text-xl font-semibold">Recent deliveries</h2>{logs.map(l=><p key={l.id}>{l.kind} · {l.event} · {l.status} · Tried {l.attempts} of 5 times</p>)}</>;
+}

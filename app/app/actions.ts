@@ -19,7 +19,7 @@ import { workspaceEntitlements } from '@/lib/entitlements';
 import { checkChannelHealth } from "@/lib/publishing/health";
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 import { ApiError } from "@/lib/api/errors";
-import { InputError, check, https, savePost, changeTarget, duplicatePost } from "@/lib/api/post-service";
+import { InputError, check, https, savePost, changeTarget, duplicatePost, reschedulePost } from "@/lib/api/post-service";
 export async function coreAction(
   _state: { error: string },
   form: FormData,
@@ -157,6 +157,9 @@ export async function coreAction(
     } else if (action === "duplicate") {
       const id = await duplicatePost({db,workspace,userId},str(form,"postId"));
       destination = `/app/posts/${id}/edit`;
+    } else if (action === "reschedule") {
+      const id = await reschedulePost({db,workspace,userId},str(form,"postId"),str(form,"scheduledAt"),false);
+      destination = `/app/posts/${id}`;
     } else if (action === "post") {
       const postId = await savePost({db, workspace, userId}, form);
       destination = `/app/posts/${postId}`;

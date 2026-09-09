@@ -10,12 +10,12 @@ const fields = {id: webhookEndpoints.id, url: webhookEndpoints.url, events: webh
 async function ownEndpoint(ctx: ApiContext, id?: string, includeDeleted = false) {
   if (!id || !isUuid(id)) throw new ApiError(404, 'not_found', 'Endpoint not found.');
   const [row] = await ctx.db.select(fields).from(webhookEndpoints).where(and(eq(webhookEndpoints.id, id),
-    eq(webhookEndpoints.workspaceId, ctx.workspace.id), includeDeleted ? undefined : isNull(webhookEndpoints.deletedAt)));
+    eq(webhookEndpoints.kind, "api"), eq(webhookEndpoints.workspaceId, ctx.workspace.id), includeDeleted ? undefined : isNull(webhookEndpoints.deletedAt)));
   if (!row) throw new ApiError(404, 'not_found', 'Endpoint not found.');
   return row;
 }
 export async function listWebhooks(_request: Request, ctx: ApiContext) {
-  return json({data: await ctx.db.select(fields).from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId, ctx.workspace.id),
+  return json({data: await ctx.db.select(fields).from(webhookEndpoints).where(and(eq(webhookEndpoints.kind, "api"), eq(webhookEndpoints.workspaceId, ctx.workspace.id),
     isNull(webhookEndpoints.deletedAt))).orderBy(desc(webhookEndpoints.createdAt), desc(webhookEndpoints.id))});
 }
 export async function registerWebhook(request: Request, ctx: ApiContext) {

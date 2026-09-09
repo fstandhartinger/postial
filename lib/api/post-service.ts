@@ -64,7 +64,10 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         );
       }
       const draft = str(form, "intent") === "draft",
-        requiresApproval = form.get("requiresApproval") === "on";
+        requestedApproval = form.get("requiresApproval") === "on";
+      let requiresApproval = requestedApproval;
+      let mediaAlt: Record<string, string> = {};
+      try { const parsed = JSON.parse(str(form, "mediaAlt") || "{}"); check(parsed && typeof parsed === "object" && !Array.isArray(parsed), "Invalid image descriptions."); mediaAlt = Object.fromEntries(mediaUrls.map(url => { const alt = parsed[url] ?? ""; check(typeof alt === "string" && alt.length <= 1000, "Image descriptions must be at most 1,000 characters."); return [url, alt]; })); } catch(e) { if (e instanceof InputError) throw e; throw new InputError("Invalid image descriptions."); }
       check(!requiresApproval || access.approvalLinks, "requires_approval: Included with Agency — upgrade to use client approval links.");
       check(
         draft || selected.length > 0,
@@ -86,7 +89,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           );
         }
       }
-      const status = draft
+      let status: typeof posts.$inferSelect.status = draft
         ? "draft"
         : requiresApproval
           ? "pending_approval"
@@ -99,6 +102,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           const [asset] = await tx.select({id:mediaAssets.id}).from(mediaAssets).where(and(eq(mediaAssets.id,assetId),eq(mediaAssets.workspaceId,workspace.id)));
           check(asset, 'Uploaded image not found in this workspace.');
         }
+        let approvalReset = false;
         if (id) {
           check(isUuid(id), "Post not found.");
           const [old] = await tx
@@ -110,11 +114,20 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           check(old, "Post not found.");
           check(access.activeBrandIds.includes(old.post.brandId), "This brand is read-only under your plan. Review Billing.");
           check(
-            ["draft", "pending_approval", "changes_requested"].includes(
+            ["draft", "pending_approval", "changes_requested", "scheduled", "approved"].includes(
               old.post.status,
             ),
-            "Only drafts or posts awaiting approval can be edited.",
+            "This post can no longer be edited.",
           );
+          const targets = await tx.select().from(postTargets).where(eq(postTargets.postId, id)).for('update');
+          check(!targets.some(t => ['publishing', 'published'].includes(t.status) || t.attempts > 0), 'Publishing has started; this post cannot be edited.');
+          // An existing approval requirement cannot be removed by editing approved content.
+          if (old.post.requiresApproval && old.post.status === 'approved') {
+            check(access.approvalLinks, "Client approval requires Agency.");
+            requiresApproval = true;
+            status = draft ? 'draft' : 'pending_approval';
+            approvalReset = true;
+          }
           await tx.delete(postTargets).where(eq(postTargets.postId, id));
         }
         const values = {
@@ -122,6 +135,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           authorUserId: userId,
           body,
           mediaUrls,
+          mediaAlt,
           linkUrl: linkUrl || null,
           scheduledAt,
           status,
@@ -153,7 +167,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           .values({
             postId: post.id,
             type: status,
-            message: draft
+            message: approvalReset ? "Approval reset — edited content requires client approval again" : draft
               ? "Draft saved"
               : requiresApproval
                 ? "Awaiting client approval"
@@ -246,10 +260,33 @@ export async function duplicatePost(ctx: PostContext, id: string) {
     const p = source.post;
     check(access.activeBrandIds.includes(p.brandId),'This brand is read-only under your plan. Review Billing.');
     const [copy] = await tx.insert(posts).values({brandId:p.brandId, authorUserId:ctx.userId, body:p.body,
-      mediaUrls:p.mediaUrls, linkUrl:p.linkUrl, status:'draft', scheduledAt:null, requiresApproval:false}).returning();
+      mediaUrls:p.mediaUrls, mediaAlt:p.mediaAlt, linkUrl:p.linkUrl, status:'draft', scheduledAt:null, requiresApproval:false}).returning();
     const targets = await tx.select({channelId:postTargets.channelId}).from(postTargets).where(eq(postTargets.postId,id));
     if(targets.length) await tx.insert(postTargets).values(targets.map(t=>({postId:copy.id,channelId:t.channelId,nextAttemptAt:null})));
     await tx.insert(postEvents).values({postId:copy.id,type:'draft',message:'Draft duplicated from an existing post'});
     return copy.id;
+  });
+}
+
+/** The worker and editor must lock the post before locking its targets. */
+export async function reschedulePost(ctx: PostContext, id: string, value: string, isoDate = true) {
+  check(isUuid(id), 'Post not found.');
+  const access = ctx.access ?? await workspaceEntitlements(ctx.workspace);
+  check(access.publish, 'Publishing requires an active plan or trial. Review Billing.');
+  return ctx.db.transaction(async tx => {
+    const [row] = await tx.select({post:posts, timezone:brands.timezone}).from(posts).innerJoin(brands, eq(brands.id,posts.brandId))
+      .where(and(eq(posts.id,id),eq(brands.workspaceId,ctx.workspace.id))).for('update',{of:posts});
+    check(row, 'Post not found.');
+    check(access.activeBrandIds.includes(row.post.brandId), 'This brand is read-only under your plan.');
+    if (!['scheduled','approved'].includes(row.post.status)) throw new ApiError(409,'invalid_status','Only scheduled or approved posts can be rescheduled.');
+    const targets = await tx.select().from(postTargets).where(eq(postTargets.postId,id)).for('update');
+    if (targets.some(t => ['publishing','published'].includes(t.status))) throw new ApiError(409,'invalid_status','Publishing has started; this post cannot be rescheduled.');
+    let date: Date;
+    try { date = isoDate ? new Date(value) : localDateTime(value,row.timezone); } catch { throw new InputError('Choose a valid date and time.'); }
+    check(Number.isFinite(date.getTime()) && date.getTime() > Date.now(), 'Choose a future date and time.');
+    await tx.update(posts).set({scheduledAt:date,updatedAt:new Date()}).where(eq(posts.id,id));
+    await tx.update(postTargets).set({nextAttemptAt:date,updatedAt:new Date()}).where(and(eq(postTargets.postId,id),eq(postTargets.status,'queued')));
+    await tx.insert(postEvents).values({postId:id,type:'rescheduled',message:`Rescheduled to ${date.toISOString()} (${row.timezone})`});
+    return id;
   });
 }

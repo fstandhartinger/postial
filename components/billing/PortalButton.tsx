@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-export function PortalButton() {
+export function PortalButton({label = "Manage billing"}:{label?:string}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,5 +19,5 @@ export function PortalButton() {
       setBusy(false);
     }
   }
-  return <><Button type="button" disabled={busy} onClick={openPortal}>{busy ? "Opening billing…" : "Manage billing"}</Button>{error && <p role="alert">{error}</p>}</>;
+  return <><Button type="button" disabled={busy} onClick={openPortal}>{busy ? "Opening billing…" : label}</Button>{error && <p role="alert">{error}</p>}</>;
 }

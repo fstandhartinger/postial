@@ -1,7 +1,10 @@
+import { NotificationBell } from '@/components/app/notification-bell';
+import { TrialBanner } from '@/components/billing/TrialBanner';
+import { getSubscriptionForWorkspace } from '@/lib/billing';
 import Link from "next/link";
 import { switchWorkspace } from "./workspace-actions";
-import { eq } from "drizzle-orm";
-import { brands, users, workspaces, workspaceMembers } from "@/db/schema";
+import { eq, and, countDistinct } from "drizzle-orm";
+import { postTargets, posts, brands, users, workspaces, workspaceMembers } from "@/db/schema";
 import { signOut } from "@/auth";
 import { coreContext } from "@/lib/core";
 import { BrandSwitcher } from "@/components/core/brand-switcher";
@@ -20,6 +23,8 @@ export default async function AppLayout({
       .where(eq(brands.workspaceId, workspace.id)),
     db.select({ name: users.name }).from(users).where(eq(users.id, userId)),
   ]);
+  const subscription = await getSubscriptionForWorkspace(workspace.id);
+  const [held] = await db.select({total:countDistinct(posts.id)}).from(posts).innerJoin(brands,eq(brands.id,posts.brandId)).innerJoin(postTargets,eq(postTargets.postId,posts.id)).where(and(eq(brands.workspaceId,workspace.id),eq(postTargets.status,'held')));
   const settingsHref = role === 'owner' ? '/app/settings/team' : undefined;
   const memberships = await db.select({ id: workspaces.id, name: workspaces.name }).from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId)).where(eq(workspaceMembers.userId, userId));
   const switcher = <form action={switchWorkspace} className="space-y-2"><label className="text-xs">Workspace<select name="workspace" aria-label="Workspace" defaultValue={workspace.id} className="w-full rounded border p-2">{memberships.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><Button variant="secondary">Switch workspace</Button></form>;
@@ -53,6 +58,7 @@ export default async function AppLayout({
       <div className="min-w-0">
         <header className="app-topbar">
           <BrandSwitcher brands={list} />
+          <NotificationBell workspaceId={workspace.id} userId={userId}/>
           <NewPostLink />
           <details className="relative md:hidden">
             <summary className="cursor-pointer p-2 text-sm">Account</summary>
@@ -78,6 +84,7 @@ export default async function AppLayout({
           </details>
         </header>
         <main id="main-content" className="app-content space-y-6">
+          <TrialBanner subscription={subscription ? {status:subscription.status,trialEnd:subscription.trialEnd?.toISOString()??null} : null} held={held.total}/>
           {children}
         </main>
       </div>

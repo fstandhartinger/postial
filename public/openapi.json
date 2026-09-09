@@ -888,6 +888,69 @@
             }
           }
         }
+      },
+      "patch": {
+        "summary": "Reschedule an unstarted scheduled or approved post",
+        "operationId": "reschedulePost",
+        "tags": [
+          "Posts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "scheduled_at"
+                ],
+                "properties": {
+                  "scheduled_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Future ISO timestamp with timezone. Preserves approval."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Publishing started or post is not scheduled/approved"
+          },
+          "422": {
+            "description": "Invalid or past timestamp"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "403": {
+            "description": "Requires posts:write and Agency access"
+          }
+        }
       }
     },
     "/posts/{id}/retry": {

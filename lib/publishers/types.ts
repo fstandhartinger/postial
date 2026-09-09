@@ -13,6 +13,7 @@ export interface PublishInput {
   text: string;
   /** Publicly fetchable media URLs (images only for now). Adapters may ignore media they cannot handle and say so in `warnings`. */
   mediaUrls?: string[];
+  mediaAlt?: Record<string, string>;
   /** Optional link to attach/preview when the provider supports it. */
   linkUrl?: string;
   /** Stable id of the post target; adapters may use it as an idempotency key where the provider supports one. */

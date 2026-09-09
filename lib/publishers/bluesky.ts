@@ -70,7 +70,7 @@ export const bluesky: Publisher = {
       try {
         const blob = await downloadImage('Bluesky', url, bluesky.maxMediaBytes);
         const uploaded = await json<{ blob: unknown }>('Bluesky', `${auth.pds}/xrpc/com.atproto.repo.uploadBlob`, { method: 'POST', headers: { ...headers, 'Content-Type': blob.type }, body: blob });
-        images.push({ alt: '', image: uploaded.blob });
+        images.push({ alt: input.mediaAlt?.[url] ?? '', image: uploaded.blob });
       } catch (error) {
         if (!(error instanceof PublishError) || error.code !== 'CONTENT_REJECTED') throw error;
         warnings.push('An image was omitted: Bluesky requires supported images no larger than 1 MB.');

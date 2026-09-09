@@ -32,6 +32,7 @@ export function Composer({
     brandId?: string;
     body?: string;
     mediaUrls?: string[];
+    mediaAlt?: Record<string,string>;
     linkUrl?: string;
     scheduledAt?: string;
     requiresApproval?: boolean;
@@ -43,6 +44,9 @@ export function Composer({
   const [selected, setSelected] = useState(initial.channelIds ?? []);
   const [body, setBody] = useState(initial.body ?? "");
   const [media, setMedia] = useState(initial.mediaUrls?.join("\n") ?? "");
+  const [mediaAlt,setMediaAlt] = useState(initial.mediaAlt ?? {});
+  const [imageUrl,setImageUrl] = useState('');
+  const [previewChannel,setPreviewChannel] = useState('');
   const uploadingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -122,6 +126,7 @@ export function Composer({
             </p>
           ))}
         </div>
+        {!!channelCounts.length && <section aria-label="Network preview" className="rounded-xl border p-3"><div role="tablist" aria-label="Preview network" className="flex flex-wrap gap-2">{channelCounts.map((c,i)=><button key={c.id} type="button" role="tab" aria-selected={(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)===c.id} onClick={()=>setPreviewChannel(c.id)} className="rounded border px-3 py-2">{c.provider}{i===0?'':''}</button>)}</div>{channelCounts.filter(c=>c.id===(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)).map(c=><div role="tabpanel" key={c.id}><p className="whitespace-pre-wrap break-words">{c.max>0 ? Array.from(text).slice(0,c.max).join('') : text}{c.max>0 && c.count>c.max ? '…' : ''}</p><p>{c.count} / {c.max || 'unlimited'} characters. {c.max>0 && c.count>c.max ? 'Over limit — shorten before publishing.' : 'Within limit.'}</p><p className="text-sm">Approximate preview; actual layout varies. Up to four images. {['bluesky','mastodon'].includes(c.provider)?'Image alt text is included.':'This channel does not receive image alt text.'}</p></div>)}</section>}
         <fieldset className="space-y-2">
           <legend>Channels</legend>
           {channels
@@ -165,21 +170,14 @@ export function Composer({
           <div className="grid grid-cols-2 gap-2">{media.split(/\s+/).filter(Boolean).slice(0,4).map((url,i) => (
             <div key={i} className="min-w-0">
               <img src={url} alt={`Uploaded image ${i+1}`} className="aspect-square w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
+              <label className="block text-sm">Alt text for image {i+1}<input className="block w-full rounded border p-2" maxLength={1000} value={mediaAlt[url] ?? ''} onChange={e=>setMediaAlt(old=>({...old,[url]:e.target.value}))}/></label>
               <button type="button" disabled={uploading} className="mt-1 text-sm text-red-700 underline" onClick={() => setMedia(media.split(/\s+/).filter(Boolean).filter((_,index) => index !== i).join('\n'))}>Remove image {i+1}</button>
             </div>
           ))}</div>
         </div>
-        <label className="block">
-          Media URLs (up to four HTTPS images)
-          <Textarea
-            className="block w-full rounded border p-3"
-            name="mediaUrls"
-            readOnly={uploading}
-            value={media}
-            onChange={(e) => setMedia(e.target.value)}
-            placeholder="One URL per line"
-          />
-        </label>
+        <input type="hidden" name="mediaUrls" value={media}/>
+        <input type="hidden" name="mediaAlt" value={JSON.stringify(mediaAlt)}/>
+        <details><summary className="cursor-pointer text-emerald-700">Add image by URL</summary><label className="block">Public HTTPS image URL<input className="block w-full rounded border p-3" type="url" value={imageUrl} onChange={e=>setImageUrl(e.target.value)}/></label><Button type="button" disabled={uploading || media.split(/\s+/).filter(Boolean).length >= 4} onClick={()=>{if(/^https:\/\//.test(imageUrl)){setMedia(old=>[...old.split(/\s+/).filter(Boolean),imageUrl].join('\n'));setImageUrl('');}}}>Add image</Button></details>
         <label className="block">
           Link
           <Input
