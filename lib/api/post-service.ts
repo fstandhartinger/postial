@@ -8,25 +8,14 @@ import { workspaceEntitlements } from "@/lib/entitlements";
 import { validatePublicUrl } from "@/lib/publishers/safe-fetch";
 import { channelTextLimit, countText, postText } from "@/lib/text-limits";
 export type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-export type PostContext = { db: ReturnType<typeof getDb>; workspace: {id: string}; userId: string };
-export const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-export class InputError extends Error {}
-export function check(ok: unknown, message: string): asserts ok {
-  if (!ok) throw new InputError(message);
-}
-export function https(value: string) {
-  try {
-    const u = new URL(value);
-    return u.protocol === "https:" && !u.username && !u.password;
-  } catch {
-    return false;
-  }
-}
+export type PostContext = { db: ReturnType<typeof getDb>; workspace: {id: string}; userId: string; access?: Awaited<ReturnType<typeof workspaceEntitlements>> };
+import { isUuid, str, InputError, check, https } from "./input";
+export { isUuid, InputError, check, https } from "./input";
 
 export async function savePost(ctx: PostContext, form: FormData, isoDate = false, transaction?: Tx) {
- const {db, workspace, userId} = ctx;
- const access = await workspaceEntitlements(workspace);
+ const {workspace, userId} = ctx;
+ const db = transaction ?? ctx.db;
+ const access = ctx.access ?? await workspaceEntitlements(workspace);
       const brandId = str(form, "brandId"),
         id = str(form, "postId");
       check(isUuid(brandId), "Choose a brand.");
@@ -161,7 +150,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
 }
 export async function changeTarget(ctx: PostContext, form: FormData, action: "retry" | "skip", transaction?: Tx) {
  const {db, workspace} = ctx;
- const access = await workspaceEntitlements(workspace);
+ const access = ctx.access ?? await workspaceEntitlements(workspace);
       const id = str(form, "targetId");
       check(isUuid(id), "Target not found.");
       const change = async (tx: Tx) => {

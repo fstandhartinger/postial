@@ -69,6 +69,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
   const data = parsed.data, idem = request.headers.get('idempotency-key');
   if (idem !== null && (!/^[\x21-\x7e]{1,200}$/.test(idem))) throw new ApiError(422, 'validation_error', 'Idempotency-Key must contain 1–200 printable non-space ASCII characters.');
   const requestHash = hash(JSON.stringify(data));
+  const serviceContext = {...ctx, access: await workspaceEntitlements(ctx.workspace)};
   const response = await ctx.db.transaction(async tx => {
     if (idem) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${ctx.key.id + ':' + idem}, 0))`);
@@ -84,7 +85,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
       linkUrl: data.link_url ?? '', intent: data.scheduled_at ? 'publish' : 'draft', when: data.scheduled_at === 'now' ? 'now' : 'later',
       scheduledAt: data.scheduled_at ?? '', requiresApproval: data.requires_approval ? 'on' : ''})) form.set(k, v);
     data.channel_ids.forEach(id => form.append('channelId', id));
-    const id = await savePost(ctx, form, true, tx);
+    const id = await savePost(serviceContext, form, true, tx);
     const post = await ownPost(ctx, id, tx);
     const result = JSON.parse(JSON.stringify({...postJson(post), ...(post.approvalToken ? {approval_url: `${appUrl()}/r/${post.approvalToken}`} : {})}));
     if (idem) await tx.insert(apiIdempotency).values({keyId: ctx.key.id, key: idem, requestHash, response: result, expiresAt: new Date(Date.now() + 86400000)})
@@ -94,9 +95,10 @@ export async function createPost(request: Request, ctx: ApiContext) {
   return json(response, 201);
 }
 export async function deletePost(_request: Request, ctx: ApiContext, id?: string) {
+  const access = await workspaceEntitlements(ctx.workspace);
   await ctx.db.transaction(async tx => {
     const post = await ownPost(ctx, id!, tx, true);
-    if (!(await workspaceEntitlements(ctx.workspace)).activeBrandIds.includes(post.brandId)) throw new ApiError(403, 'brand_read_only', 'This brand is read-only under your plan.');
+    if (!access.activeBrandIds.includes(post.brandId)) throw new ApiError(403, 'brand_read_only', 'This brand is read-only under your plan.');
     const targets = await tx.select().from(postTargets).where(eq(postTargets.postId, post.id)).for('update');
     if (!['draft', 'scheduled'].includes(post.status) || targets.some(t => t.attempts > 0 || ['publishing', 'published'].includes(t.status)))
       throw new ApiError(409, 'invalid_status', 'Only drafts and scheduled posts that have not started publishing can be deleted.');
@@ -105,13 +107,14 @@ export async function deletePost(_request: Request, ctx: ApiContext, id?: string
   return new Response(null, {status: 204, headers: {'Cache-Control': 'no-store'}});
 }
 export async function retryPost(request: Request, ctx: ApiContext, id?: string) {
+  const serviceContext = {...ctx, access: await workspaceEntitlements(ctx.workspace)};
   await ctx.db.transaction(async tx => {
     const post = await ownPost(ctx, id!, tx, true);
     const targets = await tx.select().from(postTargets).where(and(eq(postTargets.postId, post.id),
       inArray(postTargets.status, ['failed', 'needs_review', 'held', 'queued']))).orderBy(asc(postTargets.id)).for('update');
     const retryable = targets.filter(t => t.status !== 'queued' || t.lastErrorCode);
     if (!retryable.length) throw new ApiError(409, 'invalid_status', 'No failed targets to retry.');
-    for (const t of retryable) { const form = new FormData(); form.set('targetId', t.id); await changeTarget(ctx, form, 'retry', tx); }
+    for (const t of retryable) { const form = new FormData(); form.set('targetId', t.id); await changeTarget(serviceContext, form, 'retry', tx); }
   });
   return getPost(request, ctx, id);
 }

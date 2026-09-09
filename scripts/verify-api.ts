@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { createHmac, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../db';
-import { apiKeys, apiRateLimits, brands, channels, posts, postTargets, subscriptions, users, webhookDeliveries, workspaces } from '../db/schema';
+import { apiKeys, apiRateLimits, brands, channels, posts, postTargets, subscriptions, users, sessions, workspaceMembers, webhookDeliveries, workspaces } from '../db/schema';
 import { createApiKey, hash } from '../lib/api/auth';
 import { createWebhook, deliverWebhooks, emit, sendTestEvent, validateWebhookUrl, webhookEvents } from '../lib/api/webhooks';
 import { decideApproval } from '../lib/approvals';
@@ -15,7 +15,7 @@ import * as postRoute from '../app/api/v1/posts/route';
 import * as detailRoute from '../app/api/v1/posts/[id]/route';
 import * as retryRoute from '../app/api/v1/posts/[id]/retry/route';
 
-type Handler = (req: Request, ctx?: {params: Promise<{id: string}>}) => Promise<Response>;
+type Handler = (req: Request, ctx?: {params?: Promise<{id?: string}>}) => Promise<Response>;
 async function listen(server: Server) { await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve)); const address = server.address(); assert(address && typeof address !== 'string'); return `http://127.0.0.1:${address.port}`; }
 async function close(server: Server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
 async function main() {
@@ -37,7 +37,7 @@ async function main() {
       if (!route || !handler) { res.writeHead(404).end(); return; }
       const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
       const response = await handler(new Request(url, {method: req.method, headers: req.headers as Record<string, string>,
-        ...(chunks.length ? {body: Buffer.concat(chunks)} : {})}), {params: Promise.resolve({id: route[0].exec(url.pathname)?.[1] ?? ''})});
+        ...(chunks.length ? {body: Buffer.concat(chunks)} : {})}), route[0].exec(url.pathname)?.[1] ? {params: Promise.resolve({id: route[0].exec(url.pathname)![1]})} : {});
       res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer()));
     } catch { res.writeHead(500).end('Harness error'); }
   });
@@ -48,7 +48,9 @@ async function main() {
     received.push({body: Buffer.concat(chunks).toString(), signature: String(req.headers['x-socialmint-signature'])});
     res.writeHead(receiverCode).end();
   });
-  const base = await listen(server), receiverUrl = await listen(receiver);
+  const harnessBase = await listen(server), receiverUrl = await listen(receiver);
+  const base = process.env.API_HTTP_URL ?? harnessBase;
+  process.env.AUTH_URL = base; process.env.NEXT_PUBLIC_APP_URL = base;
   try {
     await db.insert(users).values({id: userId, name: 'API verification fixture'});
     const [workspace, starter] = await db.insert(workspaces).values([
@@ -64,7 +66,21 @@ async function main() {
     ]).returning();
     const [channel] = await db.insert(channels).values({brandId: brand.id, provider: 'mastodon', displayName: 'Fixture channel', externalId: userId, credentialsEnc: 'not-used', meta: {maxTextLength: 500}}).returning();
     const key = await createApiKey(workspace.id, userId, 'Test key', ['posts:write', 'posts:read', 'brands:read']);
-    const request = (path: string, options: RequestInit = {}, token = key.token) => fetch(base + '/api/v1' + path, {...options, headers: {Authorization: 'Bearer ' + token, ...options.headers}});
+    if (process.env.API_HTTP_URL) {
+      assert.equal((await fetch(base + '/docs/api')).status, 200);
+      assert.equal((await fetch(base + '/openapi.json')).status, 200);
+      assert.equal((await fetch(base + '/app/settings/api', {redirect: 'manual'})).status, 307);
+      const sessionToken = randomBytes(32).toString('base64url');
+      await db.insert(workspaceMembers).values({workspaceId: workspace.id, userId, role: 'owner'});
+      await db.insert(sessions).values({sessionToken, userId, expires: new Date(Date.now() + 600000)});
+      const settings = await fetch(base + '/app/settings/api', {headers: {Cookie: 'authjs.session-token=' + sessionToken}});
+      assert.equal(settings.status, 200); const html = await settings.text();
+      assert(html.includes('Create API key')); assert(html.includes('Create webhook'));
+      assert(!html.includes(key.token)); assert(!html.includes(hash(key.token)));
+      console.log('PASS built Next.js public docs, protected settings and secret-free owner settings HTML');
+    }
+
+    const request = (path: string, options: RequestInit = {}, token = key.token) => fetch(base + '/api/v1' + path, {signal: AbortSignal.timeout(15000), ...options, headers: {Authorization: 'Bearer ' + token, ...options.headers}});
     const post = (body: unknown, idem?: string, token = key.token) => request('/posts', {method: 'POST', headers: {'Content-Type': 'application/json', ...(idem ? {'Idempotency-Key': idem} : {})}, body: JSON.stringify(body)}, token);
     assert.equal((await request('/me')).status, 200);
     assert.equal((await fetch(base + '/api/v1/me')).status, 401);
@@ -84,7 +100,7 @@ async function main() {
     assert.equal(cs.data[0].id, channel.id); assert(!JSON.stringify(cs).includes('credentials'));
     assert.equal((await request(`/brands/${foreign.id}/channels`)).status, 404);
     const body = {brand_id: brand.id, body: 'API draft', media_urls: [], channel_ids: []};
-    const responses = await Promise.all([post(body, 'same'), post(body, 'same')]);
+    const responses = await Promise.all(Array.from({length: 8}, () => post(body, 'same')));
     assert(responses.every(r => r.status === 201));
     const created = await responses[0].json(); assert.deepEqual(await responses[1].json(), created);
     assert.equal((await db.select().from(posts).where(eq(posts.brandId, brand.id))).length, 1);
@@ -160,4 +176,4 @@ async function main() {
     console.log('PASS fixture cleanup');
   }
 }
-main().then(() => process.exit(0)).catch((e) => { console.error('API verification failed:', e instanceof Error ? e.stack?.split('\n').filter(l => /^\s+at /.test(l)).join('\n') : 'unknown'); process.exit(1); });
+main().then(() => process.exit(0)).catch((e) => { console.error('API verification failed:', typeof e?.actual === 'number' ? `actual=${e.actual}, expected=${e.expected}` : '', e instanceof Error ? e.stack?.split('\n').filter(l => /^\s+at /.test(l)).join('\n') : 'unknown'); process.exit(1); });

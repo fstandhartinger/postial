@@ -42,8 +42,8 @@ export async function authenticate(request: Request, scope?: Scope) {
 }
 export type ApiContext = Awaited<ReturnType<typeof authenticate>>;
 export function endpoint(scope: Scope | undefined, handler: (request: Request, ctx: ApiContext, id?: string) => Promise<Response>) {
-  return async (request: Request, route?: {params: Promise<{id: string}>}) => {
-    try { return await handler(request, await authenticate(request, scope), route ? (await route.params).id : undefined); }
+  return async (request: Request, route?: {params?: Promise<{id?: string}>}) => {
+    try { return await handler(request, await authenticate(request, scope), (await route?.params)?.id); }
     catch (e) { return apiError(e); }
   };
 }

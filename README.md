@@ -280,3 +280,12 @@ and removes fixtures in finally. Set DATABASE_URL to the test database. Only
 non-production tests may set WEBHOOK_ALLOW_LOOPBACK=1; it permits literal
 http://127.0.0.1 receivers and has no effect in production. No provider publishing,
 login, billing purchase or live customer data is required. Run migrations first.
+
+Set `API_HTTP_URL=http://127.0.0.1:3998` to run the same API suite against a
+running production build, including public docs, the anonymous settings redirect
+and a synthetic owner session (without provider login). The default harness
+passes an empty context on routes without parameters, matching Next.js runtime.
+On 2026-09-09 both modes passed, including eight concurrent idempotent creates,
+secret-free settings HTML, scoped/foreign-resource rejection and cleanup.
+Migration 0006, lint, TypeScript, production build, Redocly OpenAPI validation and
+a changed-file scan against environment secrets and credential patterns passed.
