@@ -65,10 +65,10 @@ async function main() {
     assert.equal(rows.length, 1); assert.equal(rows[0].plan, "agency");
     assert.equal(rows[0].status, "trialing"); assert.equal(rows[0].stripeSubscriptionId, subscriptionId);
     assert.equal((await db.select().from(stripeEvents).where(eq(stripeEvents.id, eventId))).length, 1);
-    assert.ok(hasAccess(rows[0].status));
-    assert.ok(hasAccess("past_due", new Date(Date.now() - 6 * 86400000)));
-    assert.equal(hasAccess("past_due", new Date(0), new Date(7 * 86400000)), false);
-    assert.equal(hasAccess("past_due"), false); assert.equal(hasAccess("canceled"), false);
+    assert.ok(hasAccess(rows[0]));
+    assert.ok(hasAccess({...rows[0], status: "past_due", currentPeriodEnd: new Date(Date.now() + 86400000), pastDueSince: new Date(Date.now() - 6 * 86400000)}));
+    assert.equal(hasAccess({...rows[0], status: "past_due", pastDueSince: new Date(0)}, new Date(7 * 86400000)), false);
+    assert.equal(hasAccess({...rows[0], status: "past_due"}), false); assert.equal(hasAccess({...rows[0], status: "canceled"}), false);
     assert.ok((await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)))[0].trialUsedAt);
     async function deliver(target: Stripe.Subscription) {
       const id = `evt_fixture_${crypto.randomUUID()}`; eventIds.push(id);

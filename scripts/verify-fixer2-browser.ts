@@ -25,7 +25,7 @@ async function main() {
     await db.insert(users).values({ id: uid, name: 'Fixer2 browser fixture' });
     const workspace = await ensureWorkspace(uid);
     await db.insert(sessions).values({ sessionToken: token, userId: uid, expires: new Date(Date.now() + 3600000) });
-    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: 'active', stripeSubscriptionId: 'fixture-' + uid });
+    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: 'active', currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: 'fixture-' + uid });
     const [brand] = await db.insert(brands).values({ workspaceId: workspace.id, name: 'Mint Studio', slug: 'fixer2', timezone: 'Europe/Berlin' }).returning();
     const [channel] = await db.insert(channels).values({ brandId: brand.id, provider: 'mastodon', displayName: 'Studio channel', externalId: 'fixture', credentialsEnc: encryptCredentials({ accessToken: 'synthetic-fixer2', instanceUrl: 'https://fixture.invalid' }), meta: { maxTextLength: 1000 } }).returning();
     const [post] = await db.insert(posts).values({ brandId: brand.id, authorUserId: uid, body: 'A little inspiration for your next creative project.', status: 'published', scheduledAt: new Date() }).returning();

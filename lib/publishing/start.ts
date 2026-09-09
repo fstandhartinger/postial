@@ -1,3 +1,4 @@
+import { deliverWebhooksTick } from "@/lib/api/webhooks";
 import { tick } from "./index";
 const state = globalThis as typeof globalThis & {
   socialmintWorker?: ReturnType<typeof setInterval>;
@@ -14,6 +15,7 @@ export function startPublishingWorker() {
       console.error("Publishing tick failed");
     } finally {
       running = false;
+      void deliverWebhooksTick().catch(() => console.error("Webhook tick failed"));
     }
   }, 30000);
   state.socialmintWorker.unref();

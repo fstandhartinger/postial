@@ -3,7 +3,7 @@
   "info": {
     "title": "SocialMint API",
     "version": "1.0.0",
-    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute.",
+    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts.",
     "license": {
       "name": "Proprietary",
       "identifier": "LicenseRef-Proprietary"
@@ -67,7 +67,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -106,6 +106,16 @@
           },
           "500": {
             "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -166,7 +176,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -205,6 +215,16 @@
           },
           "500": {
             "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -275,7 +295,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -314,6 +334,16 @@
           },
           "500": {
             "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -427,7 +457,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -466,6 +496,16 @@
           },
           "500": {
             "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -527,7 +567,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -586,6 +626,16 @@
           },
           "413": {
             "description": "Request exceeds 512 KB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -668,7 +718,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -707,6 +757,16 @@
           },
           "500": {
             "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -760,7 +820,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -809,6 +869,16 @@
           },
           "409": {
             "description": "Idempotency conflict or invalid post state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -871,7 +941,7 @@
             }
           },
           "404": {
-            "description": "Resource not found in this workspace",
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
             "content": {
               "application/json": {
                 "schema": {
@@ -920,6 +990,16 @@
           },
           "409": {
             "description": "Idempotency conflict or invalid post state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1233,8 +1313,43 @@
             "format": "date-time"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalEventData"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "post_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "target_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "post_id"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "test": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "test"
+                ]
+              }
+            ]
           }
         },
         "required": [
@@ -1242,7 +1357,8 @@
           "event",
           "created_at",
           "data"
-        ]
+        ],
+        "description": "Approval events contain only the documented technical metadata; names and comments are available in authorized GET /posts/{id} approvals[]. Test events contain data.test=true."
       },
       "PostDetail": {
         "allOf": [
@@ -1263,8 +1379,47 @@
                 "items": {
                   "$ref": "#/components/schemas/Event"
                 }
+              },
+              "approvals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "decision",
+                    "reviewer_name",
+                    "comment",
+                    "decided_at"
+                  ],
+                  "properties": {
+                    "decision": {
+                      "type": "string",
+                      "enum": [
+                        "approved",
+                        "changes_requested"
+                      ]
+                    },
+                    "reviewer_name": {
+                      "type": "string"
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decided_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
               }
-            }
+            },
+            "required": [
+              "targets",
+              "events",
+              "approvals"
+            ]
           }
         ]
       },
@@ -1325,6 +1480,42 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ApprovalEventData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "post_id",
+          "brand_id",
+          "decision",
+          "decided_at",
+          "has_comment",
+          "post_url"
+        ],
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "brand_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "has_comment": {
+            "type": "boolean"
+          },
+          "post_url": {
+            "type": "string",
+            "format": "uri"
           }
         }
       }

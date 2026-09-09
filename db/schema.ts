@@ -292,6 +292,7 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
   secretEnc: text("secret_enc").notNull(),
   events: text("events").array().notNull(),
   active: boolean("active").notNull().default(true),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export const webhookDeliveries = pgTable("webhook_deliveries", {
@@ -299,9 +300,10 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   endpointId: uuid("endpoint_id").notNull().references(() => webhookEndpoints.id, { onDelete: "cascade" }),
   event: text("event").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-  status: text("status").$type<"pending" | "delivered" | "failed">().notNull().default("pending"),
+  status: text("status").$type<"pending" | "delivered" | "failed" | "paused" | "canceled">().notNull().default("pending"),
   attempts: integer("attempts").notNull().default(0),
   nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow(),
   responseStatus: integer("response_status"),
+  pauseReason: text("pause_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [index("webhook_deliveries_due").on(t.status, t.nextAttemptAt)]);

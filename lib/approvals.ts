@@ -67,7 +67,7 @@ export async function decideApproval(token: string, input: unknown, ip: string):
     if (!canReview(post.status) || targets.some((t) => t.status === "publishing" || t.status === "published" || t.attempts > 0))
       return { status: 409, error: "Publishing has started. This post is now read-only." };
     const { reviewerName, comment, decision } = parsed.data;
-    await tx.insert(approvalDecisions).values({ postId: post.id, decision, comment, reviewerName, reviewerIpHash: digest(ip), createdAt: sql`clock_timestamp()` });
+    const [savedDecision] = await tx.insert(approvalDecisions).values({ postId: post.id, decision, comment, reviewerName, reviewerIpHash: digest(ip), createdAt: sql`clock_timestamp()` }).returning({at: approvalDecisions.createdAt});
     await tx.update(posts).set({ status: decision, approvalNote: comment, updatedAt: new Date() }).where(eq(posts.id, post.id));
     // Matches agency scheduling and tick's held-target activation, without running
     // publishing/network work inside a customer request.
@@ -76,7 +76,7 @@ export async function decideApproval(token: string, input: unknown, ip: string):
     await tx.insert(postEvents).values({ postId: post.id, type: decision,
       message: `Client ${reviewerName} ${decision === "approved" ? "approved" : "requested changes"}${comment ? `: ${comment}` : ""}` });
     // API outbox commits atomically with the customer decision and post history.
-    await emit(tx, post.id, "approval.decided", {decision, comment, reviewer_name: reviewerName});
+    await emit(tx, post.id, "approval.decided", {decision, decided_at: savedDecision.at.toISOString(), has_comment: !!comment});
     return { status: 200, decision };
   });
 }

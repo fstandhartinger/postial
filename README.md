@@ -28,8 +28,12 @@ environment variables, so export them as shown above. Open http://localhost:3000
 npm run db:generate  # after changing db/schema.ts; commit drizzle/ migrations
 npm run lint
 npm run build
-npm start
+npm start  # node .next/standalone/server.js
 ```
+
+The build post-step copies public and .next/static into .next/standalone.
+Docker copies the same assets into its standalone runtime root and runs node server.js.
+
 
 ## Environment
 
@@ -125,7 +129,7 @@ the workspace lock before upserting (retrying on concurrent changes).
 Register checkout.session.completed, customer.subscription.created/updated/deleted,
 invoice.paid and invoice.payment_failed at `/api/stripe/webhook`.
 
-`hasAccess` permits active/trialing subscriptions and seven days of past-due grace.
+`lib/entitlements.ts` is the single access authority: trials end at trialEnd; active and past_due plans require currentPeriodEnd plus three days to be in the future. Past-due access additionally ends seven days after pastDueSince. Missing dates fail closed.
 New workspaces have no plan until Stripe confirms a subscription; legacy local
 trial rows without a Stripe subscription ID do not grant access. Without access, reading and drafts remain available, but scheduling and retries are disabled.
 The worker holds due targets until access returns. Brands beyond a downgraded plan limit are read-only; the oldest brands remain active.
@@ -265,11 +269,11 @@ input. Omit scheduled_at for drafts. API deletion rejects posts with started
 publishing attempts, even if the aggregate status is scheduled.
 
 Webhook events commit to an outbox alongside publishing status and customer
-approval transactions. The existing tick invokes deliverWebhooks, claims batches
+approval transactions. A separate guarded deliverWebhooksTick runs after publishing in the same 30-second interval, with a 10-second budget, concurrency four and five-second request deadlines. It claims batches
 with row locks and fenced leases, and retries at 1/5/30/30 minutes (five attempts).
 Outbound production requests use the existing DNS-pinned SSRF-safe fetcher and
 never follow POST redirects. Receivers must verify the raw bytes, enforce a
-five-minute timestamp tolerance, and deduplicate payload.id. Logs retain safe
+five-minute timestamp tolerance, and deduplicate payload.id. Approval event data contains only post_id, brand_id, decision, decided_at, has_comment and post_url. GET /api/v1/posts/{id} exposes authorized approvals[] history. Migration 0007 removes historical outbox names/comments. Disable pauses deliveries; Enable resumes them; Delete cancels open deliveries and removes signing credentials while retaining logs. Entitlement pauses consume no attempts and resume automatically. Requests already in flight may reach the receiver. Logs retain safe
 HTTP status only. API settings show the latest 20 deliveries. Expired idempotency
 records are removed by the tick; provision retention for long-term delivery logs.
 

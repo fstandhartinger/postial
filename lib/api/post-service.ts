@@ -1,3 +1,4 @@
+import { ApiError } from "./errors";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
@@ -38,15 +39,19 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         mediaUrls.length <= 4 && mediaUrls.every(https),
         "Use up to four HTTPS media URLs.",
       );
-      for (const url of mediaUrls) await validatePublicUrl(url);
+      for (const [index, url] of mediaUrls.entries()) {
+        try { await validatePublicUrl(url); }
+        catch { throw new InputError(`media_urls[${index}]: Use a reachable public HTTPS media URL. DNS may be temporarily unavailable; check the URL and try again.`); }
+      }
       check(!linkUrl || https(linkUrl), "Use an HTTPS link.");
       const ids = [...new Set(form.getAll("channelId").map(String))];
       check(ids.every(isUuid), "Choose valid channels.");
       const selected = (
         await db.select().from(channels).where(eq(channels.brandId, brandId))
-      ).filter((c) => ids.includes(c.id) && c.status === "active");
+      ).filter((c) => ids.includes(c.id));
+      if (selected.length !== ids.length) throw new ApiError(404, "not_found", "Channel not found.");
       check(
-        selected.length === ids.length,
+        selected.every(c => c.status === "active"),
         "A selected channel is unavailable.",
       );
       for (const c of selected) {
@@ -58,6 +63,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
       }
       const draft = str(form, "intent") === "draft",
         requiresApproval = form.get("requiresApproval") === "on";
+      check(!requiresApproval || access.approvalLinks, "requires_approval: Included with Agency — upgrade to use client approval links.");
       check(
         draft || selected.length > 0,
         "Connect and select at least one channel.",

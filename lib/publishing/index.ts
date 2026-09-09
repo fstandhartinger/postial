@@ -1,4 +1,4 @@
-import { deliverWebhooks, emit, emitPublishing } from "@/lib/api/webhooks";
+import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
 export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
@@ -255,6 +255,5 @@ export async function tick() {
       });
     }),
   );
-  await deliverWebhooks();
   return { claimed: claimed.length };
 }

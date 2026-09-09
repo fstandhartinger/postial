@@ -27,7 +27,7 @@ export default async function EditPost({
     <>
       <h1 className="text-3xl font-semibold">Edit post</h1>
       <Composer
-        canPublish={data.canPublish}
+        canPublish={data.canPublish} approvalLinks={data.approvalLinks}
         brands={data.brands}
         channels={data.channels.map((c) => ({
           ...c,

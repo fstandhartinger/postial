@@ -3,11 +3,14 @@ import { createServer, type Server } from 'node:http';
 import { createHmac, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../db';
-import { apiKeys, apiRateLimits, brands, channels, posts, postTargets, subscriptions, users, sessions, workspaceMembers, webhookDeliveries, workspaces } from '../db/schema';
+import { apiKeys, apiRateLimits, brands, channels, posts, postTargets, subscriptions, users, sessions, workspaceMembers, webhookDeliveries, webhookEndpoints, workspaces } from '../db/schema';
 import { createApiKey, hash } from '../lib/api/auth';
-import { createWebhook, deliverWebhooks, emit, sendTestEvent, validateWebhookUrl, webhookEvents } from '../lib/api/webhooks';
+import { createWebhook, manageWebhook, deliverWebhooks, deliverWebhooksTick, emit, sendTestEvent, validateWebhookUrl, webhookEvents } from '../lib/api/webhooks';
 import { decideApproval } from '../lib/approvals';
-import { derivePostStatus } from '../lib/publishing';
+import { notFound } from '../lib/api/routing';
+import { savePost } from '../lib/api/post-service';
+import { apiError } from '../lib/api/errors';
+import { derivePostStatus, tick } from '../lib/publishing';
 import * as me from '../app/api/v1/me/route';
 import * as brandRoute from '../app/api/v1/brands/route';
 import * as channelRoute from '../app/api/v1/brands/[id]/channels/route';
@@ -34,18 +37,21 @@ async function main() {
       const url = new URL(req.url!, 'http://127.0.0.1');
       const route = routes.find(([pattern]) => pattern.test(url.pathname));
       const handler = route?.[1][req.method!];
-      if (!route || !handler) { res.writeHead(404).end(); return; }
+      if (!route || !handler) { const r = notFound(); res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(await r.text()); return; }
       const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
       const response = await handler(new Request(url, {method: req.method, headers: req.headers as Record<string, string>,
         ...(chunks.length ? {body: Buffer.concat(chunks)} : {})}), route[0].exec(url.pathname)?.[1] ? {params: Promise.resolve({id: route[0].exec(url.pathname)![1]})} : {});
       res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(Buffer.from(await response.arrayBuffer()));
     } catch { res.writeHead(500).end('Harness error'); }
   });
-  let receiverCode = 204;
+  let receiverCode = 204, receiverDelay = 0, inFlight = 0, peak = 0;
   const received: {body: string; signature: string}[] = [];
   const receiver = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
     received.push({body: Buffer.concat(chunks).toString(), signature: String(req.headers['x-socialmint-signature'])});
+    inFlight++; peak = Math.max(peak, inFlight);
+    res.on("close", () => { inFlight--; });
+    if (receiverDelay) await new Promise(resolve => setTimeout(resolve, receiverDelay));
     res.writeHead(receiverCode).end();
   });
   const harnessBase = await listen(server), receiverUrl = await listen(receiver);
@@ -58,8 +64,8 @@ async function main() {
       {name: 'Starter fixture', slug: 'starter-' + userId, ownerUserId: userId},
     ]).returning();
     await db.insert(subscriptions).values([
-      {workspaceId: workspace.id, plan: 'agency', status: 'trialing', stripeSubscriptionId: 'test_api_agency_' + userId},
-      {workspaceId: starter.id, plan: 'starter', status: 'active', stripeSubscriptionId: 'test_api_starter_' + userId},
+      {workspaceId: workspace.id, plan: 'agency', status: 'trialing', trialEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: 'test_api_agency_' + userId},
+      {workspaceId: starter.id, plan: 'starter', status: 'active', currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: 'test_api_starter_' + userId},
     ]);
     const [brand, foreign] = await db.insert(brands).values([
       {workspaceId: workspace.id, name: 'API brand', slug: 'api'}, {workspaceId: starter.id, name: 'Foreign', slug: 'foreign'},
@@ -83,6 +89,18 @@ async function main() {
     const request = (path: string, options: RequestInit = {}, token = key.token) => fetch(base + '/api/v1' + path, {signal: AbortSignal.timeout(15000), ...options, headers: {Authorization: 'Bearer ' + token, ...options.headers}});
     const post = (body: unknown, idem?: string, token = key.token) => request('/posts', {method: 'POST', headers: {'Content-Type': 'application/json', ...(idem ? {'Idempotency-Key': idem} : {})}, body: JSON.stringify(body)}, token);
     assert.equal((await request('/me')).status, 200);
+    for (const [path, method, status] of [['/nonexistent', 'GET', 404], ['/me', 'POST', 405]] as const) {
+      const r = await request(path, {method}); assert.equal(r.status, status);
+      assert.equal(r.headers.get('cache-control'), 'no-store'); assert((await r.json()).error.code);
+      if (status === 405) assert(r.headers.get('allow')?.includes('GET'));
+    }
+    await db.update(subscriptions).set({trialEnd: new Date(0)}).where(eq(subscriptions.workspaceId, workspace.id));
+    assert.equal((await request('/me')).status, 403);
+    await db.update(subscriptions).set({trialEnd: new Date(Date.now() + 86400000)}).where(eq(subscriptions.workspaceId, workspace.id));
+    const starterForm = new FormData(); starterForm.set('brandId', foreign.id); starterForm.set('body', 'Starter approval'); starterForm.set('intent', 'draft'); starterForm.set('requiresApproval', 'on');
+    await assert.rejects(savePost({db, workspace: starter, userId}, starterForm), e => {
+      const r = apiError(e); assert.equal(r.status, 422); return String(e).includes('Included with Agency');
+    });
     assert.equal((await fetch(base + '/api/v1/me')).status, 401);
     assert.equal((await request('/me', {}, 'sm_live_' + randomBytes(32).toString('base64url'))).status, 401);
     await assert.rejects(createApiKey(starter.id, userId, 'Forbidden', ['posts:read']));
@@ -108,6 +126,12 @@ async function main() {
     assert.equal((await post({...body, body: ''})).status, 422);
     assert.equal((await post({...body, media_urls: ['https://127.0.0.1/private']})).status, 422);
     assert.equal((await post({...body, brand_id: foreign.id})).status, 404);
+    const [foreignChannel] = await db.insert(channels).values({brandId: foreign.id, provider: 'mastodon', displayName: 'Foreign fixture', externalId: userId, credentialsEnc: 'not-used'}).returning();
+    for (const id of [foreignChannel.id, crypto.randomUUID()]) {
+      const r = await post({...body, channel_ids: [id]}); assert.equal(r.status, 404); assert.equal((await r.json()).error.code, 'not_found');
+    }
+    const invalidMedia = await post({...body, media_urls: ['https://fixer3.invalid/image.png']});
+    assert.equal(invalidMedia.status, 422); assert.match((await invalidMedia.json()).error.message, /media_urls\[0\]/);
     assert.equal((await post({...body, body: 'x'.repeat(501), channel_ids: [channel.id]})).status, 422);
     assert.equal((await post({...body, scheduled_at: 'yesterday'})).status, 422);
     assert.equal((await request('/posts?limit=0')).status, 422);
@@ -138,6 +162,11 @@ async function main() {
     deliveries = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.endpointId, webhook.id)); assert(deliveries.some(d => d.event === 'post.published'));
     await db.transaction(async tx => { await emit(tx, approval.id, 'post.needs_review', {target_id: channel.id}); await emit(tx, approval.id, 'post.failed'); });
     await deliverWebhooks(); assert.equal(received.length, 4);
+    const approvalData = JSON.parse(received.find(r => JSON.parse(r.body).event === 'approval.decided')!.body).data;
+    assert.deepEqual(Object.keys(approvalData).sort(), ['post_id', 'brand_id', 'decision', 'decided_at', 'has_comment', 'post_url'].sort());
+    assert.equal(approvalData.has_comment, false); assert.equal(approvalData.brand_id, brand.id);
+    const approvalDetail = await (await request('/posts/' + approval.id)).json();
+    assert.equal(approvalDetail.approvals[0].reviewer_name, 'Tester'); assert.equal(approvalDetail.approvals[0].comment, '');
     for (const r of received) {
       const match = /^t=(\d+),v1=([a-f0-9]{64})$/.exec(r.signature); assert(match);
       assert.equal(match[2], createHmac('sha256', webhook.secret).update(match[1] + '.' + r.body).digest('hex'));
@@ -161,6 +190,41 @@ async function main() {
     await assert.rejects(validateWebhookUrl('https://169.254.169.254/latest')); await assert.rejects(validateWebhookUrl('https://user:password@example.com'));
     console.log('PASS approval/publishing outbox, delivery signatures, concurrent claims, 1/5/30/30 backoff, five-attempt limit, production SSRF guard');
 
+    receiverCode = 204;
+    await sendTestEvent(workspace.id, webhook.id);
+    await manageWebhook(workspace.id, webhook.id, 'disable');
+    let [paused] = await db.select().from(webhookDeliveries).where(and(eq(webhookDeliveries.endpointId, webhook.id), eq(webhookDeliveries.status, 'paused')));
+    assert.equal(paused.attempts, 0); assert.equal(paused.nextAttemptAt, null);
+    await deliverWebhooks();
+    await manageWebhook(workspace.id, webhook.id, 'enable');
+    await db.update(subscriptions).set({trialEnd: new Date(0)}).where(eq(subscriptions.workspaceId, workspace.id));
+    await deliverWebhooks();
+    [paused] = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.id, paused.id));
+    assert.equal(paused.status, 'paused'); assert.equal(paused.attempts, 0); assert.equal(paused.pauseReason, 'Agency access required');
+    await db.update(subscriptions).set({trialEnd: new Date(Date.now() + 86400000)}).where(eq(subscriptions.workspaceId, workspace.id));
+    const baselineStart = performance.now(); await tick(); const baseline = performance.now() - baselineStart;
+    receiverDelay = 1500;
+    const dispatch = deliverWebhooksTick();
+    const started = performance.now(); await tick(); const duration = performance.now() - started;
+    assert(duration < baseline + 500, 'Slow receiver must not extend publishing tick');
+    await dispatch; receiverDelay = 0;
+    [paused] = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.id, paused.id)); assert.equal(paused.status, 'delivered');
+    await sendTestEvent(workspace.id, webhook.id);
+    await manageWebhook(workspace.id, webhook.id, 'delete');
+    const canceled = await db.select().from(webhookDeliveries).where(and(eq(webhookDeliveries.endpointId, webhook.id), eq(webhookDeliveries.status, 'canceled')));
+    assert.equal(canceled.length, 1); assert.equal(canceled[0].attempts, 0);
+    const [deleted] = await db.select().from(webhookEndpoints).where(eq(webhookEndpoints.id, webhook.id)); assert(deleted.deletedAt); assert.equal(deleted.secretEnc, '');
+    await assert.rejects(manageWebhook(workspace.id, webhook.id, 'enable'));
+    const slow = await createWebhook(workspace.id, receiverUrl, ['post.failed']);
+    for (let i = 0; i < 10; i++) await sendTestEvent(workspace.id, slow.id);
+    receiverDelay = 6000; peak = 0;
+    const budgetStart = performance.now(); await deliverWebhooksTick(); const budgetDuration = performance.now() - budgetStart;
+    assert(peak <= 4); assert(budgetDuration < 10000, 'Ten-second dispatcher budget with bounded DB overhead');
+    const slowRows = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.endpointId, slow.id));
+    assert(slowRows.every(d => d.attempts <= 1));
+    await manageWebhook(workspace.id, slow.id, 'delete'); receiverDelay = 0;
+    console.log(`PASS dispatcher deadline=${budgetDuration.toFixed(0)}ms, peak concurrent HTTP=${peak}, 5s per-request abort`);
+    console.log(`PASS E01–E08: payload allowlist, expiry, Starter save rejection, DNS/channel/routing contracts, pause/resume/delete; publishing baseline=${baseline.toFixed(0)}ms slow-receiver=${duration.toFixed(0)}ms`);
     await db.delete(apiRateLimits).where(eq(apiRateLimits.keyId, key.id));
     for (let i = 0; i < 60; i++) assert.equal((await request('/me')).status, 200);
     const limited = await request('/me'); assert.equal(limited.status, 429); assert(Number(limited.headers.get('retry-after')) > 0);

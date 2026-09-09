@@ -15,7 +15,7 @@ export default async function BillingPage() {
   const record = await getSubscriptionForWorkspace(workspace.id);
   const subscription = record?.stripeSubscriptionId ? record : null;
   const owner = workspace.ownerUserId === session.user.id;
-  const access = hasAccess(subscription?.status ?? "none", subscription?.pastDueSince);
+  const access = hasAccess(subscription);
   const date = subscription?.status === "trialing" ? subscription.trialEnd : subscription?.currentPeriodEnd;
   return <div className="space-y-6">
     <Link href="/app" className="text-emerald-700 underline">Back to workspace</Link>

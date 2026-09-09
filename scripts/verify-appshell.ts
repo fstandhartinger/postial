@@ -44,6 +44,7 @@ async function main() {
       plan: "agency",
       status: "active",
       stripeSubscriptionId: "fixture-appshell-" + uid,
+      currentPeriodEnd: new Date(Date.now() + 86400000),
     });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 900 },

@@ -95,10 +95,10 @@ export default async function Overview({
       benefit:
         "Copy a client approval link, then send it for feedback without a login. Included with Agency.",
       done: shared.length > 0,
-      href: rows.find((r) => r.post.status === "pending_approval")
+      href: !access.approvalLinks ? "/app/billing" : rows.find((r) => r.post.status === "pending_approval")
         ? "#awaiting-approval"
         : "/app/posts/new",
-      action: "Prepare approval link",
+      action: access.approvalLinks ? "Prepare approval link" : "Included with Agency — upgrade",
     },
   ];
   const completed = steps.filter((s) => s.done).length;

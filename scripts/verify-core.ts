@@ -65,7 +65,7 @@ async function main() {
     assert.throws(() => localDateTime("2026-10-25T02:30", "Europe/Berlin"));
     await db.insert(users).values({ id: userId, name: "Core fixture" });
     const workspace = await ensureWorkspace(userId);
-    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: "active", stripeSubscriptionId: "fixture-" + userId });
+    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: "active", currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: "fixture-" + userId });
     const [brand] = await db
       .insert(brands)
       .values({ workspaceId: workspace.id, name: "Fixture", slug: "fixture" })
@@ -240,11 +240,13 @@ async function main() {
     assert.deepEqual((await readTarget(warned.targets[0].id)).warnings, ["Missing image; add it manually."]);
     assert((await db.select().from(postEvents).where(eq(postEvents.postId, warned.post.id))).some(e => e.message.includes("with a warning: Missing image")));
     behavior = "success";
-    await db.update(subscriptions).set({ status: "canceled" }).where(eq(subscriptions.workspaceId, workspace.id));
-    const paused = await fixture(); const pausedCalls = calls; await tick();
-    assert.equal(calls, pausedCalls); assert.equal((await readTarget(paused.targets[0].id)).status, "held");
-    await db.update(subscriptions).set({ status: "active" }).where(eq(subscriptions.workspaceId, workspace.id));
-    await tick(); assert.equal((await readTarget(paused.targets[0].id)).status, "published");
+    for (const status of ["canceled", "trialing"]) {
+      await db.update(subscriptions).set({ status, trialEnd: new Date(0) }).where(eq(subscriptions.workspaceId, workspace.id));
+      const paused = await fixture(); const pausedCalls: number = calls; await tick();
+      assert.equal(calls, pausedCalls); assert.equal((await readTarget(paused.targets[0].id)).status, "held");
+      await db.update(subscriptions).set({ status: "active" }).where(eq(subscriptions.workspaceId, workspace.id));
+      await tick(); assert.equal((await readTarget(paused.targets[0].id)).status, "published");
+    }
     const exhausted = await fixture();
     await db.update(postTargets).set({ status: "publishing", attempts: 8, attemptStartedAt: new Date(Date.now() - 660000) }).where(eq(postTargets.id, exhausted.targets[0].id));
     const exhaustedCalls = calls; await tick(); assert.equal(calls, exhaustedCalls); assert.equal((await readTarget(exhausted.targets[0].id)).status, "failed");
@@ -288,7 +290,7 @@ async function main() {
       assert.equal((await readTarget(uncertain.targets[0].id)).status, provider === "telegram" ? "needs_review" : "published");
       assert.equal(remoteCalls, provider === "telegram" ? 1 : 2); assert.equal(remoteKeys.size, 1);
     }
-    console.log("PASS: persisted warnings/history, canceled subscription hold/resume, recovery budget, skipped aggregation, commit outage: stable Mastodon/Bluesky key and Telegram manual review");
+    console.log("PASS: persisted warnings/history, canceled subscription and expired trial hold/resume, recovery budget, skipped aggregation, commit outage: stable Mastodon/Bluesky key and Telegram manual review");
     console.log(
       "PASS: encryption integrity, timezone/DST, concurrent claims, two-target success/events, rate limit/backoff, auth expiry, orphan recovery, approval hold/release, five-attempt limit",
     );

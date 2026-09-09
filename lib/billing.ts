@@ -19,12 +19,7 @@ export async function getSubscriptionForWorkspace(workspaceId: string) {
     .where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
   return row ? { ...row.subscription, pastDueSince: row.pastDueSince } : null;
 }
-// status alone cannot encode a seven-day grace period. Missing timestamp fails closed.
-export function hasAccess(status: string, pastDueSince?: Date | null, now = new Date()): boolean {
-  if (status === 'active' || status === 'trialing') return true;
-  const age = pastDueSince ? now.getTime() - pastDueSince.getTime() : NaN;
-  return status === 'past_due' && age >= 0 && age < 7 * 24 * 60 * 60 * 1000;
-}
+export { hasAccess } from '@/lib/entitlements';
 export class BillingHttpError extends Error {
   constructor(public status: number, message: string, public retryAfter?: number) { super(message); }
 }

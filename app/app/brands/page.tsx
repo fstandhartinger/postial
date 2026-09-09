@@ -5,8 +5,7 @@ import { brands } from "@/db/schema";
 import { coreContext } from "@/lib/core";
 import { BrandForm } from "@/components/core/forms";
 import { Card } from "@/components/ui/card";
-import { getSubscriptionForWorkspace, hasAccess } from "@/lib/billing";
-import { plans } from "@/lib/plans";
+
 export default async function BrandsPage() {
   const { db, workspace } = await coreContext();
   const list = await db
@@ -14,14 +13,12 @@ export default async function BrandsPage() {
     .from(brands)
     .where(eq(brands.workspaceId, workspace.id));
   const entitlement = await workspaceEntitlements(workspace);
-  const sub = await getSubscriptionForWorkspace(workspace.id);
-  const active =
-    sub?.stripeSubscriptionId && hasAccess(sub.status, sub.pastDueSince);
+  const active = entitlement.publish;
   return (
     <>
       <h1 className="text-3xl font-semibold">Brands</h1>
       <p>
-        {list.length} / {active ? plans[sub.plan].brands : 3} brands
+        {list.length} / {entitlement.limit} brands
         {!active &&
           " · Starter limit applies without an active subscription or trial."}{" "}
         <Link href="/app/billing" className="underline">

@@ -2,15 +2,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { apiKeys, workspaces } from '@/db/schema';
-import { getSubscriptionForWorkspace, hasAccess } from '@/lib/billing';
+import { workspaceEntitlements } from '@/lib/entitlements';
 import { apiRateLimit } from '@/lib/rate-limit';
 import { ApiError, apiError } from './errors';
 export const scopes = ['posts:write', 'posts:read', 'brands:read'] as const;
 export type Scope = typeof scopes[number];
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export async function agencyAccess(workspaceId: string) {
-  const sub = await getSubscriptionForWorkspace(workspaceId);
-  return !!sub?.stripeSubscriptionId && sub.plan === 'agency' && hasAccess(sub.status, sub.pastDueSince);
+  return (await workspaceEntitlements(workspaceId)).api;
 }
 export async function requireAgency(workspaceId: string) {
   if (!await agencyAccess(workspaceId)) throw new ApiError(403, 'agency_required', 'API access requires an active Agency plan or Agency trial.');

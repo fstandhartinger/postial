@@ -14,8 +14,10 @@ import {
   getPublisher,
   PublishError,
 } from "@/lib/publishers";
+import { validateConnection } from "@/lib/publishers/connection";
 import { workspaceEntitlements } from '@/lib/entitlements';
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
+import { ApiError } from "@/lib/api/errors";
 import { InputError, check, https, savePost, changeTarget } from "@/lib/api/post-service";
 export async function coreAction(
   _state: { error: string },
@@ -99,7 +101,7 @@ export async function coreAction(
             `Enter ${field.label}.`,
           );
         }
-        const account = await publisher.validate(credentials);
+        const account = await validateConnection(publisher, credentials);
         const values = {
           brandId,
           provider,
@@ -153,7 +155,7 @@ export async function coreAction(
   } catch (e) {
     return {
       error:
-        e instanceof InputError
+        e instanceof InputError || e instanceof ApiError
           ? e.message
           : e instanceof PublishError
             ? e.humanMessage

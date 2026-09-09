@@ -5,6 +5,7 @@ import { beforeEach, mock as nodeMock } from 'node:test';
 import { safeFetch, publicAddress } from '../lib/publishers/safe-fetch';
 import { afterEach, test } from 'node:test';
 import { availableProviders, getPublisher, PublishError, type Credentials } from '../lib/publishers';
+import { validateConnection } from '../lib/publishers/connection';
 import { json } from '../lib/publishers/http';
 
 beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
@@ -60,6 +61,15 @@ for (const provider of ['bluesky', 'mastodon', 'telegram'] as const) {
   test(`${provider}: validate 401`, async () => {
     mock(() => response({ error: 'test-secret' }, 401));
     await assert.rejects(adapter.validate(creds), errorCode('AUTH_EXPIRED', false));
+  });
+  test(`${provider}: first connection authentication guidance`, async () => {
+    mock(() => response({error: 'test-secret'}, 401));
+    await assert.rejects(validateConnection(adapter, creds), error => {
+      assert(error instanceof PublishError); assert.equal(error.humanMessage, 'Check the token/app password and scopes, then connect again.'); return true;
+    });
+    await assert.rejects(adapter.publish(creds, {text: 'fixture', idempotencyKey: 'fixture'}), error => {
+      assert(error instanceof PublishError); assert.match(error.humanMessage, /Reconnect/); return true;
+    });
   });
   test(`${provider}: publish request`, async () => {
     const calls = mock();

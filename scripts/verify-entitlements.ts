@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { hasAccess } from '../lib/entitlements';
+const now = new Date('2026-09-09T12:00:00Z'), day = 86400000;
+const sub = {stripeSubscriptionId: 'fixture', status: 'active', trialEnd: new Date(+now + day), currentPeriodEnd: new Date(+now + day), pastDueSince: new Date(+now - day)};
+assert(hasAccess(sub, now)); assert(!hasAccess(null, now)); assert(!hasAccess({...sub, stripeSubscriptionId: null}, now));
+assert(hasAccess({...sub, status: 'trialing'}, now));
+assert(!hasAccess({...sub, status: 'trialing', trialEnd: now}, now));
+assert(!hasAccess({...sub, status: 'trialing', trialEnd: null}, now));
+assert(hasAccess({...sub, currentPeriodEnd: new Date(+now - 3 * day + 1)}, now));
+assert(!hasAccess({...sub, currentPeriodEnd: new Date(+now - 3 * day)}, now));
+assert(!hasAccess({...sub, currentPeriodEnd: null}, now));
+assert(hasAccess({...sub, status: 'past_due', pastDueSince: new Date(+now - 7 * day + 1)}, now));
+assert(!hasAccess({...sub, status: 'past_due', pastDueSince: new Date(+now - 7 * day)}, now));
+assert(!hasAccess({...sub, status: 'past_due', pastDueSince: null}, now));
+assert(!hasAccess({...sub, status: 'past_due', pastDueSince: new Date(+now + 1)}, now));
+assert(!hasAccess({...sub, status: 'past_due', currentPeriodEnd: new Date(+now - 4 * day)}, now));
+for (const status of ['canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused']) assert(!hasAccess({...sub, status}, now));
+console.log('PASS entitlement date boundaries, missing dates/Stripe ID, three-day paid grace, seven-day past-due cap and inactive statuses');

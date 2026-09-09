@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
-import { users, workspaces, workspaceMembers, brands, channels, posts, postTargets, postEvents, approvalDecisions, sessions } from "../db/schema";
+import { subscriptions, users, workspaces, workspaceMembers, brands, channels, posts, postTargets, postEvents, approvalDecisions, sessions } from "../db/schema";
 import { newApprovalToken, rotateApprovalLink } from "../lib/approvals";
 import { publicImageAddress } from "../app/r/[token]/media";
 
@@ -16,6 +16,7 @@ async function main() {
     for (const address of ["8.8.8.8", "2606:4700:4700::1111"]) assert(publicImageAddress(address), "Public image IP accepted");
     await db.insert(users).values({ id: userId, name: "Approval fixture" });
     const [workspace] = await db.insert(workspaces).values({ name: "Approval fixture", slug: `approval-${userId}`, ownerUserId: userId }).returning();
+    await db.insert(subscriptions).values({workspaceId: workspace.id, plan: "agency", status: "active", stripeSubscriptionId: "fixture-approvals-" + userId, currentPeriodEnd: new Date(Date.now() + 86400000)});
     await db.insert(workspaceMembers).values({ workspaceId: workspace.id, userId, role: "owner" });
     await db.insert(sessions).values({ sessionToken: session, userId, expires: new Date(Date.now() + 600000) });
     const [brand] = await db.insert(brands).values({ workspaceId: workspace.id, name: "Mint Studio", slug: "mint", color: "#7c3aed", timezone: "Europe/Berlin" }).returning();

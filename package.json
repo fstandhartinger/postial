@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
+    "postbuild": "node scripts/prepare-standalone.mjs",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs"

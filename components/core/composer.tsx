@@ -19,8 +19,10 @@ export function Composer({
   channels,
   initial,
   canPublish,
+  approvalLinks,
 }: {
   canPublish: boolean;
+  approvalLinks: boolean;
   brands: Brand[];
   channels: Channel[];
   initial: {
@@ -166,10 +168,12 @@ export function Composer({
         <label className="block">
           <Checkbox
             name="requiresApproval"
-            defaultChecked={initial.requiresApproval}
+            defaultChecked={approvalLinks && initial.requiresApproval}
+            disabled={!approvalLinks}
           />{" "}
           Requires client approval
         </label>
+        {!approvalLinks && <p>Included with Agency — <Link href="/app/billing" className="underline">upgrade</Link></p>}
         <p className="text-sm text-gray-500">
           Posts requiring approval stay on hold. Open the saved post to copy its
           client approval link.
@@ -189,6 +193,7 @@ export function Composer({
             </Link>
           </p>
         )}
+        {!channels.some(c => c.brandId === brand && selected.includes(c.id)) && <p>Connect a channel to publish · <Link href={`/app/brands/${brand}#connect`} className="underline">Connect a channel</Link></p>}
         <div className="flex gap-3">
           <Button
             variant="secondary"
@@ -201,7 +206,7 @@ export function Composer({
           <Button
             name="intent"
             value="schedule"
-            disabled={pending || !canPublish || readOnly}
+            disabled={pending || !canPublish || readOnly || !channels.some(c => c.brandId === brand && selected.includes(c.id))}
           >
             {pending ? "Saving…" : when === "now" ? "Publish now" : "Schedule"}
           </Button>

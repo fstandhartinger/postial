@@ -2,9 +2,9 @@
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { coreContext } from '@/lib/core';
-import { apiKeys, webhookEndpoints } from '@/db/schema';
+import { apiKeys } from '@/db/schema';
 import { createApiKey } from '@/lib/api/auth';
-import { createWebhook, sendTestEvent } from '@/lib/api/webhooks';
+import { createWebhook, sendTestEvent, manageWebhook } from '@/lib/api/webhooks';
 import { ApiError } from '@/lib/api/errors';
 import { PublishError } from '@/lib/publishers';
 import { isUuid } from '@/lib/api/post-service';
@@ -26,9 +26,10 @@ export async function settingsAction(_state: SettingsState, form: FormData): Pro
       if (action === 'revoke') {
         await ctx.db.update(apiKeys).set({revokedAt: new Date()}).where(and(eq(apiKeys.id, id), eq(apiKeys.workspaceId, ctx.workspace.id)));
         result = {message: 'Key revoked.'};
-      } else if (action === 'disable_webhook') {
-        await ctx.db.update(webhookEndpoints).set({active: false}).where(and(eq(webhookEndpoints.id, id), eq(webhookEndpoints.workspaceId, ctx.workspace.id)));
-        result = {message: 'Webhook disabled.'};
+      } else if (action === 'disable_webhook' || action === 'enable_webhook' || action === 'delete_webhook') {
+        const operation = action === 'enable_webhook' ? 'enable' : action === 'delete_webhook' ? 'delete' : 'disable';
+        await manageWebhook(ctx.workspace.id, id, operation);
+        result = {message: `Webhook ${operation === 'enable' ? 'enabled' : operation === 'delete' ? 'deleted' : 'disabled'}.`};
       } else if (action === 'test_webhook') {
         await sendTestEvent(ctx.workspace.id, id); result = {message: 'Test queued. Refresh in 30 seconds to see the delivery result.'};
       } else throw new ApiError(422, 'validation_error', 'Unknown action.');

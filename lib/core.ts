@@ -64,5 +64,5 @@ export async function composerData() {
       ),
     );
   const access = await workspaceEntitlements(ctx.workspace);
-  return { brands: bs.map(b => ({ ...b, readOnly: !access.activeBrandIds.includes(b.id) })), channels: cs, canPublish: access.publish };
+  return { brands: bs.map(b => ({ ...b, readOnly: !access.activeBrandIds.includes(b.id) })), channels: cs, canPublish: access.publish, approvalLinks: access.approvalLinks };
 }

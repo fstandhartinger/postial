@@ -19,7 +19,16 @@ export async function validatePublicUrl(value: string) {
   if (url.protocol !== 'https:' || url.username || url.password) throw rejected();
   const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (host === 'localhost' || host.endsWith('.localhost')) throw rejected();
-  const addresses = isIP(host) ? [{ address: host, family: isIP(host) }] : await dns.lookup(host, { all: true, verbatim: true });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let addresses: {address: string; family: number}[];
+  try {
+    addresses = isIP(host) ? [{address: host, family: isIP(host)}] : await Promise.race([
+      dns.lookup(host, {all: true, verbatim: true}),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('DNS deadline')), 3000); }),
+    ]);
+  } catch {
+    throw new PublishError({code: 'NETWORK', retryable: true, humanMessage: 'The URL host could not be resolved. Check the URL and try again; DNS may be temporarily unavailable.'});
+  } finally { clearTimeout(timer); }
   if (!addresses.length || addresses.some(a => !publicAddress(a.address))) throw rejected();
   return { url, host, addresses };
 }

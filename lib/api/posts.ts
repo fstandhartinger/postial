@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { apiIdempotency, brands, channels, postEvents, posts, postStatus, postTargets } from '@/db/schema';
+import { approvalDecisions, apiIdempotency, brands, channels, postEvents, posts, postStatus, postTargets } from '@/db/schema';
 import { appUrl } from '@/lib/stripe';
 import { workspaceEntitlements } from '@/lib/entitlements';
 import { ApiError, json } from './errors';
@@ -38,7 +38,10 @@ export async function getPost(_request: Request, ctx: ApiContext, id?: string) {
     warnings: postTargets.warnings}).from(postTargets).where(eq(postTargets.postId, post.id));
   const events = await ctx.db.select({id: postEvents.id, target_id: postEvents.targetId, type: postEvents.type,
     message: postEvents.message, created_at: postEvents.createdAt}).from(postEvents).where(eq(postEvents.postId, post.id)).orderBy(asc(postEvents.createdAt), asc(postEvents.id));
-  return json({...postJson(post), targets, events});
+  const approvals = await ctx.db.select({decision: approvalDecisions.decision, reviewer_name: approvalDecisions.reviewerName,
+    comment: approvalDecisions.comment, decided_at: approvalDecisions.createdAt}).from(approvalDecisions)
+    .where(eq(approvalDecisions.postId, post.id)).orderBy(asc(approvalDecisions.createdAt), asc(approvalDecisions.id));
+  return json({...postJson(post), targets, events, approvals});
 }
 export async function listPosts(request: Request, ctx: ApiContext) {
   const q = new URL(request.url).searchParams;

@@ -14,7 +14,7 @@ export default async function NewPost({
       <h1 className="text-3xl font-semibold">Create a post</h1>
       {data.brands.length ? (
         <Composer
-        canPublish={data.canPublish}
+        canPublish={data.canPublish} approvalLinks={data.approvalLinks}
           key={q.brand ?? "all"}
           brands={data.brands}
           channels={data.channels.map((c) => ({
