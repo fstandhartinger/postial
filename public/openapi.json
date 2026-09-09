@@ -1977,6 +1977,10 @@
               },
               "message": {
                 "type": "string"
+              },
+              "field": {
+                "type": "string",
+                "description": "The input field that failed validation, when applicable."
               }
             },
             "required": [
@@ -2125,7 +2129,9 @@
             "format": "uuid"
           },
           "body": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Post text is counted as Unicode grapheme clusters."
           },
           "media_urls": {
             "type": "array",
@@ -2199,7 +2205,8 @@
           "body": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 100000
+            "maxLength": 10000,
+            "description": "Counted as Unicode grapheme clusters."
           },
           "media_urls": {
             "type": "array",
@@ -2675,7 +2682,8 @@
           "body": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 100000
+            "maxLength": 10000,
+            "description": "Counted as Unicode grapheme clusters."
           },
           "media_urls": {
             "type": "array",

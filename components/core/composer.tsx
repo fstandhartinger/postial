@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { countChannelText, postText } from "@/lib/text-limits";
+import { countChannelText, countText, MAX_POST_TEXT_LENGTH, postText } from "@/lib/text-limits";
 /* eslint-disable @next/next/no-img-element -- User-provided previews intentionally bypass the server image proxy. */
 import { useActionState, useState, useRef } from "react";
 import { coreAction } from "@/app/app/actions";
@@ -79,6 +79,7 @@ export function Composer({
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const readOnly = brands.find((b) => b.id === brand)?.readOnly;
   const text = postText({ text: body, linkUrl: link });
+  const bodyCount = countText(body);
   const [when, setWhen] = useState("schedule");
   const channelCounts = channels
     .filter((c) => selected.includes(c.id) && c.brandId === brand)
@@ -119,6 +120,10 @@ export function Composer({
             required
           />
         </label>
+        <p className={bodyCount > MAX_POST_TEXT_LENGTH ? "text-sm text-red-700" : "text-sm text-gray-500"}>
+          {bodyCount} / {MAX_POST_TEXT_LENGTH} characters
+          {bodyCount > MAX_POST_TEXT_LENGTH ? " — shorten before saving." : ""}
+        </p>
         <div aria-live="polite" className="text-sm">
           {channelCounts.map((c) => (
             <p key={c.id} className={c.max > 0 && c.count > c.max ? "text-red-700" : "text-gray-500"}>

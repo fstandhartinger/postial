@@ -1,4 +1,4 @@
-import { countChannelText } from "./text-limits";
+import { countChannelText, countText, MAX_POST_TEXT_LENGTH } from "./text-limits";
 import { localDateTime } from "./timezone";
 export const MAX_BULK_ROWS = 200;
 export const CSV_HEADER = "date,time,text,channels,image_url,requires_approval";
@@ -25,8 +25,8 @@ export function rowErrors(
 ) {
   const errors = [...(row.importErrors ?? [])];
   if (!row.text.trim()) errors.push("Write your post.");
-  if (row.text.trim().length > 100000)
-    errors.push("Text exceeds 100,000 characters.");
+  if (countText(row.text.trim()) > MAX_POST_TEXT_LENGTH)
+    errors.push("Post text must be 10,000 characters or fewer.");
   if (!draft && !row.channelIds.length)
     errors.push("Select at least one channel.");
   for (const id of row.channelIds) {

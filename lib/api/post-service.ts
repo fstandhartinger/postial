@@ -10,7 +10,7 @@ import { localDateTime } from "@/lib/timezone";
 import { derivePostStatus } from "@/lib/publishing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { validatePublicUrl } from "@/lib/publishers/safe-fetch";
-import { channelTextLimit, countChannelText, postText } from "@/lib/text-limits";
+import { channelTextLimit, countChannelText, countText, MAX_POST_TEXT_LENGTH, postText } from "@/lib/text-limits";
 export type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export type PostContext = { db: ReturnType<typeof getDb>; workspace: {id: string}; userId: string; access?: Awaited<ReturnType<typeof workspaceEntitlements>> };
 import { isUuid, str, InputError, check, https } from "./input";
@@ -35,9 +35,11 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean).map(linkInput).map(url => { const id = ownMediaId(url); return id ? mediaUrl(id) : url; }),
         linkUrl = linkInput(str(form, "linkUrl"));
       check(
-        body.length > 0 && body.length <= 100000,
-        "Write your post (up to 100,000 characters).",
+        countText(body) > 0,
+        "Write your post.",
       );
+      if (countText(body) > MAX_POST_TEXT_LENGTH)
+        throw new ApiError(422, "validation_error", "Post text must be 10,000 characters or fewer", undefined, "body");
       check(
         mediaUrls.length <= 4 && mediaUrls.every(u => https(u) || localMediaUrl(u) || !!ownMediaId(u)),
         "Use up to four HTTPS media URLs.",

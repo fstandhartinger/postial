@@ -13,7 +13,7 @@ import {
   type BulkChannel,
   type BulkRow,
 } from "@/lib/bulk";
-import { countChannelText } from "@/lib/text-limits";
+import { countChannelText, countText, MAX_POST_TEXT_LENGTH } from "@/lib/text-limits";
 import type { BulkResult } from "@/lib/api/bulk";
 type Brand = { id: string; name: string; timezone: string; readOnly?: boolean };
 type Row = BulkRow & { key: string; result?: BulkResult; uploadError?: string };
@@ -431,6 +431,10 @@ export function BulkEditor({
                             {c.max || "unlimited"}
                           </p>
                         ))}
+                      <p className={countText(r.text.trim()) > MAX_POST_TEXT_LENGTH ? "text-sm text-red-700" : "text-sm text-zinc-600"}>
+                        Text: {countText(r.text.trim())} / {MAX_POST_TEXT_LENGTH}
+                        {countText(r.text.trim()) > MAX_POST_TEXT_LENGTH ? " — shorten before saving." : ""}
+                      </p>
                     </fieldset>
                     {r.result?.id ? (
                       <Link

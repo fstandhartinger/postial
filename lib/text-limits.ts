@@ -1,6 +1,7 @@
 import twitterText from 'twitter-text';
 /** One final-text and grapheme policy shared by UI, actions and adapters. */
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+export const MAX_POST_TEXT_LENGTH = 10_000;
 export function countText(text: string) { return Array.from(segmenter.segment(text)).length; }
 export function postText(input: { text: string; linkUrl?: string }) {
   return input.linkUrl && !input.text.includes(input.linkUrl) ? `${input.text}\n${input.linkUrl}` : input.text;

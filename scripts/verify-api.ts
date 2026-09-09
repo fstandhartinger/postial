@@ -133,6 +133,12 @@ async function main() {
     assert.equal((await db.select().from(posts).where(eq(posts.brandId, brand.id))).length, 1);
     assert.equal((await post({...body, body: 'changed'}, 'same')).status, 409);
     assert.equal((await post({...body, body: ''})).status, 422);
+    const overAbsoluteBodyLimit = await post({...body, body: 'x'.repeat(10001)});
+    assert.equal(overAbsoluteBodyLimit.status, 422);
+    const overAbsoluteBodyLimitError = await overAbsoluteBodyLimit.json();
+    assert.equal(overAbsoluteBodyLimitError.error.code, 'validation_error');
+    assert.equal(overAbsoluteBodyLimitError.error.field, 'body');
+    assert.equal(overAbsoluteBodyLimitError.error.message, 'Post text must be 10,000 characters or fewer');
     assert.equal((await post({...body, media_urls: ['https://127.0.0.1/private']})).status, 422);
     assert.equal((await post({...body, brand_id: foreign.id})).status, 404);
     const [foreignChannel] = await db.insert(channels).values({brandId: foreign.id, provider: 'mastodon', displayName: 'Foreign fixture', externalId: userId, credentialsEnc: 'not-used'}).returning();

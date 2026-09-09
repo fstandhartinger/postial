@@ -111,6 +111,10 @@ async function main() {
       partial.map((r) => r.status),
       [201, 422, 201],
     );
+    const absoluteLimit = await saveBulk(ctx, [{ ...row, body: "x".repeat(10001), channel_ids: [] }]);
+    assert.equal(absoluteLimit[0].status, 422);
+    assert.equal(absoluteLimit[0].error?.code, "validation_error");
+    assert.equal(absoluteLimit[0].error?.message, "Post text must be 10,000 characters or fewer");
     assert.equal(
       (await db.select().from(posts).where(eq(posts.brandId, brand.id))).length,
       7,

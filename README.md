@@ -528,7 +528,9 @@ Channel names/providers use `|`; a provider selects all matching brand channels.
 `POST /api/v1/posts/bulk` accepts 1–200 normal post inputs (one image each), uses
 `savePost` per row, and returns HTTP 200 with ordered `{data:[{index,status,id,
 post_status}|{index,status,error}]}` results. Invalid rows do not roll back other
-rows. An optional Idempotency-Key serializes concurrent requests and persists
+rows. Post text is limited to 10,000 Unicode grapheme characters independent of
+channel limits; over-limit validation errors identify the `body` field. An
+optional Idempotency-Key serializes concurrent requests and persists
 the complete response for 24 hours; changed payloads return 409. The existing
 Agency API access and posts:write scope apply. No schema migration is needed.
 Run `npx tsx scripts/verify-bulk.ts`; set BULK_BROWSER_URL to a local built app
