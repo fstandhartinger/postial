@@ -21,7 +21,7 @@ export default async function AppLayout({
   if(session?.user?.id) {
     const { getDb } = await import('@/db');
     const memberships = await getDb().select({id:workspaceMembers.workspaceId}).from(workspaceMembers).where(eq(workspaceMembers.userId,session.user.id)).limit(1);
-    if(!memberships.length && (await headers()).get("x-socialmint-path")?.startsWith("/app/settings/account")) return <main className="mx-auto max-w-3xl space-y-6 p-6"><Link href="/app">Create a workspace</Link><Link className="ml-4" href="/app/settings/account">Account settings</Link>{children}</main>;
+    if(!memberships.length && (await headers()).get("x-postial-path")?.startsWith("/app/settings/account")) return <main className="mx-auto max-w-3xl space-y-6 p-6"><Link href="/app">Create a workspace</Link><Link className="ml-4" href="/app/settings/account">Account settings</Link>{children}</main>;
   }
   const { db, workspace, userId, role } = await coreContext();
   const [list, user] = await Promise.all([

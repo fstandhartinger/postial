@@ -1,4 +1,4 @@
-# SocialMint
+# Postial
 
 Approve and publish social posts across brands, with recoverable failures. API + n8n node.
 
@@ -40,7 +40,7 @@ Docker copies the same assets into its standalone runtime root and runs node ser
 - `DATABASE_URL`: PostgreSQL connection string, required at runtime. All clients
   use `prepare: false` for PgBouncer transaction pooling.
 - `AUTH_SECRET`: strong random session/authentication secret, required for auth.
-- `AUTH_URL`: canonical app origin; production: https://socialmint.app.mintapis.com.
+- `AUTH_URL`: canonical app origin; production: https://postial.co.
 - `AUTH_TRUST_HOST`: set to `true` behind the trusted hosting proxy; Auth.js is
   configured with `trustHost` only when `AUTH_TRUST_HOST=true`.
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: both enable Google OAuth. Register
@@ -63,7 +63,7 @@ Existing workspace members reuse their workspace.
 ## Docker / Sandy deployment
 
 Use Sandy/Coolify with this Dockerfile and domain
-https://socialmint.app.mintapis.com. Container port: **3000**. Healthcheck:
+https://postial.co. Container port: **3000**. Healthcheck:
 **GET /healthz** (200 with `{ok:true,db:true,version}`; database failure or a
 2-second deadline returns 503 with `{ok:false}`). Supply secrets as runtime
 environment variables, never build arguments. The build needs no database or auth
@@ -230,7 +230,7 @@ Outbound HTTPS validates every DNS address, pins connections, bounds redirects a
 
 Connect channels via **Brands → select a brand → Connect a channel**:
 [Bluesky](docs/connect-bluesky.md), [Mastodon](docs/connect-mastodon.md),
-[Telegram](docs/connect-telegram.md). SocialMint supports four images per post.
+[Telegram](docs/connect-telegram.md). Postial supports four images per post.
 
 
 Verification: `npm run db:generate`, `npm run db:migrate`, `npm run lint`,
@@ -305,7 +305,7 @@ Post detail includes `approvals[]` with decision, reviewer_name, comment and
 created_at (`decided_at` retained for compatibility). When requires_approval is
 true and the key also has `posts:write`, `approval_url` contains the link, or null for a draft without a token. Keys with only `posts:read` receive status/history without an approval URL.
 The docs include registration, every event payload and Node signature verification.
-n8n community node: n8n-nodes-socialmint (coming to npm).
+n8n community node: n8n-nodes-postial (coming to npm).
 
 The API verifier additionally checks management scopes, signed ping, safe lists,
 tenancy, SSRF rejection, concurrent endpoint limits and cancellation through HTTP.
@@ -599,11 +599,11 @@ Post/approval history lasts until post/workspace deletion. Media/deleted-workspa
 markers keep random IDs and timestamps for revocation. Public media is a capability:
 anyone with its URL can fetch it, and network/previous cache copies may outlive deletion.
 
-Observed 2026-09-09 in the SocialMint Coolify container: Docker json-file logs,
+Observed 2026-09-09 in the Postial Coolify container: Docker json-file logs,
 max-size=10m and max-file=3 (approximately 30 MB/container, not 30 days). Proxy and
 build-log time retention were not verified. The existing host backup job keeps two
 successful dumps per database; predeploy dumps are manually retained through release
-acceptance. No verified offsite copy of the host SocialMint DB is claimed. Restore
+acceptance. No verified offsite copy of the host Postial DB is claimed. Restore
 procedures and evidence live in the venture ops/ directory.
 
 Dependency decision rechecked 2026-09-09: Nodemailer 10.0.1 is latest; next-auth beta.32
@@ -704,7 +704,7 @@ startup, and `verify-c7` tests that contract. No product scheduler jobs were cha
 
 ## Operations reference
 
-Deploy through Sandy to https://socialmint.app.mintapis.com using the checked-in
+Deploy through Sandy to https://postial.co using the checked-in
 Dockerfile, runtime secrets and port 3000. Take a predeploy dump, retain the prior
 image digest/migration tip, serialize startup migrations and verify `/healthz` after
 rollout. The build copies standalone static/public assets; startup migrations fail

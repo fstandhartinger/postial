@@ -38,7 +38,7 @@ export async function approvalMedia(source: string) {
     const image = await new Promise<{ body: Buffer; type: string }>((resolve, reject) => {
       const req = request(url, {
         method: "GET", agent: false, family: pinned.family,
-        headers: { Accept: "image/png,image/jpeg,image/webp,image/gif", "User-Agent": "SocialMint-Approval-Preview/1.0" },
+        headers: { Accept: "image/png,image/jpeg,image/webp,image/gif", "User-Agent": "Postial-Approval-Preview/1.0" },
         lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
       }, (res) => {
         const type = res.headers["content-type"]?.split(";")[0].trim() || "";

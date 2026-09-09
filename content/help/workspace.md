@@ -4,7 +4,7 @@ Keep your brands, team and subscription together in one workspace.
 
 ## Steps
 
-1. Open [SocialMint](/app) after signing in using an enabled sign-in method.
+1. Open [Postial](/app) after signing in using an enabled sign-in method.
 2. If you have no memberships, your first visit creates a workspace and makes you its owner.
 3. Use the account menu to switch between workspaces you belong to; check the selected workspace before changing billing or integrations.
 4. Open [Billing](/app/billing) to start Checkout when you are ready to activate a plan or trial.

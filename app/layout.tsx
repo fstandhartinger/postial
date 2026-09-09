@@ -19,11 +19,11 @@ const inter = localFont({
 });
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
-  title: { default: words("SEO", "<title>"), template: "%s · SocialMint" },
+  title: { default: words("SEO", "<title>"), template: "%s · Postial" },
   description,
   openGraph: {
     type: "website",
-    siteName: "SocialMint",
+    siteName: "Postial",
     title: words("SEO", "OG title"),
     description: words("SEO", "OG description"),
     locale: "en_US",

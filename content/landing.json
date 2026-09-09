@@ -2,7 +2,7 @@
   "Navigation": [
     {
       "label": "Brand",
-      "text": "SocialMint"
+      "text": "Postial"
     },
     {
       "label": "Link → #features",
@@ -366,7 +366,7 @@
     },
     {
       "label": "Body",
-      "text": "SocialMint Agency is €49 per month for up to 15 brands and 5 users."
+      "text": "Postial Agency is €49 per month for up to 15 brands and 5 users."
     },
     {
       "label": "H3",
@@ -374,7 +374,7 @@
     },
     {
       "label": "Body",
-      "text": "Agency includes approval links that clients can use without a SocialMint login."
+      "text": "Agency includes approval links that clients can use without a Postial login."
     },
     {
       "label": "H3",
@@ -386,7 +386,7 @@
     },
     {
       "label": "Fair-comparison note",
-      "text": "Compare current plans, network support, and workflow requirements before choosing. These are SocialMint’s plan details, not claims that other tools lack these features."
+      "text": "Compare current plans, network support, and workflow requirements before choosing. These are Postial’s plan details, not claims that other tools lack these features."
     }
   ],
   "FAQ": [
@@ -440,7 +440,7 @@
     },
     {
       "label": "Answer 6",
-      "text": "SocialMint’s application data is hosted with Hetzner in Germany. Payment processing, optional Google sign-in, and connected social networks may involve processing outside the EU. See our Privacy Policy for details."
+      "text": "Postial’s application data is hosted with Hetzner in Germany. Payment processing, optional Google sign-in, and connected social networks may involve processing outside the EU. See our Privacy Policy for details."
     },
     {
       "label": "Question 7",
@@ -468,7 +468,7 @@
   "Footer": [
     {
       "label": "Brand",
-      "text": "SocialMint"
+      "text": "Postial"
     },
     {
       "label": "Description",
@@ -510,7 +510,7 @@
   "SEO": [
     {
       "label": "<title>",
-      "text": "SocialMint | Bluesky, Mastodon & Telegram for Agencies"
+      "text": "Postial | Bluesky, Mastodon & Telegram for Agencies"
     },
     {
       "label": "Meta description",
@@ -518,7 +518,7 @@
     },
     {
       "label": "OG title",
-      "text": "SocialMint | Client approvals for Bluesky, Mastodon & Telegram"
+      "text": "Postial | Client approvals for Bluesky, Mastodon & Telegram"
     },
     {
       "label": "OG description",

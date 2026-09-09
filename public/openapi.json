@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "SocialMint API",
+    "title": "Postial API",
     "version": "1.0.0",
     "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts. Register endpoints using webhooks:manage. Existing keys retain their scopes. POST /webhooks/{id}/test emits ping.",
     "license": {
@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://socialmint.app.mintapis.com/api/v1"
+      "url": "https://postial.co/api/v1"
     }
   ],
   "tags": [
@@ -654,7 +654,7 @@
               },
               "example": {
                 "brand_id": "11111111-1111-4111-8111-111111111111",
-                "body": "Hello from SocialMint",
+                "body": "Hello from Postial",
                 "media_urls": [],
                 "channel_ids": [
                   "22222222-2222-4222-8222-222222222222"
@@ -2362,7 +2362,7 @@
               "decision": "approved",
               "decided_at": "2026-09-09T12:00:00Z",
               "has_comment": false,
-              "post_url": "https://socialmint.app.mintapis.com/app/posts/33333333-3333-4333-8333-333333333333"
+              "post_url": "https://postial.co/app/posts/33333333-3333-4333-8333-333333333333"
             }
           },
           {
@@ -2782,8 +2782,8 @@
     "postEvent": {
       "post": {
         "operationId": "receiveWebhook",
-        "summary": "Receive a signed SocialMint event",
-        "description": "Verify X-SocialMint-Signature against the raw body. At-least-once delivery; deduplicate payload.id.",
+        "summary": "Receive a signed Postial event",
+        "description": "Verify X-Postial-Signature against the raw body. X-SocialMint-Signature is sent as a deprecated compatibility header. At-least-once delivery; deduplicate payload.id.",
         "security": [],
         "requestBody": {
           "required": true,

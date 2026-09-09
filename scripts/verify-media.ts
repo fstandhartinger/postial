@@ -161,7 +161,7 @@ async function main() {
     if (old === undefined) Reflect.deleteProperty(process.env,"NODE_ENV"); else Object.assign(process.env,{NODE_ENV:old});
     await assert.rejects(validatePublicUrl('https://127.0.0.1/private'));
     process.env.NEXT_PUBLIC_APP_URL = configuredBase;
-    const publicOrigin = 'https://socialmint.app.mintapis.com/m/'+asset.id;
+    const publicOrigin = 'https://postial.co/m/'+asset.id;
     await validatePublicUrl(publicOrigin);
     assert.deepEqual(await imageInfo(png),{mime:'image/png',width:1,height:1});
     for (const size of [0,8,20,30]) await assert.rejects(imageInfo(png.subarray(0,size)));

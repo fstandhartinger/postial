@@ -6,7 +6,7 @@ import { currentKeyId, decryptCredentials, encryptCredentials } from '@/lib/cryp
 export async function reencrypt(transaction?: Tx) {
   const prefix = 'v1:' + currentKeyId() + ':';
   const run = async (tx:Tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('socialmint-reencrypt',0))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('postial-reencrypt',0))`);
     let count = 0;
     // Static identifiers only. Row locks serialize with refresh/disconnect/other rotations.
     for (const [table, pk, column] of [

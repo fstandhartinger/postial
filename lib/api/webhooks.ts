@@ -149,7 +149,9 @@ export async function deliverWebhooks() {
       try {
         const body = JSON.stringify(delivery.payload), timestamp = String(Math.floor(Date.now() / 1000));
         const init: RequestInit = {method: 'POST', body, headers: {'Content-Type': 'application/json',
-          'X-SocialMint-Delivery': delivery.id, 'X-SocialMint-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body)},
+          'X-Postial-Delivery': delivery.id,
+          'X-SocialMint-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body),
+          'X-Postial-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body)},
           signal: AbortSignal.any([budgetSignal, AbortSignal.timeout(5000)])};
         const url = endpoint.kind === 'api' ? endpoint.url : decryptCredentials(endpoint.secretEnc).url;
         const response = loopback(url) ? await fetch(url, {...init, redirect: 'manual'}) : await safeFetch(url, init);

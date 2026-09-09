@@ -6,7 +6,7 @@ Owners administer a workspace while editors manage its brands, channels and post
 
 1. As an owner, open [Team](/app/settings/team) and check the selected workspace and seat count.
 2. Create an invitation with the appropriate role and copy the one-time link.
-3. Share it privately. No invitation email is sent by SocialMint.
+3. Share it privately. No invitation email is sent by Postial.
 4. The recipient signs in themselves, then accepts the invitation. Links expire after seven days and can be used once.
 5. Revoke unused invitations and adjust roles or remove members in Team.
 6. Before offboarding, review the member’s API keys and revoke exposed keys; replace webhook endpoints if their signing secrets need rotation.

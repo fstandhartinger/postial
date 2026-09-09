@@ -11,7 +11,7 @@ export type BillingTransaction = Parameters<Parameters<ReturnType<typeof getDb>[
 export async function lockWorkspace(tx: BillingTransaction, id: string) {
   await tx.execute(sql`set local lock_timeout = '3s'`);
   await tx.execute(sql`set local statement_timeout = '5s'`);
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`socialmint-billing:${id}`}, 0))`);
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`postial-billing:${id}`}, 0))`);
 }
 export async function getSubscriptionForWorkspace(workspaceId: string) {
   const [row] = await getDb().select({ subscription: subscriptions, pastDueSince: billingState.pastDueSince })

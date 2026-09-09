@@ -10,7 +10,7 @@ async function main() {
   const db = getDb();
   const id = crypto.randomUUID();
   try {
-    await db.insert(users).values({ id, name: "SocialMint integration fixture" });
+    await db.insert(users).values({ id, name: "Postial integration fixture" });
     const results = await Promise.all(Array.from({ length: 5 }, () => ensureWorkspace(id)));
     assert.equal(new Set(results.map(w => w.id)).size, 1);
     const owned = await db.select().from(workspaces).where(eq(workspaces.ownerUserId, id));

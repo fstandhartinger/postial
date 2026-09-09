@@ -1,17 +1,17 @@
 # Connect Threads
 
 In **Brands → your brand → Connect a channel**, choose **Connect Threads** and
-approve the account access request. The return to SocialMint connects that
+approve the account access request. The return to Postial connects that
 account to your brand. **Coming soon** means the operator still needs to configure
-the developer app. No Threads password is stored in SocialMint.
+the developer app. No Threads password is stored in Postial.
 
 Posts support 500 characters and up to four public HTTPS images. A single image
 becomes an image post; multiple images become a carousel. Images must remain
 publicly reachable by Meta while the post is processed. Private URLs and internal
-network addresses are rejected. SocialMint polls processing status before publishing.
+network addresses are rejected. Postial polls processing status before publishing.
 
 If **Reconnect Threads** appears, connect the same account again. This updates
-the existing channel. Tokens normally last 60 days, and SocialMint renews them
+the existing channel. Tokens normally last 60 days, and Postial renews them
 when publishing within seven days of expiry (only after their first 24 hours).
 An expired token cannot be refreshed: after a long period without publishing,
 reconnection may be necessary. If a publishing result is uncertain, check the
@@ -46,7 +46,7 @@ Validation reads `/v1.0/me?fields=id,username`. Publishing creates a container a
 calls `/v1.0/me/threads_publish` with `creation_id`. Images use `media_type=IMAGE`
 and `image_url`. Carousel children set `is_carousel_item=true`; the parent uses
 `media_type=CAROUSEL` and comma-separated `children` IDs. Meta permits more items;
-SocialMint deliberately retains its four-image limit.
+Postial deliberately retains its four-image limit.
 [Meta carousel request](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api?entity=request-34203612-ee0a2365-9d95-4cbe-8087-1cfb04d38c05).
 
 HTTP 401/403 and Meta token error 190 require reconnect. HTTP 429 and Meta
@@ -65,5 +65,5 @@ No login, CAPTCHA or rate limit was bypassed.
 
 Set `APP_URL`, `THREADS_APP_ID`, `THREADS_APP_SECRET`, and preserve
 `APP_ENCRYPTION_KEY`. Callback:
-`https://socialmint.app.mintapis.com/api/oauth/threads/callback`.
+`https://postial.co/api/oauth/threads/callback`.
 See [X verification instructions](connect-x.md#verification) for the local mock suites.

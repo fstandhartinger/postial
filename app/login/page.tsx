@@ -23,7 +23,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     } catch { /* Invalid destinations fall back to the workspace. */ }
   }
   const redirectTo = params.next || params.plan ? loginTarget(params.next, params.plan) : callbackPath ?? '/app';
-  return <Card className="mx-auto max-w-md"><h1 className="text-3xl font-semibold">Welcome to SocialMint</h1><p className="mt-3 text-gray-600">Your brands, together in one place.</p>
+  return <Card className="mx-auto max-w-md"><h1 className="text-3xl font-semibold">Welcome to Postial</h1><p className="mt-3 text-gray-600">Your brands, together in one place.</p>
     {!enabled.google && !enabled.email && <p className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">We’re getting sign-in ready. Please come back soon.</p>}
     {params.error && <p role="alert" className="mt-4 text-sm text-red-700">We couldn’t sign you in. Please try again.</p>}
     {/* Each provider keeps its own form, so Enter inside the email field submits the magic-link form instead of starting the Google flow. */}

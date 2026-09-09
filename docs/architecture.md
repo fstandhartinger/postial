@@ -1,6 +1,6 @@
 # Architecture
 
-SocialMint 0.2.0 is a Next.js 16 App Router application deployed as a Node.js
+Postial 0.2.0 is a Next.js 16 App Router application deployed as a Node.js
 standalone process. Server Components read scoped data; Server Actions and Route
 Handlers validate mutations. Auth.js uses PostgreSQL database sessions. The public
 site, help centre and API documentation can be built without a database or secrets.

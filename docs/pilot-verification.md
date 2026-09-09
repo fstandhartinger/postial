@@ -22,7 +22,7 @@ Passed on the local PostgreSQL database and local production standalone build:
   `git diff --check`.
 
 Browser evidence is saved outside the checkout at
-`/home/flori/ventures2/socialmint/work/pilot-evidence/`: Channels and Approvals at
+`/path/to/postial/work/pilot-evidence/`: Channels and Approvals at
 390/1280, empty states, Starter upgrade. No horizontal page overflow or page
 errors; keyboard focus and brand filtering checked using synthetic DB sessions.
 

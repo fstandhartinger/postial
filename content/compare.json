@@ -1,8 +1,8 @@
 {
   "checkedAt": "2026-09-08",
   "priceFootnote": "Prices as listed on vendor sites, checked September 2026",
-  "methodology": "SocialMint prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Fifteen brands can require many more than fifteen accounts. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
-  "socialmint": [
+  "methodology": "Postial prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Fifteen brands can require many more than fifteen accounts. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
+  "postial": [
     "Starter: €19/month including VAT; 3 brands, 1 user.",
     "Agency: €49/month including VAT; 15 brands, 5 users.",
     "Client approval links (Agency)",
@@ -25,7 +25,7 @@
   "switchSteps": [
     {
       "title": "1. Map one client first",
-      "body": "List the client’s profiles, formats, scheduled posts and reviewers. Check which integrations and early-access features are live in your SocialMint workspace."
+      "body": "List the client’s profiles, formats, scheduled posts and reviewers. Check which integrations and early-access features are live in your Postial workspace."
     },
     {
       "title": "2. Pilot the approval flow",
@@ -33,7 +33,7 @@
     },
     {
       "title": "3. Move only verified workflows",
-      "body": "Reconnect supported profiles and rebuild schedules in small batches. Remove duplicate scheduled posts in the old tool. Keep unsupported networks there until SocialMint support is available; no automatic history import is promised."
+      "body": "Reconnect supported profiles and rebuild schedules in small batches. Remove duplicate scheduled posts in the old tool. Keep unsupported networks there until Postial support is available; no automatic history import is promised."
     }
   ],
   "pages": [
@@ -41,7 +41,7 @@
       "slug": "hootsuite-alternative",
       "vendor": "Hootsuite",
       "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare SocialMint and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
+      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
       "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
       "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
@@ -94,28 +94,28 @@
           ]
         }
       ],
-      "fits": "SocialMint’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. The n8n node awaits npm publication. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
-      "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate SocialMint’s narrower rollout before moving.",
+      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. The n8n node awaits npm publication. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
         "integrations",
         "pricing"
       ],
       "faq": [
         {
-          "question": "Is SocialMint cheaper for a five-person agency?",
-          "answer": "SocialMint Agency lists €49/month including VAT for 5 users and 15 brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+          "question": "Is Postial cheaper for a five-person agency?",
+          "answer": "Postial Agency lists €49/month including VAT for 5 users and 15 brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
         },
         {
           "question": "Can Hootsuite clients approve without a login?",
-          "answer": "The checked pricing page lists team approvals on Advanced, but does not establish login-free external approval links. Confirm that workflow with Hootsuite. SocialMint provides login-free Agency client links today."
+          "answer": "The checked pricing page lists team approvals on Advanced, but does not establish login-free external approval links. Confirm that workflow with Hootsuite. Postial provides login-free Agency client links today."
         },
         {
           "question": "Should an Instagram-focused agency switch now?",
-          "answer": "SocialMint’s Instagram, Facebook and LinkedIn support depends on platform approval. Keep workflows that require those networks in a supported tool until availability is confirmed."
+          "answer": "Postial’s Instagram, Facebook and LinkedIn support depends on platform approval. Keep workflows that require those networks in a supported tool until availability is confirmed."
         },
         {
           "question": "Do both trials require a credit card?",
-          "answer": "Neither SocialMint nor Hootsuite requires a card for its listed 14-day trial. SocialMint is early access, so use the trial to verify the features your clients need."
+          "answer": "Neither Postial nor Hootsuite requires a card for its listed 14-day trial. Postial is early access, so use the trial to verify the features your clients need."
         }
       ],
       "sources": [
@@ -143,7 +143,7 @@
       "slug": "postiz-alternative",
       "vendor": "Postiz",
       "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare SocialMint and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
+      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
       "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
       "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
@@ -178,7 +178,7 @@
           ]
         },
         {
-          "text": "Includes all five SocialMint launch networks plus LinkedIn, Instagram, Facebook, TikTok, YouTube and more.",
+          "text": "Includes all five Postial launch networks plus LinkedIn, Instagram, Facebook, TikTok, YouTube and more.",
           "sources": [
             "api"
           ]
@@ -196,27 +196,27 @@
           ]
         }
       ],
-      "fits": "SocialMint fits teams that want a managed service hosted in Germany and a plan defined around brands and five teammates. Its Agency client approval links are designed for reviewers without accounts. Client approval links are available today on Agency.",
-      "vendorFits": "Postiz fits teams that want to self-host or need a broader network selection today. Its documented API and n8n node already support automation. Unlimited team members on eligible cloud plans can suit teams larger than SocialMint Agency’s five-user allowance.",
+      "fits": "Postial fits teams that want a managed service hosted in Germany and a plan defined around brands and five teammates. Its Agency client approval links are designed for reviewers without accounts. Client approval links are available today on Agency.",
+      "vendorFits": "Postiz fits teams that want to self-host or need a broader network selection today. Its documented API and n8n node already support automation. Unlimited team members on eligible cloud plans can suit teams larger than Postial Agency’s five-user allowance.",
       "vendorFitSources": [
         "pricing",
         "api"
       ],
       "faq": [
         {
-          "question": "Is SocialMint an open-source or self-hosted Postiz replacement?",
-          "answer": "SocialMint is presented here as a managed service hosted in Germany. Postiz offers an open-source self-hosting option; operating its server and integrations remains your responsibility."
+          "question": "Is Postial an open-source or self-hosted Postiz replacement?",
+          "answer": "Postial is presented here as a managed service hosted in Germany. Postiz offers an open-source self-hosting option; operating its server and integrations remains your responsibility."
         },
         {
           "question": "Does Postiz Pro cover fifteen brands?",
           "answer": "Pro lists 30 channels and unlimited team members for $49/month. Fifteen brands fit that account allowance only if they use at most 30 connected profiles combined; brands and channels are different units."
         },
         {
-          "question": "Is API automation unique to SocialMint?",
-          "answer": "No. Postiz documents a public API and custom n8n node. SocialMint Agency includes REST API and webhooks today; the n8n node awaits npm publication."
+          "question": "Is API automation unique to Postial?",
+          "answer": "No. Postiz documents a public API and custom n8n node. Postial Agency includes REST API and webhooks today; the n8n node awaits npm publication."
         },
         {
-          "question": "Can clients review SocialMint posts without signing up?",
+          "question": "Can clients review Postial posts without signing up?",
           "answer": "Login-free client approval links are available on Agency today, including during the 14-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
         }
       ],

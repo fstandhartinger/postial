@@ -1,6 +1,11 @@
 [
   {
     "date": "2026-09-09",
+    "title": "Renamed to Postial",
+    "body": "The SocialMint product is now Postial; existing API paths and webhook compatibility remain unchanged."
+  },
+  {
+    "date": "2026-09-09",
     "title": "Notifications",
     "body": "In-app notifications and optional Slack, Discord and Mattermost webhook alerts."
   },

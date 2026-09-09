@@ -67,7 +67,7 @@ export default async function Overview({
     },
     {
       title: "Schedule your first post",
-      benefit: "Choose a time and let SocialMint handle the publishing.",
+      benefit: "Choose a time and let Postial handle the publishing.",
       done: onboarding.scheduled,
       href: "/app/posts/new",
       action: "Schedule post",

@@ -16,7 +16,7 @@ export async function notifyWorkspace(tx:Tx,workspaceId:string,type:AlertEvent,p
   await tx.insert(notifications).values({workspaceId,type,postId,message});
   const endpoints=await tx.select().from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId,workspaceId),eq(webhookEndpoints.active,true),isNull(webhookEndpoints.deletedAt))).for('share');
   for(const endpoint of endpoints.filter(e=>e.kind!=='api' && e.events.includes(type))) {
-    const text=`SocialMint: ${message} ${appUrl()}${postId?`/app/posts/${postId}`:'/app/channels'}`;
+    const text=`Postial: ${message} ${appUrl()}${postId?`/app/posts/${postId}`:'/app/channels'}`;
     await tx.insert(webhookDeliveries).values({endpointId:endpoint.id,event:`alert.${type}`,payload:{id:randomUUID(),...(endpoint.kind==='discord'?{content:text}:{text})}});
   }
 }
@@ -61,6 +61,6 @@ export async function testAlert(workspaceId:string,userId:string,id:string) {
     // Bound repeated tests using the durable outbox.
     const [last]=await tx.select().from(webhookDeliveries).where(and(eq(webhookDeliveries.endpointId,id),eq(webhookDeliveries.event,'alert.test'))).orderBy(desc(webhookDeliveries.createdAt)).limit(1);
     if(last && Date.now()-last.createdAt.getTime()<60000) throw new ApiError(429,'rate_limited','Wait a minute before testing again.');
-    await tx.insert(webhookDeliveries).values({endpointId:id,event:'alert.test',payload:{id:randomUUID(),...(endpoint.kind==='discord'?{content:'SocialMint test alert: your destination is connected.'}:{text:'SocialMint test alert: your destination is connected.'})}});
+    await tx.insert(webhookDeliveries).values({endpointId:id,event:'alert.test',payload:{id:randomUUID(),...(endpoint.kind==='discord'?{content:'Postial test alert: your destination is connected.'}:{text:'Postial test alert: your destination is connected.'})}});
   });
 }

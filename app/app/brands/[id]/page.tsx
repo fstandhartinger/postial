@@ -59,7 +59,7 @@ export default async function BrandPage({
               Bluesky setup help
             </summary>
             <p className="mt-3 text-sm">
-              In Bluesky, open Settings → App Passwords and create a SocialMint
+              In Bluesky, open Settings → App Passwords and create a Postial
               app password. Enter your handle and the app password below, never
               your main password. Posts support 300 characters and up to four
               images, each up to 1 MB. Reconnect with a fresh app password if
@@ -72,7 +72,7 @@ export default async function BrandPage({
             </summary>
             <p className="mt-3 text-sm">
               On your instance, open Preferences → Development → New
-              application. Name it SocialMint and enable write:statuses,
+              application. Name it Postial and enable write:statuses,
               write:media and read:accounts. Copy Your access token, then enter
               your HTTPS instance URL and token below. Your instance sets the
               text limit, usually 500 characters.

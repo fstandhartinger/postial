@@ -8,6 +8,6 @@ export async function GET() {
     if (!ctx) return Response.json({error:'Sign in first.'},{status:401});
     await sessionActionBudget(ctx.userId);
     const data = await exportWorkspace(ctx.workspace.id,ctx.userId);
-    return Response.json(data,{headers:{'Content-Disposition':'attachment; filename="socialmint-export.json"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+    return Response.json(data,{headers:{'Content-Disposition':'attachment; filename="postial-export.json"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   } catch(e) { return apiError(e); }
 }

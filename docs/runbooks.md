@@ -4,7 +4,7 @@ Use the deployed release's environment privately. Never copy tokens, session
 cookies, raw webhook bodies or database URLs into incident logs. Record timestamps,
 release SHA, sanitized error codes and affected counts. The host-specific scripts
 and verified backup evidence live outside this repository in
-`/home/flori/ventures2/socialmint/ops/` (the sibling `../ops/` from the main checkout).
+`/path/to/postial/ops/` (the sibling `../ops/` from the main checkout).
 Start with its `README.md`, `RELEASE.md`, `BACKUP-STATUS.md` and `RESTORE.md`.
 
 ## Worker stops progressing

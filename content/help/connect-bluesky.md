@@ -6,9 +6,9 @@ Authorize the intended Bluesky account and confirm its connection before schedul
 
 1. Open Bluesky and sign in yourself.
 2. Go to Settings → App Passwords (under Privacy and Security in some versions).
-3. Create a new app password named SocialMint.
+3. Create a new app password named Postial.
 4. Copy the generated app password and keep it private.
-5. In SocialMint, open Brands → select your brand → Connect a channel, then choose bluesky.
+5. In Postial, open Brands → select your brand → Connect a channel, then choose bluesky.
 6. Enter your Bluesky handle or account email as Identifier; use the handle for a custom PDS.
 7. Paste the app password into App password; never enter your main password.
 8. Save the connection and check that the displayed handle is yours.
@@ -17,7 +17,7 @@ Authorize the intended Bluesky account and confirm its connection before schedul
 11. Oversized or unsupported images are omitted with a warning; review the result.
 12. If access expires, create a fresh app password and reconnect.
 
-SocialMint creates a fresh session for each operation and does not store session tokens.
+Postial creates a fresh session for each operation and does not store session tokens.
 
 ## Related
 

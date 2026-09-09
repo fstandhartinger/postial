@@ -197,7 +197,7 @@ export function BulkEditor({
           </p>
           <a
             className="underline"
-            download="socialmint-posts.csv"
+            download="postial-posts.csv"
             href={
               "data:text/csv;charset=utf-8," +
               encodeURIComponent(

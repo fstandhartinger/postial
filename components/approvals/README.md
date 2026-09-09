@@ -75,7 +75,7 @@ POST enforcement, validation, decisions/events, queue activation and revocation,
 cross-workspace rotation rejection, concurrent 11-request limiting, image SSRF
 address rejection, 390px keyboard use, real composer and regeneration actions,
 and published read-only state. The browser image itself is intercepted with a
-fixture; a separate real public PNG fetch returned 200/image/png (13,504 bytes). Screenshot: /tmp/socialmint-approvals-mobile.png.
+fixture; a separate real public PNG fetch returned 200/image/png (13,504 bytes). Screenshot: /tmp/postial-approvals-mobile.png.
 
 README has no runnable secret-scan command. Before commit/push, scan tracked changes
 for credential patterns and compare them against loaded secret values without

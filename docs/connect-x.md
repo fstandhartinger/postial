@@ -1,12 +1,12 @@
 # Connect X
 
 In **Brands → your brand → Connect a channel**, choose **Connect X**, select your
-X account and approve access. Return to SocialMint; your account appears as an
+X account and approve access. Return to Postial; your account appears as an
 active channel. If the button says **coming soon**, the operator has not yet
-configured the developer app. You never paste an X password into SocialMint.
+configured the developer app. You never paste an X password into Postial.
 
 Posts support 280 weighted characters and up to four public HTTPS images (1 MB
-per image in SocialMint). URLs count as 23 characters; emoji and CJK use X's
+per image in Postial). URLs count as 23 characters; emoji and CJK use X's
 weighted counting rules. Premium long posts, video and GIF upload are excluded.
 On **Reconnect X**, use the same connection button and account: it renews the
 existing channel. X billing, account restrictions and missing permissions can
@@ -57,7 +57,7 @@ Counting uses the official [twitter-text library](https://github.com/twitter/twi
 including bare-domain URL recognition, Unicode normalization and emoji sequences.
 
 Set `APP_URL`, `X_CLIENT_ID`, `X_CLIENT_SECRET`, and preserve `APP_ENCRYPTION_KEY`.
-Callback: `https://socialmint.app.mintapis.com/api/oauth/x/callback`.
+Callback: `https://postial.co/api/oauth/x/callback`.
 State expires in ten minutes and is single-use, bound to session user, provider
 and brand; PKCE verifiers and channel tokens are encrypted at rest. Only brand
 owners can initiate these connections. Session expiry requires restarting the flow.

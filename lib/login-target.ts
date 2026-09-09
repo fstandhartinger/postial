@@ -4,7 +4,7 @@ export function internalPath(value: unknown): string | undefined {
   try {
     const decoded = decodeURIComponent(value);
     if (decoded.includes('//') || /[\\\x00-\x20]/.test(decoded)) return;
-    if (new URL(value, 'https://socialmint.invalid').origin !== 'https://socialmint.invalid') return;
+    if (new URL(value, 'https://postial.invalid').origin !== 'https://postial.invalid') return;
     return value;
   } catch { return; }
 }

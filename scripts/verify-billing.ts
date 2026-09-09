@@ -34,7 +34,7 @@ async function main() {
   let customerId: string | null = null, workspaceId: string | undefined;
   let stage = "setup";
   try {
-    await db.insert(users).values({ id: userId, name: "SocialMint billing verification" });
+    await db.insert(users).values({ id: userId, name: "Postial billing verification" });
     workspaceId = (await ensureWorkspace(userId)).id;
     await db.insert(sessions).values({ sessionToken: token, userId, expires: new Date(Date.now() + 600000) });
     const cookie = `authjs.session-token=${token}`;

@@ -22,7 +22,7 @@ export const threads: Publisher = {
     return guarded('Threads', () => publishingDeadline(async () => {
       const text = postText(input), images = input.mediaUrls ?? [];
       checkLength('Threads', text, 500);
-      if (images.length > 4) throw failure('CONTENT_REJECTED', 'SocialMint supports up to four images.');
+      if (images.length > 4) throw failure('CONTENT_REJECTED', 'Postial supports up to four images.');
       for (const url of images) await downloadImage('Threads', url, threads.maxMediaBytes);
       const post = async (path: string, body: Record<string, string>) => {
         const r = await oauthJson<{ id: string }>('threads', `/v1.0${path}`, { method: 'POST', headers: { ...bearer(c), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) });

@@ -29,7 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
     pages: { signIn: "/login", error: "/login", verifyRequest: "/login/check-email" },
     providers: [
       ...(enabled.google ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []),
-      ...(enabled.email ? [Nodemailer({ normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
+      ...(enabled.email ? [Nodemailer({ name: 'Postial', normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
     logger: { error() { console.error("Authentication request failed"); } },

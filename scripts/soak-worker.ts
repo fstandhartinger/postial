@@ -14,7 +14,7 @@ import postgres from 'postgres';
 const seconds = Number(process.env.SOAK_SECONDS ?? 1800);
 const scheduleSeconds = Number(process.env.SOAK_SCHEDULE_SECONDS ?? 1200);
 assert(Number.isFinite(seconds) && seconds > 0 && Number.isFinite(scheduleSeconds) && scheduleSeconds >= 0);
-const reportDir = process.env.SOAK_REPORT_DIR ?? '/home/flori/ventures2/socialmint/work';
+const reportDir = process.env.SOAK_REPORT_DIR ?? '/path/to/postial/work';
 mkdirSync(reportDir, { recursive: true });
 const dbName = 'socialmint_soak_' + randomUUID().replaceAll('-', '');
 const quote = (v: string) => '"' + v.replaceAll('"', '""') + '"';
@@ -48,7 +48,7 @@ let created = false;
 let closeDb: (() => Promise<void>) | undefined;
 const receiver = createServer(async (req, res) => {
   for await (const chunk of req) { void chunk; }
-  const id = String(req.headers['x-socialmint-delivery']);
+  const id = String(req.headers['x-postial-delivery']);
   if (deliveryIds.has(id)) metrics.duplicateDeliveries++;
   deliveryIds.add(id); metrics.received++;
   res.writeHead(204); res.end();

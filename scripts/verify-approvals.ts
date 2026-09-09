@@ -116,7 +116,7 @@ async function main() {
       await Promise.all([page.waitForNavigation(), page.keyboard.press("Enter")]);
       assert(await page.getByText("Thank you. Your decision has been saved.").isVisible(), await page.locator("section[aria-label=\"Review decision\"]").innerText());
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-      await page.screenshot({ path: process.env.APPROVAL_SCREENSHOT || "/tmp/socialmint-approvals-mobile.png", fullPage: true });
+      await page.screenshot({ path: process.env.APPROVAL_SCREENSHOT || "/tmp/postial-approvals-mobile.png", fullPage: true });
 
       // Synthetic DB session only: no real account/provider login is automated.
       await context.addCookies([{ name: "authjs.session-token", value: session, url: base }]);

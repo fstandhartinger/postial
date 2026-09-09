@@ -9,5 +9,5 @@ export function ContinueCheckout({ plan, next }: { plan: Plan; next: string }) {
   useEffect(() => {
     if (!started.current) { started.current = true; container.current?.querySelector('button')?.click(); }
   }, []);
-  return <div ref={container} className="space-y-6"><h1>Continue to checkout</h1><CheckoutButton plan={plan}>Continue to checkout</CheckoutButton><p><Link href={next}>Return to SocialMint</Link></p></div>;
+  return <div ref={container} className="space-y-6"><h1>Continue to checkout</h1><CheckoutButton plan={plan}>Continue to checkout</CheckoutButton><p><Link href={next}>Return to Postial</Link></p></div>;
 }

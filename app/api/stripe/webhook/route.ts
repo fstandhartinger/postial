@@ -37,7 +37,7 @@ async function resolvePlan(subscription: Stripe.Subscription): Promise<Plan> {
   if (plan) return plan;
   if (isPlan(price.metadata.plan)) return price.metadata.plan;
   if (isPlan(subscription.metadata.plan)) return subscription.metadata.plan;
-  throw new Error('Unknown SocialMint subscription plan');
+  throw new Error('Unknown Postial subscription plan');
 }
 async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
   const preliminary = await stripe().subscriptions.retrieve(stripeSubscriptionId);

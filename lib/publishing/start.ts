@@ -2,13 +2,13 @@ import { workerState } from './state';
 import { deliverWebhooksTick } from "@/lib/api/webhooks";
 import { tick } from "./index";
 const state = globalThis as typeof globalThis & {
-  socialmintWorker?: ReturnType<typeof setInterval>;
+  postialWorker?: ReturnType<typeof setInterval>;
 };
 export function startPublishingWorker() {
-  if (state.socialmintWorker || !process.env.DATABASE_URL || process.env.WORKER_ENABLED === "false") return;
+  if (state.postialWorker || !process.env.DATABASE_URL || process.env.WORKER_ENABLED === "false") return;
   workerState.startedAt = Date.now();
   let running = false;
-  state.socialmintWorker = setInterval(async () => {
+  state.postialWorker = setInterval(async () => {
     if (running) return;
     running = true;
     try {
@@ -21,5 +21,5 @@ export function startPublishingWorker() {
       void deliverWebhooksTick().catch(() => console.error("Webhook tick failed"));
     }
   }, 30000);
-  state.socialmintWorker.unref();
+  state.postialWorker.unref();
 }

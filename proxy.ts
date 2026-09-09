@@ -8,6 +8,9 @@ import { apiError } from '@/lib/api/errors';
 /** Applies before RSC/Server Action parsing, including non-FormData action arguments. */
 export async function proxy(request: NextRequest) {
   try {
+    if (process.env.LEGACY_HOST_REDIRECT === '1' && request.headers.get('host')?.split(':')[0] === 'socialmint.app.mintapis.com' && request.nextUrl.pathname !== '/healthz') {
+      return NextResponse.redirect(`https://postial.co${request.nextUrl.pathname}${request.nextUrl.search}`, 301);
+    }
     if (request.nextUrl.pathname.startsWith('/join/')) {
       const limited = await anonymousLimit(request.headers, 'join', 30);
       if (limited) return limited;
@@ -16,7 +19,7 @@ export async function proxy(request: NextRequest) {
       await readBody(request.clone(), await actionBodyLimit(request));
     }
     const headers = new Headers(request.headers);
-    headers.set('x-socialmint-path',request.nextUrl.pathname+request.nextUrl.search);
+    headers.set('x-postial-path',request.nextUrl.pathname+request.nextUrl.search);
     const active = request.cookies.get('sm_ws')?.value;
     let clear = false;
     if(active) {
@@ -29,4 +32,4 @@ export async function proxy(request: NextRequest) {
     return response;
   } catch (e) { return apiError(e); }
 }
-export const config = {matcher:['/app/:path*','/join/:path*','/login','/api/media/:path*','/api/stripe/checkout','/api/stripe/portal']};
+export const config = {matcher:['/:path*']};
