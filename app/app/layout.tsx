@@ -51,8 +51,8 @@ export default async function AppLayout({
           </p>
           <p className="truncate text-xs text-zinc-600">{workspace.name}</p>
           {switcher}
-          <Link href="/app/settings/account">Account settings</Link>
-          {role === "owner" && <Link href="/app/settings/workspace">Workspace settings</Link>}
+          <Link className="block" href="/app/settings/account">Account settings</Link>
+          {role === "owner" && <Link className="block" href="/app/settings/workspace">Workspace settings</Link>}
           <form
             action={async () => {
               "use server";
@@ -76,8 +76,8 @@ export default async function AppLayout({
             <summary className="cursor-pointer p-2 text-sm">Account</summary>
             <div className="absolute right-0 z-30 w-48 space-y-3 rounded-2xl border bg-white p-4 shadow">
               {switcher}
-              <Link href="/app/settings/account">Account settings</Link>
-              {role === "owner" && <Link href="/app/settings/workspace">Workspace settings</Link>}
+              <Link href="/app/settings/account" className="block">Account settings</Link>
+              {role === "owner" && <Link href="/app/settings/workspace" className="block">Workspace settings</Link>}
               <Link href="/app/billing" className="block">
                 Billing
               </Link>

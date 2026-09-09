@@ -26,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       return operation(...args);
     }])) as Adapter,
     session: { strategy: "database" }, trustHost: process.env.AUTH_TRUST_HOST === "true",
-    pages: { signIn: "/login", error: "/login", verifyRequest: "/login?sent=1" },
+    pages: { signIn: "/login", error: "/login", verifyRequest: "/login/check-email" },
     providers: [
       ...(enabled.google ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []),
       ...(enabled.email ? [Nodemailer({ normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
