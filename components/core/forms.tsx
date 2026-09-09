@@ -6,13 +6,20 @@ import { Input } from "@/components/ui/input";
 export function ActionForm({
   children,
   action,
+  disabled = false,
+  preserveValues = false,
 }: {
   children: React.ReactNode;
   action: string;
+  disabled?: boolean;
+  preserveValues?: boolean;
 }) {
   const [state, submit, pending] = useActionState(coreAction, { error: "" });
   return (
-    <form action={submit} className="space-y-4">
+    <form action={submit} className="space-y-4" onReset={preserveValues ? e => {
+      e.preventDefault();
+      e.currentTarget.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ''; });
+    } : undefined}>
       <input type="hidden" name="action" value={action} />
       {children}
       {state.error && (
@@ -20,7 +27,7 @@ export function ActionForm({
           {state.error}
         </p>
       )}
-      <Button disabled={pending}>
+      <Button disabled={pending || disabled}>
         {pending
           ? "Saving…"
           : action === "retry"
@@ -73,7 +80,7 @@ export function ConnectForm({
 }) {
   const [provider, setProvider] = useState(options[0]?.provider ?? "");
   return (
-    <ActionForm action="connect">
+    <ActionForm action="connect" preserveValues>
       <input type="hidden" name="brandId" value={brandId} />
       <label className="block">
         Provider

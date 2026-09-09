@@ -1,0 +1,4 @@
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+PASS: Agency downgrade keeps oldest brands active and holds excess brand jobs until upgrade
+PASS: persisted warnings/history, canceled subscription hold/resume, recovery budget, skipped aggregation, commit outage: stable Mastodon/Bluesky key and Telegram manual review
+PASS: encryption integrity, timezone/DST, concurrent claims, two-target success/events, rate limit/backoff, auth expiry, orphan recovery, approval hold/release, five-attempt limit

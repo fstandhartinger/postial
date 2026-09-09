@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { composerData } from "@/lib/core";
-import { getPublisher } from "@/lib/publishers";
+import { channelTextLimit } from "@/lib/text-limits";
 import { Composer } from "@/components/core/composer";
 export default async function NewPost({
   searchParams,
@@ -14,11 +14,12 @@ export default async function NewPost({
       <h1 className="text-3xl font-semibold">Create a post</h1>
       {data.brands.length ? (
         <Composer
+        canPublish={data.canPublish}
           key={q.brand ?? "all"}
           brands={data.brands}
           channels={data.channels.map((c) => ({
             ...c,
-            max: getPublisher(c.provider).maxTextLength,
+            max: channelTextLimit(c),
           }))}
           initial={{
             brandId: data.brands.some((b) => b.id === q.brand)

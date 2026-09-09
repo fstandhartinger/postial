@@ -81,7 +81,7 @@ included explicitly alongside the standalone Next.js output.
 Foundation: workspace ownership, auth and billing are implemented.
 Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
 Product: brands, channel connections, composer, calendar and publishing worker are
-implemented. Customer approval links, public API and n8n remain milestone 2 work.
+implemented, including public customer approval links. Public API and n8n remain upcoming work.
 The owner must verify company registration details and provide the DPA on request. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 Network integrations and production deployment are separate work.
@@ -127,8 +127,8 @@ invoice.paid and invoice.payment_failed at `/api/stripe/webhook`.
 
 `hasAccess` permits active/trialing subscriptions and seven days of past-due grace.
 New workspaces have no plan until Stripe confirms a subscription; legacy local
-trial rows without a Stripe subscription ID do not grant access. In M1, lack of
-access displays a billing notice while keeping `/app` available.
+trial rows without a Stripe subscription ID do not grant access. Without access, reading and drafts remain available, but scheduling and retries are disabled.
+The worker holds due targets until access returns. Brands beyond a downgraded plan limit are read-only; the oldest brands remain active.
 
 ### Billing test plan
 
@@ -211,9 +211,8 @@ Reconnecting the same provider account updates its existing channel credentials.
 
 The composer validates channel ownership, provider text limits, four HTTPS media
 URLs, and dates in the brand's IANA timezone. Ambiguous/nonexistent DST minutes
-are rejected. Drafts and approval requests cannot publish. Approval tokens/notes
-are modeled for part B; customer approval links are not yet available. An approval
-flow must set the post status to `approved`; the worker activates held targets at
+are rejected. Drafts and pending approval requests cannot publish. The customer
+approval link sets the post status to `approved`; the worker activates targets at
 `scheduled_at`. Editing is restricted to drafts and pending/changes-requested posts.
 
 The Node instrumentation starts one publishing timer per process (30 seconds).
@@ -222,10 +221,20 @@ matching server-only `CRON_SECRET`. PostgreSQL `FOR UPDATE SKIP LOCKED` reserves
 10 due targets before network calls. Attempts fence stale responses; retries use
 1/4/15/60-minute delays and provider Retry-After, with failure after five attempts.
 Authentication expiry requires reconnection; rejected content fails immediately.
-Attempts interrupted for ten minutes are recovered with a visible history event.
-A stable target ID is passed as provider idempotency key. Providers without remote
-idempotency cannot guarantee exactly-once delivery if a process dies after the
-remote service accepts a post but before the local result is committed.
+Attempts interrupted for ten minutes are recovered within the same five-attempt budget.
+Each publish has a 90-second deadline across all requests and a 30-second lease heartbeat.
+Mastodon retries use the same Idempotency-Key; Bluesky uses a deterministic record key
+and checks getRecord before createRecord. Telegram uncertain outcomes enter needs_review:
+check the channel, then manually retry or skip. No automatic retry leaves needs_review.
+Manual retry starts a new five-attempt budget. Published warnings persist on the target,
+in history and on the status page; add omitted content manually to avoid duplicates.
+Outbound HTTPS validates every DNS address, pins connections, bounds redirects and streams
+(1 MB images, 64 KB JSON). Channel metadata persists the Mastodon instance text limit.
+
+Connect channels via **Brands → select a brand → Connect a channel**:
+[Bluesky](docs/connect-bluesky.md), [Mastodon](docs/connect-mastodon.md),
+[Telegram](docs/connect-telegram.md). SocialMint supports four images per post.
+
 
 Verification: `npm run db:generate`, `npm run db:migrate`, `npm run lint`,
 `npx tsc --noEmit`, `npm run build`, and `npx tsx scripts/verify-core.ts`.

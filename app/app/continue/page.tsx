@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/require-login';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { isPlan } from '@/lib/plans';
@@ -8,7 +9,7 @@ export default async function Continue({ searchParams }: { searchParams: Promise
   const next = internalPath(params.next) ?? '/app';
   const plan = isPlan(params.plan) ? params.plan : undefined;
   const session = await auth();
-  if (!session?.user?.id) redirect(`/login?${new URLSearchParams({ next, ...(plan ? { plan } : {}) })}`);
+  if (!session?.user?.id) return requireLogin();
   if (!plan) redirect(next);
   return <ContinueCheckout plan={plan} next={next} />;
 }

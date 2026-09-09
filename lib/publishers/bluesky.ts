@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { type Credentials, type Publisher, PublishError } from './types';
-import { checkLength, downloadImage, guarded, httpsOrigin, json, jsonBody, postText } from './http';
+import { publishingDeadline, checkLength, downloadImage, guarded, httpsOrigin, json, jsonBody, postText } from './http';
 
 type DidDocument = { service?: { id: string; type?: string; serviceEndpoint: string }[] };
 type Session = { did: string; handle: string; accessJwt: string; didDoc?: DidDocument };
@@ -52,11 +53,16 @@ export const bluesky: Publisher = {
     const auth = await session(credentials);
     return { externalId: auth.did, displayName: `@${auth.handle}`, url: `https://bsky.app/profile/${auth.handle}` };
   }); },
-  publish(credentials, input) { return guarded('Bluesky', async () => {
+  publish(credentials, input) { return publishingDeadline(() => guarded('Bluesky', async () => {
     const text = postText(input);
-    checkLength('Bluesky', text, 300, true);
+    checkLength('Bluesky', text, 300);
     const auth = await session(credentials);
     const headers = { Authorization: `Bearer ${auth.accessJwt}` };
+    // ATProto record keys allow alphanumeric strings. Hash is stable across retries.
+    const rkey = createHash('sha256').update(input.idempotencyKey).digest('hex').slice(0, 32);
+    const recordUrl = `${auth.pds}/xrpc/com.atproto.repo.getRecord?${new URLSearchParams({ repo: auth.did, collection: 'app.bsky.feed.post', rkey })}`;
+    const existing = await json<{ uri?: string; error?: string }>('Bluesky', recordUrl, { headers }, true);
+    if (existing.uri) return { remoteId: existing.uri, url: `https://bsky.app/profile/${auth.handle}/post/${rkey}` };
     const warnings: string[] = [];
     const images: { alt: string; image: unknown }[] = [];
     if ((input.mediaUrls?.length ?? 0) > 4) warnings.push('Bluesky allows four images; extra images were omitted.');
@@ -70,8 +76,8 @@ export const bluesky: Publisher = {
         warnings.push('An image was omitted: Bluesky requires supported images no larger than 1 MB.');
       }
     }
-    const request = jsonBody({ repo: auth.did, collection: 'app.bsky.feed.post', record: { $type: 'app.bsky.feed.post', text, createdAt: new Date().toISOString(), facets: facets(text), ...(images.length ? { embed: { $type: 'app.bsky.embed.images', images } } : {}) } });
+    const request = jsonBody({ repo: auth.did, rkey, collection: 'app.bsky.feed.post', record: { $type: 'app.bsky.feed.post', text, createdAt: new Date().toISOString(), facets: facets(text), ...(images.length ? { embed: { $type: 'app.bsky.embed.images', images } } : {}) } });
     const result = await json<{ uri: string }>('Bluesky', `${auth.pds}/xrpc/com.atproto.repo.createRecord`, { ...request, headers: { ...request.headers, ...headers } });
     return { remoteId: result.uri, url: `https://bsky.app/profile/${auth.handle}/post/${result.uri.split('/').pop()}`, ...(warnings.length ? { warnings } : {}) };
-  }); },
+  }), input.signal); },
 };

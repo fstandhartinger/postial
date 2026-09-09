@@ -1,10 +1,11 @@
 "use client";
+import { countText, postText } from '@/lib/text-limits';
 /* eslint-disable @next/next/no-img-element -- User-provided previews intentionally bypass the server image proxy. */
 import { useActionState, useState } from "react";
 import { coreAction } from "@/app/app/actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-type Brand = { id: string; name: string; timezone: string };
+type Brand = { id: string; name: string; timezone: string; readOnly?: boolean };
 type Channel = {
   id: string;
   brandId: string;
@@ -15,7 +16,9 @@ export function Composer({
   brands,
   channels,
   initial,
+  canPublish,
 }: {
+  canPublish: boolean;
   brands: Brand[];
   channels: Channel[];
   initial: {
@@ -34,6 +37,10 @@ export function Composer({
   const [selected, setSelected] = useState(initial.channelIds ?? []);
   const [body, setBody] = useState(initial.body ?? "");
   const [media, setMedia] = useState(initial.mediaUrls?.join("\n") ?? "");
+  const [link, setLink] = useState(initial.linkUrl ?? "");
+  const [failedImages, setFailedImages] = useState<string[]>([]);
+  const readOnly = brands.find(b => b.id === brand)?.readOnly;
+  const count = countText(postText({ text: body, linkUrl: link }));
   const [when, setWhen] = useState("schedule");
   const limits = channels
     .filter((c) => selected.includes(c.id) && c.brandId === brand && c.max > 0)
@@ -73,12 +80,12 @@ export function Composer({
       </label>
       <p
         className={
-          max && Array.from(body).length > max
+          max && count > max
             ? "text-red-700"
             : "text-gray-500"
         }
       >
-        {Array.from(body).length}
+        {count}
         {max ? ` / ${max}` : " characters"}
       </p>
       <fieldset className="space-y-2">
@@ -131,15 +138,17 @@ export function Composer({
             <img
               key={i}
               src={u}
+              onError={() => setFailedImages(old => old.includes(u) ? old : [...old, u])}
               alt={`Media preview ${i + 1}`}
               referrerPolicy="no-referrer"
               className="h-24 w-24 rounded object-cover"
             />
           ))}
       </div>
+      {failedImages.length > 0 && <p role="alert">An image could not load. Check its public HTTPS URL and image format.</p>}
       <label className="block">
         Link
-        <Input name="linkUrl" type="url" defaultValue={initial.linkUrl} />
+        <Input name="linkUrl" type="url" value={link} onChange={e => setLink(e.target.value)} />
       </label>
       <label className="block">
         Publishing
@@ -172,19 +181,19 @@ export function Composer({
         Requires client approval
       </label>
       <p className="text-sm text-gray-500">
-        Posts requiring approval stay on hold. Client approval links arrive in
-        the next release.
+        Posts requiring approval stay on hold. Open the saved post to copy its client approval link.
       </p>
       {state.error && (
         <p role="alert" className="text-red-700">
           {state.error}
         </p>
       )}
+      {(!canPublish || readOnly) && <p>{readOnly ? "This brand is read-only under your plan." : "Publishing requires an active plan or trial. Drafts remain available."} <a href="/app/billing" className="underline">Review Billing</a></p>}
       <div className="flex gap-3">
-        <Button name="intent" value="draft" disabled={pending}>
+        <Button name="intent" value="draft" disabled={pending || readOnly}>
           Save draft
         </Button>
-        <Button name="intent" value="schedule" disabled={pending}>
+        <Button name="intent" value="schedule" disabled={pending || !canPublish || readOnly}>
           {pending ? "Saving…" : when === "now" ? "Publish now" : "Schedule"}
         </Button>
       </div>

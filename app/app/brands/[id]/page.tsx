@@ -1,3 +1,4 @@
+import { canEditBrand } from '@/lib/entitlements';
 import { eq } from "drizzle-orm";
 import { channels } from "@/db/schema";
 import { ownBrand } from "@/lib/core";
@@ -9,7 +10,8 @@ export default async function BrandPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { db, brand } = await ownBrand((await params).id);
+  const { db, brand, workspace } = await ownBrand((await params).id);
+  const writable = await canEditBrand(workspace, brand.id);
   const list = await db
     .select({
       id: channels.id,
@@ -29,7 +31,7 @@ export default async function BrandPage({
           <p>
             {c.provider} · {c.status.replaceAll("_", " ")}
           </p>
-          {c.status !== "disconnected" && (
+          {writable && c.status !== "disconnected" && (
             <ActionForm action="disconnect">
               <input type="hidden" name="brandId" value={brand.id} />
               <input type="hidden" name="channelId" value={c.id} />
@@ -43,7 +45,7 @@ export default async function BrandPage({
         <p className="mb-4 text-sm text-gray-500">
           Reconnect the same account to replace expired credentials.
         </p>
-        {availableProviders().length ? (
+        {writable && availableProviders().length ? (
           <ConnectForm
             brandId={brand.id}
             options={availableProviders().map((provider) => ({
@@ -52,7 +54,7 @@ export default async function BrandPage({
             }))}
           />
         ) : (
-          <p>Channel providers will be available shortly.</p>
+          <p>This brand is read-only under your plan. Review Billing to upgrade.</p>
         )}
       </Card>
     </>

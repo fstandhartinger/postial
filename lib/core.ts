@@ -1,12 +1,14 @@
+import { requireLogin } from './require-login';
+import { workspaceEntitlements } from './entitlements';
 import { auth } from "@/auth";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ensureWorkspace } from "@/lib/workspaces";
 import { getDb } from "@/db";
 import { brands, channels, posts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 export async function coreContext() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?next=/app");
+  if (!session?.user?.id) return requireLogin();
   return {
     userId: session.user.id,
     workspace: await ensureWorkspace(session.user.id),
@@ -50,6 +52,7 @@ export async function composerData() {
       id: channels.id,
       brandId: channels.brandId,
       provider: channels.provider,
+      meta: channels.meta,
       displayName: channels.displayName,
     })
     .from(channels)
@@ -60,5 +63,6 @@ export async function composerData() {
         eq(channels.status, "active"),
       ),
     );
-  return { brands: bs, channels: cs };
+  const access = await workspaceEntitlements(ctx.workspace);
+  return { brands: bs.map(b => ({ ...b, readOnly: !access.activeBrandIds.includes(b.id) })), channels: cs, canPublish: access.publish };
 }

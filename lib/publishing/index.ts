@@ -1,6 +1,8 @@
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { workspaceEntitlements } from '@/lib/entitlements';
+export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
+import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { channels, posts, postTargets, postEvents } from "@/db/schema";
+import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
 import { decryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -15,13 +17,14 @@ export async function derivePostStatus(tx: Tx, postId: string) {
     .from(postTargets)
     .where(eq(postTargets.postId, postId));
   if (!rows.length) return;
-  const status = rows.some((r) => r.status === "publishing")
+  const active = rows.filter(r => r.status !== "skipped");
+  const status = !active.length ? "skipped" : active.some((r) => r.status === "publishing")
     ? "publishing"
-    : rows.some((r) => r.status === "queued")
+    : active.some((r) => r.status === "queued" || r.status === "held")
       ? "scheduled"
-      : rows.every((r) => r.status === "published")
+      : active.every((r) => r.status === "published")
         ? "published"
-        : rows.some((r) => r.status === "published")
+        : active.some((r) => r.status === "published")
           ? "partially_failed"
           : "failed";
   await tx
@@ -39,22 +42,28 @@ export async function tick() {
   // Claims are committed before network IO. Attempt numbers fence late responses.
   await db.transaction(async (tx) => {
     const abandoned = await tx
-      .select()
+      .select({ target: postTargets })
       .from(postTargets)
+      .innerJoin(posts, eq(posts.id, postTargets.postId))
       .where(
         and(
           eq(postTargets.status, "publishing"),
-          lte(postTargets.updatedAt, new Date(Date.now() - 600000)),
+          sql`coalesce(${postTargets.attemptStartedAt}, ${postTargets.updatedAt}) <= ${new Date(Date.now() - 600000).toISOString()}::timestamptz`,
         ),
       )
-      .for("update", { skipLocked: true })
+      .for("no key update", { of: posts, skipLocked: true })
       .limit(10);
-    for (const t of abandoned) {
+    for (const { target: t } of abandoned) {
+      const [channel] = await tx.select().from(channels).where(eq(channels.id, t.channelId));
+      const status = t.attempts >= 5 ? "failed" : channel.provider === "telegram" ? "needs_review" : "queued";
+      const message = channel.provider === "telegram" ? TELEGRAM_REVIEW : status === "failed" ? "Attempt limit reached. Check the remote account before retrying." : "Recovering interrupted attempt using provider idempotency";
       await tx
         .update(postTargets)
         .set({
-          status: "queued",
-          nextAttemptAt: new Date(),
+          status,
+          lastErrorCode: "UNCERTAIN",
+          lastErrorHuman: message,
+          nextAttemptAt: status === "queued" ? new Date() : null,
           updatedAt: new Date(),
         })
         .where(eq(postTargets.id, t.id));
@@ -62,10 +71,21 @@ export async function tick() {
         postId: t.postId,
         targetId: t.id,
         type: "recovered",
-        message: "Recovering interrupted attempt",
+        message,
       });
+      await derivePostStatus(tx, t.postId);
     }
   });
+  const held = await db.select({ target: postTargets, workspaceId: brands.workspaceId, brandId: brands.id }).from(postTargets)
+    .innerJoin(posts, eq(posts.id, postTargets.postId)).innerJoin(brands, eq(brands.id, posts.brandId))
+    .where(and(eq(postTargets.status, "held"), inArray(posts.status, ["scheduled", "approved", "publishing"]), lt(postTargets.attempts, 5)));
+  for (const workspaceId of [...new Set(held.map(r => r.workspaceId))]) {
+    const access = await workspaceEntitlements(workspaceId);
+    if (!access.publish) continue;
+    for (const row of held.filter(r => r.workspaceId === workspaceId && access.activeBrandIds.includes(r.brandId))) {
+      await db.update(postTargets).set({ status: "queued", nextAttemptAt: new Date(), updatedAt: new Date() }).where(and(eq(postTargets.id, row.target.id), eq(postTargets.status, "held")));
+    }
+  }
   const claimed = await db.transaction(async (tx) => {
     const rows = await tx
       .select({ target: postTargets, post: posts, channel: channels })
@@ -75,6 +95,7 @@ export async function tick() {
       .where(
         and(
           eq(postTargets.status, "queued"),
+          lt(postTargets.attempts, 5),
           lte(postTargets.nextAttemptAt, new Date()),
           inArray(posts.status, ["scheduled", "approved", "publishing"]),
         ),
@@ -87,6 +108,7 @@ export async function tick() {
         .set({
           status: "publishing",
           attempts: t.attempts + 1,
+          attemptStartedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(postTargets.id, t.id));
@@ -98,6 +120,23 @@ export async function tick() {
   await Promise.all(
     claimed.map(async ({ target: t, post: p, channel: c }) => {
       const attempt = t.attempts + 1;
+      const [brand] = await db.select().from(brands).where(eq(brands.id, p.brandId));
+      const access = await workspaceEntitlements(brand.workspaceId);
+      if (!access.publish || !access.activeBrandIds.includes(brand.id)) {
+        await db.transaction(async tx => {
+          const changed = await tx.update(postTargets).set({ status: "held", attempts: t.attempts, attemptStartedAt: null, nextAttemptAt: null, lastErrorHuman: !access.publish ? "Held: subscription inactive" : "Held: brand exceeds plan limit", updatedAt: new Date() })
+            .where(and(eq(postTargets.id, t.id), eq(postTargets.status, "publishing"), eq(postTargets.attempts, attempt))).returning();
+          if (changed.length) await tx.insert(postEvents).values({ postId: p.id, targetId: t.id, type: "held", message: !access.publish ? "Held: subscription inactive" : "Held: brand exceeds plan limit" });
+          await derivePostStatus(tx, p.id);
+        });
+        return;
+      }
+      const controller = new AbortController();
+      const heartbeat = setInterval(() => {
+        void db.update(postTargets).set({ attemptStartedAt: new Date() }).where(and(eq(postTargets.id, t.id), eq(postTargets.status, "publishing"), eq(postTargets.attempts, attempt)))
+          .catch(() => controller.abort());
+      }, 30_000);
+      const deadline = setTimeout(() => controller.abort(), 90_000);
       let result:
         | Awaited<ReturnType<ReturnType<typeof getPublisher>["publish"]>>
         | undefined;
@@ -116,6 +155,8 @@ export async function tick() {
             mediaUrls: p.mediaUrls,
             linkUrl: p.linkUrl ?? undefined,
             idempotencyKey: t.id,
+            signal: controller.signal,
+            meta: c.meta,
           },
         );
       } catch (e) {
@@ -128,6 +169,8 @@ export async function tick() {
                 humanMessage: "Publishing was interrupted. Please retry.",
               });
       }
+      clearInterval(heartbeat);
+      clearTimeout(deadline);
       await db.transaction(async (tx) => {
         // Lock the post first to serialize aggregate status updates across its targets.
         await tx
@@ -152,6 +195,7 @@ export async function tick() {
             .set({
               status: "published",
               remoteId: result.remoteId,
+              warnings: result.warnings ?? [],
               remoteUrl: result.url,
               publishedAt: new Date(),
               lastErrorCode: null,
@@ -164,10 +208,11 @@ export async function tick() {
             postId: p.id,
             targetId: t.id,
             type: "published",
-            message: `Published to ${c.displayName}`,
+            message: `Published to ${c.displayName}${result.warnings?.length ? ` with a warning: ${result.warnings.join(" ")}` : ""}`,
           });
         } else if (error) {
-          const retry =
+          const uncertain = c.provider === "telegram" && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code);
+          const retry = !uncertain &&
             error.retryable &&
             !["AUTH_EXPIRED", "CONTENT_REJECTED"].includes(error.code) &&
             attempt < 5;
@@ -178,9 +223,9 @@ export async function tick() {
           await tx
             .update(postTargets)
             .set({
-              status: retry ? "queued" : "failed",
+              status: uncertain ? "needs_review" : retry ? "queued" : "failed",
               lastErrorCode: error.code,
-              lastErrorHuman: error.humanMessage,
+              lastErrorHuman: uncertain ? TELEGRAM_REVIEW : error.humanMessage,
               nextAttemptAt: retry
                 ? new Date(Date.now() + seconds * 1000)
                 : null,
@@ -195,8 +240,8 @@ export async function tick() {
           await tx.insert(postEvents).values({
             postId: p.id,
             targetId: t.id,
-            type: retry ? "retry_scheduled" : "failed",
-            message: `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
+            type: uncertain ? "needs_review" : retry ? "retry_scheduled" : "failed",
+            message: uncertain ? TELEGRAM_REVIEW : `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
           });
         }
         await derivePostStatus(tx, p.id);

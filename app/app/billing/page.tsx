@@ -1,6 +1,6 @@
+import { requireLogin } from '@/lib/require-login';
 import { trialTerms } from '@/components/billing/AccessStatus';
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensureWorkspace } from "@/lib/workspaces";
 import { getSubscriptionForWorkspace, hasAccess } from "@/lib/billing";
@@ -10,7 +10,7 @@ import { PortalButton } from "@/components/billing/PortalButton";
 import { Card } from "@/components/ui/card";
 export default async function BillingPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?next=/app/billing");
+  if (!session?.user?.id) return requireLogin();
   const workspace = await ensureWorkspace(session.user.id);
   const record = await getSubscriptionForWorkspace(workspace.id);
   const subscription = record?.stripeSubscriptionId ? record : null;

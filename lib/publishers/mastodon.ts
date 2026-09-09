@@ -1,5 +1,5 @@
 import { type Publisher, PublishError } from './types';
-import { checkLength, downloadImage, failure, guarded, httpsOrigin, json, jsonBody, postText } from './http';
+import { pollingPause, publishingDeadline, checkLength, downloadImage, failure, guarded, httpsOrigin, json, jsonBody, postText } from './http';
 
 // Instance limits learned by validation/publishing; never cache credentials.
 const limits = new Map<string, number>();
@@ -24,14 +24,13 @@ export const mastodon: Publisher = {
   validate(credentials) { return guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
     const account = await json<{ id: string; acct: string; url: string }>('Mastodon', `${origin}/api/v1/accounts/verify_credentials`, { headers: { Authorization: `Bearer ${credentials.accessToken}` } });
-    await textLimit(origin);
-    return { externalId: account.id, displayName: `@${account.acct.includes('@') ? account.acct : `${account.acct}@${new URL(origin).host}`}`, url: account.url };
+    const maxTextLength = await textLimit(origin);
+    return { externalId: account.id, displayName: `@${account.acct.includes('@') ? account.acct : `${account.acct}@${new URL(origin).host}`}`, url: account.url, meta: { maxTextLength } };
   }); },
-  publish(credentials, input) { return guarded('Mastodon', async () => {
+  publish(credentials, input) { return publishingDeadline(() => guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
     const text = postText(input);
-    checkLength('Mastodon', text, limits.get(origin) ?? 500);
-    checkLength('Mastodon', text, await textLimit(origin));
+    checkLength('Mastodon', text, input.meta?.maxTextLength ?? await textLimit(origin));
     const headers = { Authorization: `Bearer ${credentials.accessToken}` };
     const ids: string[] = [];
     for (const url of input.mediaUrls?.slice(0, 4) ?? []) {
@@ -40,7 +39,7 @@ export const mastodon: Publisher = {
       let media = await json<{ id: string; url?: string | null }>('Mastodon', `${origin}/api/v2/media`, { method: 'POST', headers, body: form });
       const id = media.id;
       for (let attempt = 0; !media.url && attempt < 20; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await pollingPause();
         media = await json('Mastodon', `${origin}/api/v1/media/${encodeURIComponent(id)}`, { headers });
       }
       if (!media.url) throw failure('PROVIDER_DOWN', 'Mastodon is still processing the image. Please try again later.');
@@ -49,5 +48,5 @@ export const mastodon: Publisher = {
     const request = jsonBody({ status: text, media_ids: ids });
     const status = await json<{ id: string; url: string }>('Mastodon', `${origin}/api/v1/statuses`, { ...request, headers: { ...request.headers, ...headers, 'Idempotency-Key': input.idempotencyKey } });
     return { remoteId: status.id, url: status.url, ...((input.mediaUrls?.length ?? 0) > 4 ? { warnings: ['Mastodon allows four images; extra images were omitted.'] } : {}) };
-  }); },
+  }), input.signal); },
 };

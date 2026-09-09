@@ -4,7 +4,7 @@
 2. Go to Settings → App Passwords (under Privacy and Security in some versions).
 3. Create a new app password named SocialMint.
 4. Copy the generated app password and keep it private.
-5. In SocialMint, open Channels and choose Connect Bluesky.
+5. In SocialMint, open Brands → select your brand → Connect a channel, then choose bluesky.
 6. Enter your Bluesky handle or account email as Identifier; use the handle for a custom PDS.
 7. Paste the app password into App password; never enter your main password.
 8. Save the connection and check that the displayed handle is yours.

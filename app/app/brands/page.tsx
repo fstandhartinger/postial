@@ -1,3 +1,4 @@
+import { workspaceEntitlements } from '@/lib/entitlements';
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { brands } from "@/db/schema";
@@ -12,6 +13,7 @@ export default async function BrandsPage() {
     .select()
     .from(brands)
     .where(eq(brands.workspaceId, workspace.id));
+  const entitlement = await workspaceEntitlements(workspace);
   const sub = await getSubscriptionForWorkspace(workspace.id);
   const active =
     sub?.stripeSubscriptionId && hasAccess(sub.status, sub.pastDueSince);
@@ -40,6 +42,7 @@ export default async function BrandsPage() {
               {b.name}
             </Link>
             <p className="text-gray-500">{b.timezone}</p>
+            {!entitlement.activeBrandIds.includes(b.id) && <p className="text-amber-800">Read-only: above your plan’s brand limit. The oldest brands remain active. <Link href="/app/billing" className="underline">Review Billing</Link></p>}
           </Card>
         ))}
       </div>

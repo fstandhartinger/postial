@@ -1,5 +1,6 @@
+import { validatePublicUrl } from './safe-fetch';
 import type { Credentials, Publisher } from './types';
-import { checkLength, guarded, json, jsonBody, postText } from './http';
+import { publishingDeadline, checkLength, guarded, json, jsonBody, postText } from './http';
 
 type Chat = { id: number; title?: string; username?: string };
 type Message = { message_id: number; chat: Chat };
@@ -24,10 +25,11 @@ export const telegram: Publisher = {
     const chat = await call<Chat>(credentials, 'getChat', { chat_id: credentials.chatId });
     return { externalId: String(chat.id), displayName: chat.title || (chat.username ? `@${chat.username}` : String(chat.id)), ...(chat.username ? { url: `https://t.me/${chat.username}` } : {}) };
   }); },
-  publish(credentials, input) { return guarded('Telegram', async () => {
+  publish(credentials, input) { return publishingDeadline(() => guarded('Telegram', async () => {
     const text = postText(input);
     checkLength('Telegram', text, 4096);
     const media = input.mediaUrls?.slice(0, 10) ?? [];
+    for (const url of media) await validatePublicUrl(url);
     const base = { chat_id: credentials.chatId };
     const warnings: string[] = [];
     if ((input.mediaUrls?.length ?? 0) > 10) warnings.push('Telegram allows ten images per album; extra images were omitted.');
@@ -47,5 +49,5 @@ export const telegram: Publisher = {
     }
     const username = message.chat.username;
     return { remoteId: String(message.message_id), ...(username ? { url: `https://t.me/${username}/${message.message_id}` } : {}), ...(warnings.length ? { warnings } : {}) };
-  }); },
+  }), input.signal); },
 };

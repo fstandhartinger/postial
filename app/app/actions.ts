@@ -17,10 +17,11 @@ import {
   getPublisher,
   PublishError,
 } from "@/lib/publishers";
-import { getSubscriptionForWorkspace, hasAccess } from "@/lib/billing";
-import { plans } from "@/lib/plans";
 import { localDateTime } from "@/lib/timezone";
 import { derivePostStatus } from "@/lib/publishing";
+import { workspaceEntitlements } from '@/lib/entitlements';
+import { validatePublicUrl } from '@/lib/publishers/safe-fetch';
+import { channelTextLimit, countText, postText } from '@/lib/text-limits';
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 class InputError extends Error {}
 function check(ok: unknown, message: string): asserts ok {
@@ -42,6 +43,7 @@ export async function coreAction(
   let destination = "/app";
   try {
     const action = str(form, "action");
+    const access = await workspaceEntitlements(workspace);
     if (action === "brand") {
       const name = str(form, "name"),
         color = str(form, "color"),
@@ -56,12 +58,7 @@ export async function coreAction(
       } catch {
         throw new InputError("Enter an IANA timezone, such as Europe/Berlin.");
       }
-      const subscription = await getSubscriptionForWorkspace(workspace.id);
-      const limit =
-        subscription?.stripeSubscriptionId &&
-        hasAccess(subscription.status, subscription.pastDueSince)
-          ? plans[subscription.plan].brands
-          : plans.starter.brands;
+      const limit = access.limit;
       const brand = await db.transaction(async (tx) => {
         await tx
           .select()
@@ -105,6 +102,7 @@ export async function coreAction(
           and(eq(brands.id, brandId), eq(brands.workspaceId, workspace.id)),
         );
       check(brand, "Brand not found.");
+      check(access.activeBrandIds.includes(brandId), "This brand is read-only under your plan. Review Billing.");
       if (action === "connect") {
         const provider = availableProviders().find(
           (p) => p === str(form, "provider"),
@@ -127,6 +125,7 @@ export async function coreAction(
           displayName: account.displayName,
           externalId: account.externalId,
           url: account.url && https(account.url) ? account.url : null,
+          meta: account.meta ?? {},
           lastCheckedAt: new Date(),
           status: "active" as const,
         };
@@ -173,6 +172,7 @@ export async function coreAction(
           and(eq(brands.id, brandId), eq(brands.workspaceId, workspace.id)),
         );
       check(brand, "Brand not found.");
+      check(access.activeBrandIds.includes(brandId), "This brand is read-only under your plan. Review Billing.");
       const body = str(form, "body"),
         mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean),
         linkUrl = str(form, "linkUrl");
@@ -184,6 +184,7 @@ export async function coreAction(
         mediaUrls.length <= 4 && mediaUrls.every(https),
         "Use up to four HTTPS media URLs.",
       );
+      for (const url of mediaUrls) await validatePublicUrl(url);
       check(!linkUrl || https(linkUrl), "Use an HTTPS link.");
       const ids = [...new Set(form.getAll("channelId").map(String))];
       check(ids.every(isUuid), "Choose valid channels.");
@@ -195,9 +196,9 @@ export async function coreAction(
         "A selected channel is unavailable.",
       );
       for (const c of selected) {
-        const max = getPublisher(c.provider).maxTextLength;
+        const max = channelTextLimit(c);
         check(
-          !max || Array.from(body).length <= max,
+          !max || countText(postText({ text: body, linkUrl })) <= max,
           `${c.displayName} supports ${max} characters.`,
         );
       }
@@ -209,6 +210,7 @@ export async function coreAction(
       );
       let scheduledAt: Date | null = null;
       if (!draft) {
+        check(access.publish, "Publishing requires an active plan or trial. Review Billing.");
         if (str(form, "when") === "now") scheduledAt = new Date();
         else {
           try {
@@ -240,6 +242,7 @@ export async function coreAction(
             .where(and(eq(posts.id, id), eq(brands.workspaceId, workspace.id)))
             .for("update", { of: posts });
           check(old, "Post not found.");
+          check(access.activeBrandIds.includes(old.post.brandId), "This brand is read-only under your plan. Review Billing.");
           check(
             ["draft", "pending_approval", "changes_requested"].includes(
               old.post.status,
@@ -307,6 +310,7 @@ export async function coreAction(
             and(eq(postTargets.id, id), eq(brands.workspaceId, workspace.id)),
           );
         check(row, "Target not found.");
+        check(access.activeBrandIds.includes(row.post.brandId), "This brand is read-only under your plan. Review Billing.");
         await tx
           .select()
           .from(posts)
@@ -318,7 +322,7 @@ export async function coreAction(
           .where(eq(postTargets.id, id))
           .for("update");
         check(
-          ["failed", "queued"].includes(target.status),
+          ["failed", "queued", "needs_review", "held"].includes(target.status),
           "This target cannot be changed during or after publishing.",
         );
         check(
@@ -328,12 +332,13 @@ export async function coreAction(
           "This post must be scheduled and approved first.",
         );
         if (action === "retry") {
+          check(access.publish, "Publishing requires an active plan or trial. Review Billing.");
           check(
             row.channel.status === "active",
             "Reconnect the channel before retrying.",
           );
           check(
-            target.status === "failed" || !!target.lastErrorCode,
+            ["failed", "needs_review", "held"].includes(target.status) || !!target.lastErrorCode,
             "This target is already scheduled.",
           );
         }
@@ -341,6 +346,7 @@ export async function coreAction(
           .update(postTargets)
           .set({
             status: action === "retry" ? "queued" : "skipped",
+            ...(action === "retry" ? { attempts: 0, attemptStartedAt: null } : {}),
             nextAttemptAt: action === "retry" ? new Date() : null,
             updatedAt: new Date(),
           })

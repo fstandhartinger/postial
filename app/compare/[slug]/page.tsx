@@ -62,11 +62,11 @@ export default async function ComparePage({ params }: Props) {
         </table>
       </div>
     </section>
-    <section className="section"><div className="grid two">
+    <section className="section"><div className="marketing-grid two">
       <article className="panel"><h2>Where SocialMint fits better</h2><p>{page.fits}</p></article>
       <article className="panel"><h2>Where {page.vendor} fits better</h2><p>{page.vendorFits} {citations(page.vendorFitSources)}</p></article>
     </div></section>
-    <section className="section"><h2>How to switch</h2><ol className="grid three steps">{copy.switchSteps.map(step => <li key={step.title}><h3>{step.title}</h3><p>{step.body}</p></li>)}</ol></section>
+    <section className="section"><h2>How to switch</h2><ol className="marketing-grid three steps">{copy.switchSteps.map(step => <li key={step.title}><h3>{step.title}</h3><p>{step.body}</p></li>)}</ol></section>
     <section className="section faq-section"><h2>Frequently asked questions</h2><div className="faq-list">{page.faq.map(faq => <details key={faq.question}><summary>{faq.question}</summary><p>{faq.answer}</p></details>)}</div></section>
     <section className={`section ${styles.sources}`} aria-labelledby="sources-heading"><h2 id="sources-heading">Sources and pricing notes</h2><p>{copy.priceFootnote}</p><p className="note">Vendor terms can change. Hootsuite’s starting rates are taken from its pricing FAQ and annual-billing note. Postiz figures use the listed monthly cloud plans. SocialMint facts describe the early-access offer; this is a comparison published by SocialMint.</p>
       <ol>{page.sources.map((source, index) => <li id={`source-${source.id}`} key={source.id}><a className="text-link" href={source.url}>[{index + 1}] {source.title}</a><span className="note"> — retrieved <time dateTime={source.checkedAt}>{source.checkedAt}</time></span></li>)}</ol>

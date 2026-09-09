@@ -129,8 +129,11 @@ export const postStatus = pgEnum("post_status", [
   "published",
   "partially_failed",
   "failed",
+  "skipped",
 ]);
 export const targetStatus = pgEnum("target_status", [
+  "needs_review",
+  "held",
   "queued",
   "publishing",
   "published",
@@ -164,6 +167,7 @@ export const channels = pgTable("channels", {
   externalId: text("external_id").notNull(),
   url: text("url"),
   credentialsEnc: text("credentials_enc").notNull(),
+  meta: jsonb("meta").$type<{ maxTextLength?: number }>().notNull().default({}),
   status: channelStatus("status").notNull().default("active"),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -205,6 +209,8 @@ export const postTargets = pgTable(
       .references(() => channels.id, { onDelete: "cascade" }),
     status: targetStatus("status").notNull().default("queued"),
     attempts: integer("attempts").notNull().default(0),
+    attemptStartedAt: timestamp("attempt_started_at", { withTimezone: true }),
+    warnings: jsonb("warnings").$type<string[]>().notNull().default([]),
     remoteId: text("remote_id"),
     remoteUrl: text("remote_url"),
     lastErrorCode: text("last_error_code"),

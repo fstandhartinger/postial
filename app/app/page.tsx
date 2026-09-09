@@ -1,3 +1,4 @@
+import { requireLogin } from '@/lib/require-login';
 import { getDb } from "@/db";
 import { brands, posts } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -5,7 +6,6 @@ import { AccessStatus } from "@/components/billing/AccessStatus";
 import Link from "next/link";
 import { getSubscriptionForWorkspace, hasAccess } from "@/lib/billing";
 import { plans } from "@/lib/plans";
-import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { ensureWorkspace } from "@/lib/workspaces";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default async function Workspace({
   searchParams: Promise<{ checkout?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?next=/app");
+  if (!session?.user?.id) return requireLogin();
   const workspace = await ensureWorkspace(session.user.id);
   const brandList = await getDb()
     .select({ id: brands.id })

@@ -9,11 +9,13 @@ import {
   postTargets,
   postEvents,
   sessions,
+  subscriptions,
 } from "../db/schema";
 import { ensureWorkspace } from "../lib/workspaces";
 import { encryptCredentials, decryptCredentials } from "../lib/crypto";
 import { registerPublisher, PublishError } from "../lib/publishers";
-import { tick } from "../lib/publishing";
+import { tick, derivePostStatus } from "../lib/publishing";
+import { workspaceEntitlements } from '../lib/entitlements';
 import { localDateTime } from "../lib/timezone";
 async function main() {
   const db = getDb(),
@@ -45,6 +47,7 @@ async function main() {
       return {
         remoteId: input.idempotencyKey,
         url: "https://example.com/post",
+        warnings: behavior === "warning" ? ["Missing image; add it manually."] : [],
       };
     },
   });
@@ -62,6 +65,7 @@ async function main() {
     assert.throws(() => localDateTime("2026-10-25T02:30", "Europe/Berlin"));
     await db.insert(users).values({ id: userId, name: "Core fixture" });
     const workspace = await ensureWorkspace(userId);
+    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: "active", stripeSubscriptionId: "fixture-" + userId });
     const [brand] = await db
       .insert(brands)
       .values({ workspaceId: workspace.id, name: "Fixture", slug: "fixture" })
@@ -163,6 +167,11 @@ async function main() {
       .set({ status: "active" })
       .where(eq(channels.id, cs[0].id));
     behavior = "success";
+    const liveLease = await fixture();
+    await db.update(postTargets).set({ status: "publishing", attempts: 1, updatedAt: new Date(Date.now() - 660000), attemptStartedAt: new Date() }).where(eq(postTargets.id, liveLease.targets[0].id));
+    const leaseCalls = calls; await tick(); assert.equal(calls, leaseCalls);
+    assert.equal((await db.select().from(postTargets).where(eq(postTargets.id, liveLease.targets[0].id)))[0].status, "publishing");
+    await db.update(postTargets).set({ status: "skipped" }).where(eq(postTargets.id, liveLease.targets[0].id));
     const orphan = await fixture();
     await db
       .update(postTargets)
@@ -225,6 +234,61 @@ async function main() {
       )[0].status,
       "failed",
     );
+    behavior = "warning";
+    const warned = await fixture(); await tick();
+    const readTarget = async (id: string) => (await db.select().from(postTargets).where(eq(postTargets.id, id)))[0];
+    assert.deepEqual((await readTarget(warned.targets[0].id)).warnings, ["Missing image; add it manually."]);
+    assert((await db.select().from(postEvents).where(eq(postEvents.postId, warned.post.id))).some(e => e.message.includes("with a warning: Missing image")));
+    behavior = "success";
+    await db.update(subscriptions).set({ status: "canceled" }).where(eq(subscriptions.workspaceId, workspace.id));
+    const paused = await fixture(); const pausedCalls = calls; await tick();
+    assert.equal(calls, pausedCalls); assert.equal((await readTarget(paused.targets[0].id)).status, "held");
+    await db.update(subscriptions).set({ status: "active" }).where(eq(subscriptions.workspaceId, workspace.id));
+    await tick(); assert.equal((await readTarget(paused.targets[0].id)).status, "published");
+    const exhausted = await fixture();
+    await db.update(postTargets).set({ status: "publishing", attempts: 8, attemptStartedAt: new Date(Date.now() - 660000) }).where(eq(postTargets.id, exhausted.targets[0].id));
+    const exhaustedCalls = calls; await tick(); assert.equal(calls, exhaustedCalls); assert.equal((await readTarget(exhausted.targets[0].id)).status, "failed");
+    const skipped = await fixture(2);
+    await db.update(postTargets).set({ status: "skipped" }).where(eq(postTargets.postId, skipped.post.id));
+    await db.transaction(tx => derivePostStatus(tx, skipped.post.id));
+    assert.equal((await db.select().from(posts).where(eq(posts.id, skipped.post.id)))[0].status, "skipped");
+    await db.update(postTargets).set({ status: "published" }).where(eq(postTargets.id, skipped.targets[0].id));
+    await db.transaction(tx => derivePostStatus(tx, skipped.post.id));
+    assert.equal((await db.select().from(posts).where(eq(posts.id, skipped.post.id)))[0].status, "published");
+    // Agency downgrade: only the oldest three brands remain writable/publishable.
+    await db.update(subscriptions).set({ plan: "agency" }).where(eq(subscriptions.workspaceId, workspace.id));
+    for (let i = 0; i < 3; i++) await db.insert(brands).values({ workspaceId: workspace.id, name: `Extra ${i}`, slug: `extra-${i}`, createdAt: new Date(Date.now() + i * 1000) });
+    assert.equal((await workspaceEntitlements(workspace)).activeBrandIds.length, 4);
+    await db.update(subscriptions).set({ plan: "starter" }).where(eq(subscriptions.workspaceId, workspace.id));
+    const access = await workspaceEntitlements(workspace);
+    assert.equal(access.activeBrandIds.length, 3); assert(access.activeBrandIds.includes(brand.id));
+    const extra = (await db.select().from(brands).where(eq(brands.workspaceId, workspace.id))).find(b => !access.activeBrandIds.includes(b.id))!;
+    const extraPost = await fixture();
+    await db.update(posts).set({ brandId: extra.id }).where(eq(posts.id, extraPost.post.id));
+    const downgradeCalls = calls; await tick(); assert.equal(calls, downgradeCalls);
+    assert.equal((await readTarget(extraPost.targets[0].id)).status, "held");
+    await db.update(subscriptions).set({ plan: "agency" }).where(eq(subscriptions.workspaceId, workspace.id));
+    await tick(); assert.equal((await readTarget(extraPost.targets[0].id)).status, "published");
+    console.log("PASS: Agency downgrade keeps oldest brands active and holds excess brand jobs until upgrade");
+    // Inject an outcome-commit outage after the fake remote has accepted the post.
+    const originalTransaction = db.transaction.bind(db);
+    for (const provider of ["mastodon", "telegram", "bluesky"] as const) {
+      let remoteCalls = 0; const remoteKeys = new Set<string>(); let failCommit = true;
+      registerPublisher({ provider, maxTextLength: 500, credentialFields: [], async validate() { return { externalId: "fixture", displayName: "fixture" }; }, async publish(_c, input) {
+        remoteCalls++; remoteKeys.add(input.idempotencyKey);
+        if (failCommit) db.transaction = (async () => { throw new Error("Injected result commit failure"); }) as typeof db.transaction;
+        return { remoteId: input.idempotencyKey };
+      } });
+      const uncertain = await fixture();
+      await db.update(channels).set({ provider }).where(eq(channels.id, cs[0].id));
+      try { await assert.rejects(tick()); } finally { db.transaction = originalTransaction; failCommit = false; }
+      assert.equal((await readTarget(uncertain.targets[0].id)).status, "publishing");
+      await db.update(postTargets).set({ attemptStartedAt: new Date(Date.now() - 660000) }).where(eq(postTargets.id, uncertain.targets[0].id));
+      await tick(); await tick();
+      assert.equal((await readTarget(uncertain.targets[0].id)).status, provider === "telegram" ? "needs_review" : "published");
+      assert.equal(remoteCalls, provider === "telegram" ? 1 : 2); assert.equal(remoteKeys.size, 1);
+    }
+    console.log("PASS: persisted warnings/history, canceled subscription hold/resume, recovery budget, skipped aggregation, commit outage: stable Mastodon/Bluesky key and Telegram manual review");
     console.log(
       "PASS: encryption integrity, timezone/DST, concurrent claims, two-target success/events, rate limit/backoff, auth expiry, orphan recovery, approval hold/release, five-attempt limit",
     );
@@ -273,7 +337,7 @@ async function main() {
     await db.$client.end();
   }
 }
-main().catch(() => {
-  console.error("Core verification failed");
+main().catch((error) => {
+  console.error("Core verification failed", error.name, error.code, error instanceof assert.AssertionError ? error.message : "", String(error.stack).split("\n").filter(line => line.includes(".ts:")).join("\n"));
   process.exitCode = 1;
 });

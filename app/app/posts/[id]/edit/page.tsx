@@ -2,7 +2,7 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { postTargets } from "@/db/schema";
 import { ownPost, composerData } from "@/lib/core";
-import { getPublisher } from "@/lib/publishers";
+import { channelTextLimit } from "@/lib/text-limits";
 import { Composer } from "@/components/core/composer";
 import { inZone } from "@/lib/timezone";
 export default async function EditPost({
@@ -27,10 +27,11 @@ export default async function EditPost({
     <>
       <h1 className="text-3xl font-semibold">Edit post</h1>
       <Composer
+        canPublish={data.canPublish}
         brands={data.brands}
         channels={data.channels.map((c) => ({
           ...c,
-          max: getPublisher(c.provider).maxTextLength,
+          max: channelTextLimit(c),
         }))}
         initial={{
           ...post,

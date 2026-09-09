@@ -42,7 +42,7 @@ button:disabled { cursor: wait; opacity: .7; }
 .audience p { margin-top: 4px; color: #065f46; }
 .section { padding-block: 88px; border-bottom: 1px solid #e4e4e7; scroll-margin-top: 24px; }
 .section-intro { max-width: 65ch; margin-bottom: 32px; }
-.grid { display: grid; gap: 32px; margin-top: 32px; }
+.marketing-grid { display: grid; gap: 32px; margin-top: 32px; }
 .two { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .features-grid { gap: 40px 48px; }
@@ -125,7 +125,7 @@ button:disabled { cursor: wait; opacity: .7; }
   .hero .actions > * { width: 100%; }
   .audience { padding: 24px; }
   .section { padding-block: 56px; }
-  .grid, .footer-grid { grid-template-columns: minmax(0,1fr); }
+  .marketing-grid, .footer-grid { grid-template-columns: minmax(0,1fr); }
   .features-grid article:last-child { grid-column: auto; }
   .panel { padding: 20px; }
   .price strong { font-size: 40px; line-height: 44px; }

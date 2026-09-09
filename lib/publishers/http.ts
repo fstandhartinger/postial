@@ -1,4 +1,21 @@
-import { PublishError, type PublishErrorCode, type PublishInput } from './types';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { safeFetch } from './safe-fetch';
+import { countText } from '../text-limits';
+export { postText } from '../text-limits';
+const deadlines = new AsyncLocalStorage<AbortSignal>();
+export async function publishingDeadline<T>(work: () => Promise<T>, parent?: AbortSignal): Promise<T> {
+  const controller = new AbortController();
+  const signal = parent ? AbortSignal.any([controller.signal, parent]) : controller.signal;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(failure('NETWORK', 'Publishing exceeded its 90 second deadline.')); }, 90_000); });
+  try { return await deadlines.run(signal, () => Promise.race([work(), timeout])); } finally { clearTimeout(timer); }
+}
+export async function pollingPause() {
+  deadlines.getStore()?.throwIfAborted();
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  deadlines.getStore()?.throwIfAborted();
+}
+import { PublishError, type PublishErrorCode } from './types';
 
 export function failure(code: PublishErrorCode, humanMessage: string, retryAfterSeconds?: number) {
   return new PublishError({ code, humanMessage, retryable: ['NETWORK', 'PROVIDER_DOWN', 'RATE_LIMITED'].includes(code), retryAfterSeconds });
@@ -20,11 +37,8 @@ export function httpsOrigin(value: string): string {
   } catch { throw failure('CONTENT_REJECTED', 'Enter a valid HTTPS server URL without embedded credentials.'); }
 }
 
-export function postText(input: PublishInput) {
-  return input.linkUrl && !input.text.includes(input.linkUrl) ? `${input.text}\n${input.linkUrl}` : input.text;
-}
-export function checkLength(provider: string, text: string, limit: number, graphemes = false) {
-  const length = graphemes ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)).length : text.length;
+export function checkLength(provider: string, text: string, limit: number) {
+  const length = countText(text);
   if (length > limit) throw failure('CONTENT_REJECTED', `${provider} allows ${limit} characters; this post has ${length}.`);
 }
 
@@ -46,7 +60,7 @@ function responseError(provider: string, status: number, body: Record<string, un
 }
 
 /** The deadline covers both fetching headers and consuming the response body. */
-async function request<T>(provider: string, url: string, init: RequestInit, consume: (response: Response) => Promise<T>): Promise<T> {
+async function request<T>(provider: string, url: string, init: RequestInit, consume: (response: Response) => Promise<T>, maxBytes = 64 * 1024, allowMissing = false): Promise<T> {
   return guarded(provider, async () => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -55,9 +69,10 @@ async function request<T>(provider: string, url: string, init: RequestInit, cons
     });
     try {
       return await Promise.race([ (async () => {
-        const response = await fetch(url, { ...init, redirect: 'error', signal: controller.signal });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
+        const response = await safeFetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(deadlines.getStore() ? [deadlines.getStore()!] : [])]) }, maxBytes);
+        if (!response.ok && !(allowMissing && response.status === 404)) {
+          const body = await response.clone().json().catch(() => ({}));
+          if (allowMissing && response.status === 400 && body.error === "RecordNotFound") return consume(response);
           throw responseError(provider, response.status, body ?? {}, response.headers);
         }
         return consume(response);
@@ -65,12 +80,12 @@ async function request<T>(provider: string, url: string, init: RequestInit, cons
     } finally { clearTimeout(timer); }
   });
 }
-export async function json<T>(provider: string, url: string, init: RequestInit = {}): Promise<T> {
+export async function json<T>(provider: string, url: string, init: RequestInit = {}, allowMissing = false): Promise<T> {
   return request(provider, url, init, async response => {
     const body = response.status === 206 ? {} : await response.json();
     if (body?.ok === false) throw responseError(provider, body.error_code ?? 400, body, response.headers);
     return body as T;
-  });
+  }, 64 * 1024, allowMissing);
 }
 export function jsonBody(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -98,5 +113,5 @@ export async function downloadImage(provider: string, url: string, maxBytes: num
       }
     } finally { await reader.cancel(); }
     return new Blob(chunks, { type });
-  });
+  }, Math.min(maxBytes, 1_000_000));
 }

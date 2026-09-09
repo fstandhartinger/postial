@@ -1,11 +1,15 @@
 // Run: npx tsx --test scripts/verify-publishers.ts (all HTTP is mocked).
 import assert from 'node:assert/strict';
+import dns from 'node:dns/promises';
+import { beforeEach, mock as nodeMock } from 'node:test';
+import { safeFetch, publicAddress } from '../lib/publishers/safe-fetch';
 import { afterEach, test } from 'node:test';
 import { availableProviders, getPublisher, PublishError, type Credentials } from '../lib/publishers';
 import { json } from '../lib/publishers/http';
 
+beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
 const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
+afterEach(() => { globalThis.fetch = originalFetch; nodeMock.restoreAll(); });
 const credentials: Record<string, Credentials> = {
   bluesky: { identifier: 'alice.test', appPassword: 'test-secret' },
   mastodon: { instanceUrl: 'https://mastodon.test', accessToken: 'test-secret' },
@@ -16,6 +20,7 @@ const message = { message_id: 42, chat: { id: -123, username: 'channel' } };
 function response(body: unknown, status = 200, headers: HeadersInit = {}) { return new Response(JSON.stringify(body), { status, headers }); }
 function ok(url: string): Response {
   if (url.endsWith('createSession')) return response(session);
+  if (url.includes('getRecord?')) return response({ error: 'RecordNotFound' }, 400);
   if (url.endsWith('createRecord')) return response({ uri: 'at://did:plc:alice/app.bsky.feed.post/key' });
   if (url.endsWith('verify_credentials')) return response({ id: '7', acct: 'alice', url: 'https://mastodon.test/@alice' });
   if (url.endsWith('/instance')) return response({ configuration: { statuses: { max_characters: 500 } } });
@@ -77,7 +82,7 @@ for (const provider of ['bluesky', 'mastodon', 'telegram'] as const) {
   test(`${provider}: long text rejected without HTTP`, async () => {
     const calls = mock();
     await assert.rejects(adapter.publish(creds, { text: 'x'.repeat(adapter.maxTextLength + 1), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
-    assert.equal(calls.length, 0);
+    assert.equal(calls.length, provider === 'mastodon' ? 1 : 0);
   });
   test(`${provider}: timeout becomes NETWORK`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout'] });
@@ -93,7 +98,8 @@ test('Bluesky counts graphemes and resolves custom PDS without persisting sessio
   const calls = mock(url => url.endsWith('createSession') ? response({ ...session, didDoc: { service: [{ id: '#atproto_pds', serviceEndpoint: 'https://custom.test' }] } }) : ok(url));
   await getPublisher('bluesky').publish(credentials.bluesky, { text: '👩‍💻'.repeat(300), idempotencyKey: 'k' });
   assert.equal(calls[1].url, 'https://custom.test/xrpc/com.atproto.server.createSession');
-  assert.equal(calls[2].url, 'https://custom.test/xrpc/com.atproto.repo.createRecord');
+  assert(calls[2].url.includes('/com.atproto.repo.getRecord?'));
+  assert.equal(calls[3].url, 'https://custom.test/xrpc/com.atproto.repo.createRecord');
   await getPublisher('bluesky').validate(credentials.bluesky);
   assert.equal(calls.filter(c => c.url.endsWith('createSession')).length, 4);
 });
@@ -128,7 +134,7 @@ test('Mastodon caches discovered limit for preflight', async () => {
   await getPublisher('mastodon').publish(creds, { text: 'x'.repeat(800), idempotencyKey: 'k' });
   const calls = mock();
   await assert.rejects(getPublisher('mastodon').publish(creds, { text: 'x'.repeat(1001), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED'));
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
 });
 test('Mastodon 404 instance fallback and duplicate mapping', async () => {
   mock(url => url.endsWith('/instance') ? response({}, 404) : url.endsWith('/statuses') ? response({ error: 'duplicate idempotency key' }, 422) : ok(url));
@@ -188,4 +194,91 @@ test('HTTP maps unsupported media and aborts stalled response bodies', async t =
   const checked = assert.rejects(pending, errorCode('NETWORK', true));
   await Promise.resolve(); t.mock.timers.tick(20_000); await checked;
   t.mock.timers.reset();
+});
+
+for (const url of ['https://localhost/a', 'https://127.0.0.1/a', 'https://10.0.0.1/a', 'https://172.16.0.1/a', 'https://192.168.1.1/a', 'https://169.254.169.254/a', 'https://[::1]/a', 'https://[::ffff:127.0.0.1]/a', 'https://0/a', 'https://2130706433/a', 'https://[fe80::1]/a', 'https://[fc00::1]/a', 'https://100.64.0.1/a', 'https://224.0.0.1/a', 'https://[ff02::1]/a', 'http://example.com/a']) {
+  test('SSRF rejected before fetch: ' + url, async () => { const calls = mock(); await assert.rejects(safeFetch(url), errorCode('CONTENT_REJECTED')); assert.equal(calls.length, 0); });
+}
+test('mixed DNS answers cannot reach fetch', async () => {
+  nodeMock.restoreAll();
+  nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }, { address: '::1', family: 6 }]);
+  const calls = mock(); await assert.rejects(safeFetch('https://mixed.test'), errorCode('CONTENT_REJECTED')); assert.equal(calls.length, 0);
+});
+test('redirect revalidates destination and stream caps JSON', async () => {
+  const calls = mock(() => new Response(null, { status: 302, headers: { location: 'https://10.0.0.1' } }));
+  await assert.rejects(safeFetch('https://public.test'), errorCode('CONTENT_REJECTED')); assert.equal(calls.length, 1);
+  mock(() => new Response(new Uint8Array(65537)));
+  await assert.rejects(safeFetch('https://public.test'), errorCode('CONTENT_REJECTED'));
+  assert(!publicAddress('::ffff:10.1.2.3'));
+});
+test('Bluesky reconciliation adopts existing record without uploading or creating', async () => {
+  const calls = mock(url => url.includes('getRecord?') ? response({ uri: 'at://did:plc:alice/app.bsky.feed.post/existing' }) : ok(url));
+  const result = await getPublisher('bluesky').publish(credentials.bluesky, { text: 'hello', idempotencyKey: 'same-target', mediaUrls: ['https://image.test/a'] });
+  assert.equal(result.remoteId, 'at://did:plc:alice/app.bsky.feed.post/existing');
+  assert.equal(calls.filter(c => /createRecord|uploadBlob/.test(c.url)).length, 0);
+});
+test('Bluesky stable valid rkey across retries, Mastodon cold discovery and persisted meta', async () => {
+  let calls = mock();
+  for (let n = 0; n < 2; n++) await getPublisher('bluesky').publish(credentials.bluesky, { text: 'hi', idempotencyKey: 'same-target' });
+  const keys = calls.filter(c => c.url.endsWith('createRecord')).map(c => JSON.parse(String(c.init.body)).rkey);
+  assert.equal(keys[0], keys[1]); assert.match(keys[0], /^[a-z0-9]{32}$/);
+  calls = mock(url => url.endsWith('/instance') ? response({ configuration: { statuses: { max_characters: 1000 } } }) : ok(url));
+  const creds = { ...credentials.mastodon, instanceUrl: 'https://cold.test' };
+  await getPublisher('mastodon').publish(creds, { text: 'x'.repeat(800), idempotencyKey: 'same-target' });
+  assert.equal((await getPublisher('mastodon').validate(creds)).meta?.maxTextLength, 1000);
+  assert(calls.some(c => c.url.endsWith('/statuses')));
+});
+
+test('real TLS connector pins checked IP, preserves SNI and verifies certificates', async () => {
+  const { mkdtempSync, readFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+  const tls = await import('node:tls');
+  const { pinnedAgent } = await import('../lib/publishers/safe-fetch');
+  const dir = mkdtempSync(tmpdir() + '/socialmint-pin-');
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', dir + '/key', '-out', dir + '/cert', '-days', '1', '-subj', '/CN=pin.test'], { stdio: 'ignore' });
+  const options = { key: readFileSync(dir + '/key'), cert: readFileSync(dir + '/cert') };
+  let sni = '';
+  const server = tls.createServer({ ...options, SNICallback: (name, cb) => { sni = name; cb(null, tls.createSecureContext(options)); } });
+  server.on('tlsClientError', () => {});
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  // Test the connector in isolation: production only constructs it after URL validation.
+  const agent = pinnedAgent('pin.test', [{ address: '127.0.0.1', family: 4 }]);
+  globalThis.fetch = originalFetch;
+  try {
+    const address = server.address() as { port: number };
+    await assert.rejects(fetch(`https://pin.test:${address.port}`, { dispatcher: agent } as RequestInit), (error: unknown) => {
+      assert.equal((error as Error & { cause: { code: string } }).cause.code, 'DEPTH_ZERO_SELF_SIGNED_CERT'); return true;
+    });
+    assert.equal(sni, 'pin.test'); // Reached the pinned local socket, without resolving pin.test.
+  } finally { await agent.destroy(); await new Promise<void>(resolve => server.close(() => resolve())); rmSync(dir, { recursive: true }); }
+});
+
+test('90-second publish deadline spans successive requests and aborts later work', async t => {
+  const { publishingDeadline, pollingPause } = await import('../lib/publishers/http');
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let finished = false;
+  const task = publishingDeadline(async () => {
+    for (let i = 0; i < 100; i++) await pollingPause();
+    finished = true;
+  });
+  const checked = assert.rejects(task, errorCode('NETWORK', true));
+  for (let i = 0; i < 90; i++) { t.mock.timers.tick(1000); await Promise.resolve(); await Promise.resolve(); }
+  await checked; assert.equal(finished, false); t.mock.timers.reset();
+});
+
+test('Mastodon repeats the same idempotency key and adopts the same remote status', async () => {
+  const statuses = new Map<string, { id: string; url: string }>();
+  const calls = mock((url, init) => {
+    if (!url.endsWith('/statuses')) return ok(url);
+    const key = new Headers(init?.headers).get('Idempotency-Key')!;
+    if (!statuses.has(key)) statuses.set(key, { id: 'remote-' + statuses.size, url: 'https://mastodon.test/status' });
+    return response(statuses.get(key));
+  });
+  const input = { text: 'Same post after a lost commit', idempotencyKey: 'persistent-target' };
+  const first = await getPublisher('mastodon').publish(credentials.mastodon, input);
+  const second = await getPublisher('mastodon').publish(credentials.mastodon, input);
+  assert.equal(first.remoteId, second.remoteId);
+  assert.equal(statuses.size, 1);
+  assert.equal(calls.filter(c => c.url.endsWith('/statuses')).length, 2);
 });
