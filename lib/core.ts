@@ -1,17 +1,22 @@
+import { cookies } from "next/headers";
 import { requireLogin } from './require-login';
 import { workspaceEntitlements } from './entitlements';
 import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import { ensureWorkspace } from "@/lib/workspaces";
 import { getDb } from "@/db";
-import { brands, channels, posts } from "@/db/schema";
+import { brands, channels, posts, workspaceMembers } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 export async function coreContext() {
   const session = await auth();
   if (!session?.user?.id) return requireLogin();
+  const workspace = await ensureWorkspace(session.user.id, (await cookies()).get("sm_ws")?.value);
+  const [member] = await getDb().select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, workspace.id), eq(workspaceMembers.userId, session.user.id)));
+  if (!member) return requireLogin();
   return {
+    role: member.role,
     userId: session.user.id,
-    workspace: await ensureWorkspace(session.user.id),
+    workspace,
     db: getDb(),
   };
 }

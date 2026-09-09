@@ -6,8 +6,8 @@ import { apiKeys, webhookDeliveries, webhookEndpoints } from '@/db/schema';
 import { ApiForm } from '@/components/settings/ApiForms';
 export const metadata = {title: 'API settings'};
 export default async function ApiSettings() {
-  const {db, workspace, userId} = await coreContext();
-  if (workspace.ownerUserId !== userId) return <p>Only the workspace owner can manage API settings.</p>;
+  const {db, workspace, role} = await coreContext();
+  if (role !== 'owner') return <p>Only the workspace owner can manage API settings.</p>;
   const allowed = await agencyAccess(workspace.id);
   const keys = await db.select({id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.keyPrefix, scopes: apiKeys.scopes,
     lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt}).from(apiKeys).where(eq(apiKeys.workspaceId, workspace.id)).orderBy(desc(apiKeys.createdAt));

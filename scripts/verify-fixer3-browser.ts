@@ -43,6 +43,24 @@ async function main() {
       assert(await page.getByRole('button', {name: 'Schedule', exact: true}).isEnabled());
       await page.screenshot({path: `${evidence}/composer-starter-${width}.png`, fullPage: true});
     }
+    await db.insert(channels).values([
+      {brandId: brand.id, provider: 'x', displayName: 'Maple X', externalId: uid, credentialsEnc: 'never-publish-fixture'},
+      {brandId: brand.id, provider: 'threads', displayName: 'Maple Threads', externalId: uid, credentialsEnc: 'never-publish-fixture'},
+    ]);
+    await page.goto(base + '/app/posts/new');
+    await page.getByLabel('Maple X', {exact: true}).check();
+    await page.getByLabel('Maple Threads', {exact: true}).check();
+    const url = 'https://example.com/' + 'a'.repeat(100);
+    await page.locator('textarea[name=body]').fill('a'.repeat(256));
+    await page.locator('input[name=linkUrl]').fill(url);
+    await page.getByText('Maple X: 280 / 280 · Near limit', {exact: true}).waitFor();
+    await page.getByText(`Maple Threads: ${257 + url.length} / 500 · Within limit`, {exact: true}).waitFor();
+    await page.locator('textarea[name=body]').fill('a'.repeat(257));
+    await page.getByText('Maple X: 281 / 280 · Over limit', {exact: true}).waitFor();
+    await page.locator('textarea[name=body]').fill(url);
+    await page.getByText('Maple X: 23 / 280 · Within limit', {exact: true}).waitFor();
+    await page.getByText(`Maple Threads: ${url.length} / 500 · Within limit`, {exact: true}).waitFor();
+    console.log('PASS composer X URL=23, 280/281 boundary, Threads independent count, duplicate link not counted twice');
     await page.goto(base + '/app');
     await page.getByRole('heading', {name: 'Overview', exact: true}).waitFor();
     await page.screenshot({path: `${evidence}/overview-starter.png`, fullPage: true});

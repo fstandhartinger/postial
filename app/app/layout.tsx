@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { existsSync } from "node:fs";
+import { switchWorkspace } from "./workspace-actions";
 import { eq } from "drizzle-orm";
-import { brands, users } from "@/db/schema";
+import { brands, users, workspaces, workspaceMembers } from "@/db/schema";
 import { signOut } from "@/auth";
 import { coreContext } from "@/lib/core";
 import { BrandSwitcher } from "@/components/core/brand-switcher";
@@ -12,7 +12,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { db, workspace, userId } = await coreContext();
+  const { db, workspace, userId, role } = await coreContext();
   const [list, user] = await Promise.all([
     db
       .select({ id: brands.id, name: brands.name })
@@ -20,11 +20,9 @@ export default async function AppLayout({
       .where(eq(brands.workspaceId, workspace.id)),
     db.select({ name: users.name }).from(users).where(eq(users.id, userId)),
   ]);
-  const settingsHref = existsSync(".next/server/app/app/settings/page.js")
-    ? "/app/settings"
-    : existsSync(".next/server/app/app/settings/api/page.js")
-      ? "/app/settings/api"
-      : undefined;
+  const settingsHref = role === 'owner' ? '/app/settings/team' : undefined;
+  const memberships = await db.select({ id: workspaces.id, name: workspaces.name }).from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId)).where(eq(workspaceMembers.userId, userId));
+  const switcher = <form action={switchWorkspace} className="space-y-2"><label className="text-xs">Workspace<select name="workspace" aria-label="Workspace" defaultValue={workspace.id} className="w-full rounded border p-2">{memberships.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><Button variant="secondary">Switch workspace</Button></form>;
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
@@ -39,6 +37,7 @@ export default async function AppLayout({
             {user[0]?.name || "Your account"}
           </p>
           <p className="truncate text-xs text-zinc-600">{workspace.name}</p>
+          {switcher}
           <form
             action={async () => {
               "use server";
@@ -58,6 +57,7 @@ export default async function AppLayout({
           <details className="relative md:hidden">
             <summary className="cursor-pointer p-2 text-sm">Account</summary>
             <div className="absolute right-0 z-30 w-48 space-y-3 rounded-2xl border bg-white p-4 shadow">
+              {switcher}
               <Link href="/app/billing" className="block">
                 Billing
               </Link>

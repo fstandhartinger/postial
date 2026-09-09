@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { countText, postText } from "@/lib/text-limits";
+import { countChannelText, postText } from "@/lib/text-limits";
 /* eslint-disable @next/next/no-img-element -- User-provided previews intentionally bypass the server image proxy. */
 import { useActionState, useState, useRef } from "react";
 import { coreAction } from "@/app/app/actions";
@@ -12,6 +12,7 @@ type Channel = {
   id: string;
   brandId: string;
   displayName: string;
+  provider: string;
   max: number;
 };
 export function Composer({
@@ -72,12 +73,11 @@ export function Composer({
   const [link, setLink] = useState(initial.linkUrl ?? "");
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const readOnly = brands.find((b) => b.id === brand)?.readOnly;
-  const count = countText(postText({ text: body, linkUrl: link }));
+  const text = postText({ text: body, linkUrl: link });
   const [when, setWhen] = useState("schedule");
-  const limits = channels
-    .filter((c) => selected.includes(c.id) && c.brandId === brand && c.max > 0)
-    .map((c) => c.max);
-  const max = limits.length ? Math.min(...limits) : 0;
+  const channelCounts = channels
+    .filter((c) => selected.includes(c.id) && c.brandId === brand)
+    .map((c) => ({ ...c, count: countChannelText(text, c.provider) }));
   return (
     <div className="grid items-start gap-6 lg:grid-cols-2">
       <form
@@ -114,10 +114,13 @@ export function Composer({
             required
           />
         </label>
-        <p className={max && count > max ? "text-red-700" : "text-gray-500"}>
-          {count}
-          {max ? ` / ${max}` : " characters"}
-        </p>
+        <div aria-live="polite" className="text-sm">
+          {channelCounts.map((c) => (
+            <p key={c.id} className={c.max > 0 && c.count > c.max ? "text-red-700" : "text-gray-500"}>
+              {c.displayName}: {c.count}{c.max > 0 ? ` / ${c.max}` : " characters"}
+            </p>
+          ))}
+        </div>
         <fieldset className="space-y-2">
           <legend>Channels</legend>
           {channels
@@ -318,17 +321,15 @@ export function Composer({
             </p>
           )}
           <div className="border-t border-zinc-200 pt-4" aria-live="polite">
-            {channels
-              .filter((c) => c.brandId === brand && selected.includes(c.id))
-              .map((c) => (
+            {channelCounts.map((c) => (
                 <p
                   key={c.id}
-                  className={`text-sm ${count > c.max ? "text-red-700" : count >= c.max * 0.9 ? "text-amber-800" : "text-emerald-800"}`}
+                  className={`text-sm ${c.max > 0 && c.count > c.max ? "text-red-700" : c.max > 0 && c.count >= c.max * 0.9 ? "text-amber-800" : "text-emerald-800"}`}
                 >
-                  {c.displayName}: {count} / {c.max} ·{" "}
-                  {count > c.max
+                  {c.displayName}: {c.count}{c.max > 0 ? ` / ${c.max}` : " characters"} ·{" "}
+                  {c.max > 0 && c.count > c.max
                     ? "Over limit"
-                    : count >= c.max * 0.9
+                    : c.max > 0 && c.count >= c.max * 0.9
                       ? "Near limit"
                       : "Within limit"}
                 </p>

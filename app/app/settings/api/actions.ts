@@ -12,7 +12,7 @@ export type SettingsState = {error?: string; secret?: string; message?: string};
 export async function settingsAction(_state: SettingsState, form: FormData): Promise<SettingsState> {
   const ctx = await coreContext();
   try {
-    if (ctx.workspace.ownerUserId !== ctx.userId) throw new ApiError(403, 'forbidden', 'Only the workspace owner can manage API settings.');
+    if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only the workspace owner can manage API settings.');
     const action = String(form.get('action')), id = String(form.get('id') ?? '');
     let result: SettingsState = {};
     if (action === 'create_key') {

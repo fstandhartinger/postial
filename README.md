@@ -102,7 +102,7 @@ Agency (€49/month, 15 brands, 5 seats, approval links) through
 `POST /api/stripe/checkout` with `{"plan":"agency"}`. First-time pricing visitors
 get a workspace automatically. Anonymous requests return 401 and CheckoutButton
 opens `/login?next=/pricing&plan=agency`. Owner-only billing rejects cross-origin
-requests and ambiguous multiple owned workspaces.
+requests and uses the selected workspace after verifying its membership role.
 
 Checkout offers a 14-day trial without a card; missing payment details cancel it
 at trial end. Success returns to
@@ -357,3 +357,34 @@ currently limits its download to 1 MB); no image resizing is performed.
 Verification: `npx tsx scripts/verify-media.ts`; optional `MEDIA_HTTP_URL` points to
 a running development app for session/API/Playwright checks at 390 and 1280 pixels.
 Screenshots are saved under `work/media-evidence/`.
+## Teams and workspace selection
+
+Owners manage members and seven-day invitation links at `/app/settings/team`.
+Starter allows one seat; active Agency allows five. Invitations do not reserve
+seats: creation and acceptance both check the current plan, and acceptance is
+serialized with team changes. At most ten links can be created per workspace
+in a rolling hour, including revoked/used links. Links are bearer credentials:
+share privately; only their SHA-256 hashes are stored, and the link is shown once.
+Set `APP_URL` (fallback `NEXT_PUBLIC_APP_URL`, then `AUTH_URL`) to the public origin.
+No email is sent. `/join/<token>` retains the destination through login and consumes
+the invitation only after an authenticated POST. Expired, revoked, used and
+already-member cases have explicit messages.
+
+Owners can promote/demote members and manage billing, API settings and the team.
+Editors manage brands, channels and posts. Removing yourself and demoting the
+last owner are rejected on the server. Existing owner memberships are preserved;
+legacy admin/member enum values remain compatible and have editor-level access.
+Existing membership join dates are backfilled to migration time.
+
+The account menu switches between memberships using the HttpOnly, SameSite=Lax
+`sm_ws` cookie. Every request validates membership; invalid/stale selectors fall
+back to the oldest workspace. Onboarding creates a workspace only for users with
+no memberships. Billing and API administration use the selected membership role.
+
+Team verification: run the built server on localhost:3997 with test DATABASE_URL,
+AUTH_SECRET and local AUTH_URL/NEXT_PUBLIC_APP_URL, then
+`npx tsx scripts/verify-team.ts`. Set PLAYWRIGHT_MODULE if Playwright is elsewhere.
+The verifier creates and deletes synthetic database sessions, exercises the real
+join POST, checks editor billing 403, settings guards, roles, seat limits,
+concurrent consumption, expiry, revocation, last-owner protection, rate limits and
+workspace switching. Screenshots at 390/1280 are in `work/team-evidence/`.

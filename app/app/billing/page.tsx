@@ -1,20 +1,16 @@
-import { requireLogin } from '@/lib/require-login';
+import { coreContext } from '@/lib/core';
 import { trialTerms } from '@/components/billing/AccessStatus';
 import Link from "next/link";
-import { auth } from "@/auth";
-import { ensureWorkspace } from "@/lib/workspaces";
 import { getSubscriptionForWorkspace, hasAccess } from "@/lib/billing";
 import { plans } from "@/lib/plans";
 import { CheckoutButton } from "@/components/billing/CheckoutButton";
 import { PortalButton } from "@/components/billing/PortalButton";
 import { Card } from "@/components/ui/card";
 export default async function BillingPage() {
-  const session = await auth();
-  if (!session?.user?.id) return requireLogin();
-  const workspace = await ensureWorkspace(session.user.id);
+  const { workspace, role } = await coreContext();
   const record = await getSubscriptionForWorkspace(workspace.id);
   const subscription = record?.stripeSubscriptionId ? record : null;
-  const owner = workspace.ownerUserId === session.user.id;
+  const owner = role === 'owner';
   const access = hasAccess(subscription);
   const date = subscription?.status === "trialing" ? subscription.trialEnd : subscription?.currentPeriodEnd;
   return <div className="space-y-6">

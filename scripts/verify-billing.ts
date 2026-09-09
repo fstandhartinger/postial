@@ -44,7 +44,7 @@ async function main() {
     const page = await fetch(base + "/app/billing", { headers: { Cookie: cookie } });
     assert.equal(page.status, 200); assert.match(await page.text(), /No plan yet/);
     const unconfirmed = await fetch(base + '/app?checkout=success', { headers: { Cookie: cookie } });
-    assert.match(await unconfirmed.text(), /Checkout returned — confirming your subscription/);
+    assert.match(await unconfirmed.text(), /Checkout returned\. Your plan updates when payment confirmation/);
     const continuation = await fetch(base + '/app/continue?next=/pricing&plan=agency', { headers: { Cookie: cookie } });
     assert.equal(continuation.status, 200); assert.match(await continuation.text(), /Continue to checkout/);
     stage = "authenticated checkout";
