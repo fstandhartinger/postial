@@ -21,7 +21,7 @@ export async function workspaceEntitlements(workspace: { id: string } | string) 
   const publish = hasAccess(sub);
   const limit = publish ? plans[sub!.plan].brands : plans.starter.brands;
   const list = await getDb().select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, id)).orderBy(asc(brands.createdAt), asc(brands.id));
-  return { publish, approvalLinks: publish && plans[sub!.plan].approvalLinks, api: publish && sub!.plan === "agency", limit, activeBrandIds: list.slice(0, limit).map(b => b.id) };
+  return { seats: publish ? plans[sub!.plan].seats : plans.starter.seats, publish, approvalLinks: publish && plans[sub!.plan].approvalLinks, api: publish && sub!.plan === "agency", limit, activeBrandIds: list.slice(0, limit).map(b => b.id) };
 }
 export async function canPublish(workspace: { id: string } | string) { return (await workspaceEntitlements(workspace)).publish; }
 export async function canEditBrand(workspace: { id: string } | string, brandId: string) { return (await workspaceEntitlements(workspace)).activeBrandIds.includes(brandId); }

@@ -1,10 +1,10 @@
 import { billingRateLimit } from '@/lib/rate-limit';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { subscriptions, workspaces } from '@/db/schema';
+import { subscriptions } from '@/db/schema';
 import { billingState } from '@/db/billing-schema';
 import { auth } from '@/auth';
-import { ensureWorkspace } from '@/lib/workspaces';
+import { coreContext } from '@/lib/core';
 import { appUrl } from '@/lib/stripe';
 export { plans } from '@/lib/plans';
 export type BillingTransaction = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -29,12 +29,9 @@ export async function billingOwner(request: Request) {
   if (request.headers.get('origin') !== appUrl()) throw new BillingHttpError(403, 'Invalid origin');
   const retryAfter = billingRateLimit(session.user.id);
   if (retryAfter) throw new BillingHttpError(429, 'Too many billing requests', retryAfter);
-  await ensureWorkspace(session.user.id);
-  const owned = await getDb().select().from(workspaces).where(eq(workspaces.ownerUserId, session.user.id)).limit(2);
-  if (!owned.length) throw new BillingHttpError(404, 'Workspace not found');
-  // Request has no workspace selector. Do not silently bill an arbitrary workspace.
-  if (owned.length !== 1) throw new BillingHttpError(409, 'Select an active workspace before billing');
-  return { workspace: owned[0]!, user: session.user };
+  const ctx = await coreContext();
+  if (ctx.role !== 'owner') throw new BillingHttpError(403, 'Only workspace owners can manage billing');
+  return { workspace: ctx.workspace, user: session.user };
 }
 export function billingError(error: unknown): Response {
   if (error instanceof BillingHttpError) return Response.json({ error: error.message }, { status: error.status, headers: error.retryAfter ? { "Retry-After": String(error.retryAfter) } : undefined });

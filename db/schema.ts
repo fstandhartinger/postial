@@ -74,7 +74,7 @@ export const workspaces = pgTable("workspaces", {
     .defaultNow()
     .notNull(),
 });
-export const memberRole = pgEnum("member_role", ["owner", "admin", "member"]);
+export const memberRole = pgEnum("member_role", ["owner", "admin", "member", "editor"]);
 export const workspaceMembers = pgTable(
   "workspace_members",
   {
@@ -85,6 +85,7 @@ export const workspaceMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: memberRole("role").default("member").notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
@@ -307,3 +308,16 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   pauseReason: text("pause_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [index("webhook_deliveries_due").on(t.status, t.nextAttemptAt)]);
+
+export const workspaceInvites = pgTable("workspace_invites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  role: memberRole("role").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedBy: text("accepted_by").references(() => users.id, { onDelete: "set null" }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, t => [index("workspace_invites_workspace_created").on(t.workspaceId, t.createdAt)]);
