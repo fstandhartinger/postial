@@ -32,8 +32,9 @@ export default async function PostsPage({
   );
   return (
     <>
-      <div className="flex justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-semibold">Posts</h1>
+        <Link className="text-emerald-700 underline" href={"/app/posts/bulk"+(q.brand?"?brand="+encodeURIComponent(q.brand):"")}>Plan several posts</Link>
         <Link className="text-emerald-700 underline" href="/app/posts/new">
           Create post
         </Link>

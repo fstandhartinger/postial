@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { brands, posts } from "@/db/schema";
 import { coreContext } from "@/lib/core";
@@ -16,7 +17,7 @@ export default async function CalendarPage({
     .where(eq(brands.workspaceId, workspace.id));
   return (
     <>
-      <h1 className="text-3xl font-semibold">Calendar</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold">Calendar</h1><Link className="text-emerald-700 underline" href={"/app/posts/bulk"+((await searchParams).brand?"?brand="+encodeURIComponent((await searchParams).brand!):"")}>Plan several posts</Link></div>
       <Calendar
         brand={(await searchParams).brand}
         entries={rows

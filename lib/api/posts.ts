@@ -6,7 +6,7 @@ import { workspaceEntitlements } from '@/lib/entitlements';
 import { ApiError, json } from './errors';
 import { hash, type ApiContext } from './auth';
 import { changeTarget, reschedulePost, isUuid, savePost, type Tx } from './post-service';
-const input = z.object({
+export const postInput = z.object({
   brand_id: z.string().uuid(), body: z.string(), media_urls: z.array(z.string()).max(4).default([]),
   media_alt: z.record(z.string(),z.string().max(1000)).default({}),
   link_url: z.string().optional(), channel_ids: z.array(z.string().uuid()).max(100).default([]),
@@ -68,7 +68,7 @@ export async function readJson(request: Request) {
   try { return JSON.parse(text); } catch { throw new ApiError(422, 'validation_error', 'Invalid JSON.'); }
 }
 export async function createPost(request: Request, ctx: ApiContext) {
-  const parsed = input.safeParse(await readJson(request));
+  const parsed = postInput.safeParse(await readJson(request));
   if (!parsed.success) throw new ApiError(422, 'validation_error', parsed.error.issues[0].message);
   const data = parsed.data, idem = request.headers.get('idempotency-key');
   if (idem !== null && (!/^[\x21-\x7e]{1,200}$/.test(idem))) throw new ApiError(422, 'validation_error', 'Idempotency-Key must contain 1–200 printable non-space ASCII characters.');

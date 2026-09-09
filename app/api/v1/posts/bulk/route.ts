@@ -1,0 +1,10 @@
+import { endpoint } from "@/lib/api/auth";
+import { createBulk } from "@/lib/api/bulk";
+import { methodNotAllowed, options } from "@/lib/api/routing";
+export const runtime = "nodejs";
+export const POST = endpoint("posts:write", createBulk);
+export const OPTIONS = options("POST, OPTIONS");
+export const GET = methodNotAllowed("POST, OPTIONS");
+export const PUT = GET;
+export const PATCH = GET;
+export const DELETE = GET;

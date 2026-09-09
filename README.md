@@ -509,3 +509,22 @@ Run `npx tsx scripts/verify-c6.ts` for service/route/outbox checks; add
 checks against a running build. Test-only loopback delivery is disabled in
 production. The verifier uses synthetic sessions and a local alert receiver,
 removes its database fixtures, and never performs a real provider login or post.
+
+### Bulk planner and CSV import
+
+`/app/posts/bulk` plans up to 200 posts in a table, with brand timezone dates,
+per-channel counters, one image upload/URL per row, approval, drafts, row results
+and even distribution across days and time slots. Calendar and Posts link to it.
+Bulk is available on every plan; publishing, approval, brand and media quotas
+retain their existing rules. CSV preview accepts UTF-8/BOM and comma/semicolon
+files with `date,time,text,channels,image_url,requires_approval` (512 KB maximum).
+Channel names/providers use `|`; a provider selects all matching brand channels.
+
+`POST /api/v1/posts/bulk` accepts 1–200 normal post inputs (one image each), uses
+`savePost` per row, and returns HTTP 200 with ordered `{data:[{index,status,id,
+post_status}|{index,status,error}]}` results. Invalid rows do not roll back other
+rows. An optional Idempotency-Key serializes concurrent requests and persists
+the complete response for 24 hours; changed payloads return 409. The existing
+Agency API access and posts:write scope apply. No schema migration is needed.
+Run `npx tsx scripts/verify-bulk.ts`; set BULK_BROWSER_URL to a local built app
+for Playwright checks and screenshots in `work/bulk-evidence/`.
