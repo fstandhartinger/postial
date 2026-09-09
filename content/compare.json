@@ -40,10 +40,10 @@
     {
       "slug": "hootsuite-alternative",
       "vendor": "Hootsuite",
-      "title": "Hootsuite alternative for small agencies (2026)",
-      "description": "Compare SocialMint and Hootsuite pricing, approvals and networks for small agencies. Honest early-access limits and September 2026 vendor sources.",
-      "intro": "A small-agency option for teams prioritizing client review links, a fixed five-user plan and a focused publishing workflow.",
-      "audience": "For agencies with up to five teammates and fifteen brands whose immediate work fits the launch networks, and who can pilot an early-access product before switching.",
+      "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
+      "description": "Compare SocialMint and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
+      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Standard: from $99/user/month, annual billing; 10 social accounts. Taxes extra.",
@@ -142,10 +142,10 @@
     {
       "slug": "postiz-alternative",
       "vendor": "Postiz",
-      "title": "Postiz alternative with client approvals (2026)",
-      "description": "Compare SocialMint with Postiz cloud and self-hosting: agency pricing, client approval links, API and networks. Checked September 2026.",
-      "intro": "A managed agency option for teams seeking client approval links without reviewer accounts and hosting in Germany.",
-      "audience": "For small agencies that prefer a managed service and want to pilot client approvals across up to fifteen brands, with no infrastructure to maintain themselves.",
+      "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
+      "description": "Compare SocialMint and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
+      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Cloud Standard: $29/month, 5 channels, unlimited posts. Team: $39/month, 10 channels, unlimited team members.",

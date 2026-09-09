@@ -40,15 +40,15 @@
   "Hero": [
     {
       "label": "Eyebrow",
-      "text": "Social scheduling for agencies and freelancers"
+      "text": "For agencies publishing on Bluesky, Mastodon and Telegram"
     },
     {
       "label": "H1",
-      "text": "More brands. Fewer approval chases."
+      "text": "Your clients’ posts. Approved and ready to publish."
     },
     {
       "label": "Sub",
-      "text": "Plan posts across client brands, collect approvals, and track publishing with clear errors and visible retries. Keep your team and clients on the same page."
+      "text": "For agencies whose clients publish on Bluesky, Mastodon and Telegram — with X and Threads next, subject to platform approval. Get client approval without a login, follow publishing errors and retries, and pay one monthly price for your agency."
     },
     {
       "label": "Primary CTA → /signup",
@@ -70,11 +70,11 @@
   "Social-proof alternative": [
     {
       "label": "Statement",
-      "text": "Built for agencies managing 3–15 brands."
+      "text": "Managing 3–15 brands on Bluesky, Mastodon or Telegram?"
     },
     {
       "label": "Supporting label",
-      "text": "One place for drafts, client decisions, and publishing status."
+      "text": "Start with those client workflows today. X and Threads are built and awaiting developer approvals. LinkedIn, Instagram and Facebook remain planned, depend on platform reviews, and have no release date."
     }
   ],
   "Pain points": [
@@ -220,11 +220,11 @@
     },
     {
       "label": "Available labels",
-      "text": "X · Bluesky · Mastodon · Telegram · Threads"
+      "text": "Bluesky, Mastodon, Telegram"
     },
     {
       "label": "Roadmap label",
-      "text": "Planned: LinkedIn, Instagram, and Facebook"
+      "text": "Next and planned networks"
     },
     {
       "label": "Roadmap body",
@@ -238,7 +238,7 @@
     },
     {
       "label": "Sub",
-      "text": "Monthly plans with included users. Start with a 14-day free trial."
+      "text": "For client work on Bluesky, Mastodon and Telegram. One monthly agency price with included users; reviewers need no paid seat. Start with 14 days free."
     }
   ],
   "Starter card": [
@@ -424,7 +424,7 @@
     },
     {
       "label": "Answer 4",
-      "text": "Bluesky, Mastodon and Telegram are available today. X, Threads, LinkedIn, Instagram, and Facebook are planned, subject to platform approval, with no confirmed release dates."
+      "text": "Bluesky, Mastodon and Telegram are live. X and Threads are built and await developer approvals. LinkedIn, Instagram and Facebook are planned and depend on platform reviews. None of these upcoming networks has a confirmed release date. See /roadmap for current status."
     },
     {
       "label": "Question 5",
@@ -510,19 +510,19 @@
   "SEO": [
     {
       "label": "<title>",
-      "text": "SocialMint | Social Scheduling & Client Approvals"
+      "text": "SocialMint | Bluesky, Mastodon & Telegram for Agencies"
     },
     {
       "label": "Meta description",
-      "text": "Plan posts across client brands, get approvals without client logins, and track publishing retries. From €19/month. Try SocialMint free for 14 days."
+      "text": "Schedule Bluesky, Mastodon and Telegram posts for clients. Login-free approvals, visible errors and retries. Agency €49/month. X and Threads await approval."
     },
     {
       "label": "OG title",
-      "text": "SocialMint — From Client Draft to Published Post"
+      "text": "SocialMint | Client approvals for Bluesky, Mastodon & Telegram"
     },
     {
       "label": "OG description",
-      "text": "Manage client brands, collect approvals, and follow publishing retries. Agency includes API + n8n. Try it free for 14 days, no card needed. The n8n node awaits npm publication."
+      "text": "Publish client posts on Bluesky, Mastodon and Telegram. Login-free approvals and visible retries, one agency price. X and Threads await developer approval."
     }
   ]
 }

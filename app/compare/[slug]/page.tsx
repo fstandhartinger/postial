@@ -1,7 +1,8 @@
+import { networkSummary } from '@/components/marketing/NetworkAvailability';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { AccessStatus } from '@/components/billing/AccessStatus';
+import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
 import { appUrl } from '@/components/marketing/copy';
 import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function ComparePage({ params }: Props) {
   const page = comparison((await params).slug);
-  const networkText=`Available today: ${availability.channels.join(', ')}. In preparation, subject to platform approval with no date: ${availability.planned.join(', ')}.`;
+  const networkText=networkSummary;
   const featureText=`Available today: ${availability.available.join('; ')}. ${availability.pending}. ${networkText}`;
   const faq=page.faq.map(f=>({...f,answer:/September.*rollout|rolling out|verify readiness/i.test(f.answer)?featureText:f.answer}));
   const cells=copy.socialmint.map((text,i)=> i===2?availability.available[2]:i===3?availability.available[3]:i===4?`${availability.available[6]}. ${availability.pending}`:i===5?networkText:text);

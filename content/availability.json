@@ -37,5 +37,55 @@
     "Client approval links without client login",
     "REST API and webhooks",
     "Team management"
+  ],
+  "networks": [
+    {
+      "id": "bluesky",
+      "name": "Bluesky",
+      "status": "live",
+      "dependency": ""
+    },
+    {
+      "id": "mastodon",
+      "name": "Mastodon",
+      "status": "live",
+      "dependency": ""
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "status": "live",
+      "dependency": ""
+    },
+    {
+      "id": "x",
+      "name": "X",
+      "status": "preparation",
+      "dependency": "Built; awaiting developer access and platform approval."
+    },
+    {
+      "id": "threads",
+      "name": "Threads",
+      "status": "preparation",
+      "dependency": "Built; awaiting developer access and platform approval."
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "status": "planned",
+      "dependency": "Platform review required; no confirmed release date."
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "status": "planned",
+      "dependency": "Platform review required; no confirmed release date."
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "status": "planned",
+      "dependency": "Platform review required; no confirmed release date."
+    }
   ]
 }

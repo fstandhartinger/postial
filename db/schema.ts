@@ -357,3 +357,12 @@ export const dpaAcceptances = pgTable('dpa_acceptances', {
   documentHash: text('document_hash').notNull(),
   acceptedAt: timestamp('accepted_at',{withTimezone:true}).defaultNow().notNull(),
 },t=>[uniqueIndex('dpa_workspace_version').on(t.workspaceId,t.version)]);
+
+export const networkWaitlist = pgTable("network_waitlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  network: text("network").notNull(),
+  email: text("email").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  ipHash: text("ip_hash").notNull(),
+  source: text("source").notNull(),
+}, table => [uniqueIndex("network_waitlist_network_email_unique").on(table.network, table.email), index("network_waitlist_ip_created_idx").on(table.ipHash, table.createdAt)]);

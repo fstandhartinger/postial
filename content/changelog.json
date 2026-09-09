@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2026-09-09",
+    "title": "Notifications",
+    "body": "In-app notifications and optional Slack, Discord and Mattermost webhook alerts."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "Channel health",
+    "body": "Connection health checks and a shared overview of channels needing attention."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "Agency teams",
+    "body": "Invite teammates by link and manage access within the included team allowance."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "Image uploads",
+    "body": "Upload images, add alt text and preview supported network formats."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "API and webhooks",
+    "body": "Agency REST API and signed webhooks. The n8n node awaits npm publication."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "Client approval links",
+    "body": "Clients can approve or request changes through a private link without an account."
+  },
+  {
+    "date": "2026-09-09",
+    "title": "Publishing core and adapters",
+    "body": "Brand workspaces, calendar and publishing status with Bluesky, Mastodon and Telegram adapters."
+  },
+  {
+    "date": "2026-09-08",
+    "title": "Landing and billing",
+    "body": "Public pricing, interactive approval demo and Stripe trial checkout. Sign-in configuration remains pending."
+  }
+]
