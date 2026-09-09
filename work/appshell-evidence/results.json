@@ -1,0 +1,17 @@
+{
+  "onboarding": "0/4 → 3/4 → hidden after copying approval link",
+  "invalidCredentialsPreserved": true,
+  "realProviderLogin": false,
+  "activeChannel": "synthetic DB fixture; no real publishing",
+  "draftAndSchedule": true,
+  "calendarAndNextUp": true,
+  "responsiveWidths": [
+    390,
+    1280
+  ],
+  "attention": true,
+  "app404": true,
+  "marketingFrame": true,
+  "consoleErrorsBeforeIntentional404": 0,
+  "fixtureCleanup": "finally deletes test user and cascading workspace"
+}

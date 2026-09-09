@@ -64,7 +64,7 @@ async function main() {
     await page.locator('form [role=alert]').waitFor();
     assert.equal(await page.locator('[name=provider]').inputValue(), 'mastodon');
     assert.equal(await page.getByLabel('Instance URL', { exact: true }).inputValue(), 'http://invalid.example');
-    assert.equal(await page.getByLabel('Access token', { exact: false }).inputValue(), '');
+    assert.equal(await page.getByLabel('Access token', { exact: false }).inputValue(), 'synthetic-secret');
     await page.screenshot({ path: evidence + '/connect-error-390.png', fullPage: true });
     await page.goto(base + '/app/posts/' + post.id);
     await page.getByText('Published with warnings', { exact: true }).waitFor();
@@ -93,7 +93,7 @@ async function main() {
     assert.equal(expired.status, 307);
     assert.equal(new URL(expired.headers.get('location')!, base).searchParams.get('next'), expiredPath);
     assert.equal(pageErrors, 0);
-    writeFileSync(evidence + '/browser-results.json', JSON.stringify({ mobileAgendaDays: 1, desktopColumns: 7, externalImageLoaded: true, providerAndValuesPreserved: true, secretCleared: true, warningsVisible: true, inactiveDraftAllowed: true, retryGatedAndManualReset: true, redirectPathsPreserved: 5, expiredSessionPathPreserved: true, pageErrors }, null, 2));
+    writeFileSync(evidence + '/browser-results.json', JSON.stringify({ mobileAgendaDays: 1, desktopColumns: 7, externalImageLoaded: true, providerAndValuesPreserved: true, secretPreservedAfterError: true, warningsVisible: true, inactiveDraftAllowed: true, retryGatedAndManualReset: true, redirectPathsPreserved: 5, expiredSessionPathPreserved: true, pageErrors }, null, 2));
     console.log('PASS: 390px agenda, 7 desktop columns, external-image CSP, connect-error state, warnings, canceled billing/drafts/retry, 5 exact login destinations');
   } finally { await browser.close(); await db.delete(users).where(eq(users.id, uid)); await db.$client.end(); }
 }

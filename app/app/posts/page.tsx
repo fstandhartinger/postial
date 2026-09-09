@@ -1,3 +1,5 @@
+import { Select } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { eq, desc } from "drizzle-orm";
 import { brands, posts, postStatus } from "@/db/schema";
@@ -35,7 +37,7 @@ export default async function PostsPage({
         </Link>
       </div>
       <form className="flex flex-wrap gap-3">
-        <select
+        <Select
           aria-label="Filter brand"
           className="rounded border p-2"
           name="brand"
@@ -47,8 +49,8 @@ export default async function PostsPage({
               {b.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Filter status"
           className="rounded border p-2"
           name="status"
@@ -57,11 +59,17 @@ export default async function PostsPage({
           <option value="">All statuses</option>
           {postStatus.enumValues.map((s) => (
             <option key={s} value={s}>
-              {s === "pending_approval" ? "Awaiting approval" : s === "changes_requested" ? "Changes requested" : s}
+              {s === "pending_approval"
+                ? "Awaiting approval"
+                : s === "changes_requested"
+                  ? "Changes requested"
+                  : s}
             </option>
           ))}
-        </select>
-        <button className="rounded border px-4">Filter</button>
+        </Select>
+        <Button variant="secondary" className="rounded border px-4">
+          Filter
+        </Button>
       </form>
       {filtered.map(({ post: p, brand: b }) => (
         <Card key={p.id}>
@@ -70,8 +78,9 @@ export default async function PostsPage({
           </Link>
           <p>
             <span style={{ color: b.color }}>{b.name}</span>
-            {!["pending_approval", "changes_requested"].includes(p.status) &&
-              <> · {p.status.replaceAll("_", " ")}</>}
+            {!["pending_approval", "changes_requested"].includes(p.status) && (
+              <> · {p.status.replaceAll("_", " ")}</>
+            )}
           </p>
           <ApprovalStatusBadge post={p} />
           {p.scheduledAt && (

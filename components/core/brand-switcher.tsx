@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "@/components/ui/input";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 export function BrandSwitcher({
   brands,
@@ -11,13 +12,18 @@ export function BrandSwitcher({
   return (
     <label className="block text-sm">
       Brand
-      <select
+      <Select
         aria-label="Brand"
-        className="ml-3 rounded border p-2"
-        value={search.get("brand") ?? ""}
+        className="ml-2 w-40 sm:w-56"
+        value={
+          search.get("brand") ??
+          (path.startsWith("/app/brands/") ? path.split("/")[3] : "")
+        }
         onChange={(e) =>
           router.push(
-            (["/app/calendar", "/app/posts", "/app/posts/new"].includes(path)
+            (["/app", "/app/calendar", "/app/posts", "/app/posts/new"].includes(
+              path,
+            )
               ? path
               : "/app/posts") +
               (e.target.value ? "?brand=" + e.target.value : ""),
@@ -30,7 +36,7 @@ export function BrandSwitcher({
             {b.name}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

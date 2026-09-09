@@ -2,7 +2,7 @@
 import { useActionState, useState } from "react";
 import { coreAction } from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 export function ActionForm({
   children,
   action,
@@ -16,10 +16,17 @@ export function ActionForm({
 }) {
   const [state, submit, pending] = useActionState(coreAction, { error: "" });
   return (
-    <form action={submit} className="space-y-4" onReset={preserveValues ? e => {
-      e.preventDefault();
-      e.currentTarget.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ''; });
-    } : undefined}>
+    <form
+      action={submit}
+      className="space-y-4"
+      onReset={
+        preserveValues
+          ? (e) => {
+              e.preventDefault();
+            }
+          : undefined
+      }
+    >
       <input type="hidden" name="action" value={action} />
       {children}
       {state.error && (
@@ -84,16 +91,17 @@ export function ConnectForm({
       <input type="hidden" name="brandId" value={brandId} />
       <label className="block">
         Provider
-        <select
+        <Select
           className="block rounded border p-3"
           name="provider"
+          aria-label="Provider"
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
         >
           {options.map((o) => (
             <option key={o.provider}>{o.provider}</option>
           ))}
-        </select>
+        </Select>
       </label>
       {options
         .find((o) => o.provider === provider)

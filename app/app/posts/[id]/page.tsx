@@ -1,4 +1,4 @@
-import { workspaceEntitlements } from '@/lib/entitlements';
+import { workspaceEntitlements } from "@/lib/entitlements";
 import Link from "next/link";
 import { ApprovalPanel } from "@/components/approvals/panel";
 import { eq, asc } from "drizzle-orm";
@@ -32,7 +32,24 @@ export default async function PostPage({
       <h1 className="text-3xl font-semibold">Post status</h1>
       <p>
         {brand.name} · {post.status.replaceAll("_", " ")}
-        {post.status === "published" && targets.some(r => r.target.warnings.length) && <span className="ml-2 rounded bg-amber-100 p-2 text-amber-900">Published with warnings</span>}
+        {post.status === "published" &&
+          targets.some((r) => r.target.warnings.length) && (
+            <span className="ml-2 rounded bg-amber-100 p-2 text-amber-900">
+              Published with warnings
+            </span>
+          )}
+      </p>
+      <p
+        role="status"
+        className="rounded-xl bg-emerald-50 p-4 text-emerald-800"
+      >
+        {post.status === "draft"
+          ? "Draft saved. Keep shaping it, then schedule when you’re ready."
+          : post.status === "scheduled" && post.scheduledAt
+            ? `Post scheduled for ${post.scheduledAt.toLocaleString("en-US", { timeZone: brand.timezone, dateStyle: "medium", timeStyle: "short" })} (${brand.timezone}).`
+            : post.status === "pending_approval"
+              ? "Post saved for client approval. Copy the link below to share it."
+              : `Post is ${post.status.replaceAll("_", " ")}.`}
       </p>
       <Card>
         <p className="whitespace-pre-wrap break-words">{post.body}</p>
@@ -52,7 +69,16 @@ export default async function PostPage({
           <p>
             {t.status} · {t.attempts} attempts
           </p>
-          {t.warnings.map((warning, index) => <p key={index} role="status" className="rounded bg-amber-50 p-3 text-amber-900">{warning} Check the published post and add missing content manually; retrying could duplicate it.</p>)}
+          {t.warnings.map((warning, index) => (
+            <p
+              key={index}
+              role="status"
+              className="rounded bg-amber-50 p-3 text-amber-900"
+            >
+              {warning} Check the published post and add missing content
+              manually; retrying could duplicate it.
+            </p>
+          ))}
           {t.lastErrorHuman && (
             <p role="status" className="mt-2 text-red-700">
               {t.lastErrorHuman}
@@ -77,23 +103,35 @@ export default async function PostPage({
               View published post
             </a>
           )}
-          {!editable && ["queued", "failed", "needs_review", "held"].includes(t.status) && (
-            <div className="mt-4 flex gap-6">
-              {(["failed", "needs_review", "held"].includes(t.status) || t.lastErrorCode) && (
-                <ActionForm action="retry" disabled={!access.publish || !writable}>
+          {!editable &&
+            ["queued", "failed", "needs_review", "held"].includes(t.status) && (
+              <div className="mt-4 flex gap-6">
+                {(["failed", "needs_review", "held"].includes(t.status) ||
+                  t.lastErrorCode) && (
+                  <ActionForm
+                    action="retry"
+                    disabled={!access.publish || !writable}
+                  >
+                    <input type="hidden" name="targetId" value={t.id} />
+                    <p>Retry now</p>
+                  </ActionForm>
+                )}
+                <ActionForm action="skip" disabled={!writable}>
                   <input type="hidden" name="targetId" value={t.id} />
-                  <p>Retry now</p>
+                  <p>Skip channel</p>
                 </ActionForm>
-              )}
-              <ActionForm action="skip" disabled={!writable}>
-                <input type="hidden" name="targetId" value={t.id} />
-                <p>Skip channel</p>
-              </ActionForm>
-            </div>
-          )}
+              </div>
+            )}
         </Card>
       ))}
-      {(!access.publish || !writable) && <p>Publishing is unavailable under your current plan. <Link href="/app/billing" className="underline">Review Billing</Link></p>}
+      {(!access.publish || !writable) && (
+        <p>
+          Publishing is unavailable under your current plan.{" "}
+          <Link href="/app/billing" className="underline">
+            Review Billing
+          </Link>
+        </p>
+      )}
       <h2 className="text-xl font-semibold">History</h2>
       <ol className="space-y-4 border-l-2 border-emerald-100 pl-5">
         {events.map((e) => (

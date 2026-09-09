@@ -1,4 +1,6 @@
 "use client";
+import { Select } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useState } from "react";
 type Entry = {
@@ -44,9 +46,13 @@ export function Calendar({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <button aria-label="Previous period" onClick={() => move(-1)}>
+        <Button
+          variant="secondary"
+          aria-label="Previous period"
+          onClick={() => move(-1)}
+        >
           ←
-        </button>
+        </Button>
         <h2 className="text-xl">
           {date.toLocaleDateString("en-GB", {
             month: "long",
@@ -54,31 +60,78 @@ export function Calendar({
             timeZone: "UTC",
           })}
         </h2>
-        <button aria-label="Next period" onClick={() => move(1)}>
+        <Button
+          variant="secondary"
+          aria-label="Next period"
+          onClick={() => move(1)}
+        >
           →
-        </button>
-        <select
+        </Button>
+        <Select
           aria-label="Calendar view"
           value={view}
           onChange={(e) => setView(e.target.value)}
         >
           <option value="month">Month</option>
           <option value="week">Week</option>
-        </select>
-        <button onClick={() => setAnchor(dateKey(new Date()))}>Today</button>
+        </Select>
+        <Button
+          variant="secondary"
+          onClick={() => setAnchor(dateKey(new Date()))}
+        >
+          Today
+        </Button>
       </div>
       <p className="text-sm text-gray-500">Dates use each brand’s timezone.</p>
       <div className="space-y-3 sm:hidden" data-testid="calendar-agenda">
-        {days.filter(d => dateKey(d) === dateKey(new Date()) || entries.some(e => e.day === dateKey(d) && (!brand || e.brandId === brand))).map(d => {
-          const key = dateKey(d);
-          return <section key={key} className="rounded border bg-white p-3">
-            <h2 className="text-lg">{d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' })}{key === dateKey(new Date()) ? ' · Today' : ''}</h2>
-            {entries.filter(e => e.day === key && (!brand || e.brandId === brand)).map(e => <Link key={e.id} href={`/app/posts/${e.id}`} className="mt-2 block rounded border-l-4 bg-gray-50 p-3" style={{ borderColor: e.color }}><strong>{e.brand}</strong><p className="break-words">{e.body}</p><span>{e.status.replaceAll('_', ' ')}</span></Link>)}
-            {!entries.some(e => e.day === key && (!brand || e.brandId === brand)) && <p>No posts today.</p>}
-          </section>;
-        })}
+        {days
+          .filter(
+            (d) =>
+              dateKey(d) === dateKey(new Date()) ||
+              entries.some(
+                (e) => e.day === dateKey(d) && (!brand || e.brandId === brand),
+              ),
+          )
+          .map((d) => {
+            const key = dateKey(d);
+            return (
+              <section key={key} className="rounded border bg-white p-3">
+                <h2 className="text-lg">
+                  {d.toLocaleDateString("en-GB", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "UTC",
+                  })}
+                  {key === dateKey(new Date()) ? " · Today" : ""}
+                </h2>
+                {entries
+                  .filter(
+                    (e) => e.day === key && (!brand || e.brandId === brand),
+                  )
+                  .map((e) => (
+                    <Link
+                      key={e.id}
+                      href={`/app/posts/${e.id}`}
+                      className="mt-2 block rounded border-l-4 bg-gray-50 p-3"
+                      style={{ borderColor: e.color }}
+                    >
+                      <strong>{e.brand}</strong>
+                      <p className="break-words">{e.body}</p>
+                      <span>{e.status.replaceAll("_", " ")}</span>
+                    </Link>
+                  ))}
+                {!entries.some(
+                  (e) => e.day === key && (!brand || e.brandId === brand),
+                ) && <p>No posts today.</p>}
+              </section>
+            );
+          })}
       </div>
-      <div className="hidden overflow-x-auto sm:block" data-testid="calendar-desktop">
+      <div
+        className="hidden overflow-x-auto sm:block"
+        data-testid="calendar-desktop"
+      >
         <div className="grid min-w-[600px] grid-cols-7 gap-px bg-gray-200">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
             <div className="bg-gray-50 p-2" key={d}>
