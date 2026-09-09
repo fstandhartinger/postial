@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = comparison((await params).slug);
   const url = new URL(`/compare/${page.slug}`, appUrl).href;
   return {
-    title: { absolute: page.title },
+    title: { absolute: `${page.title} · Postial` },
     description: page.description,
     alternates: { canonical: url },
     openGraph: { title: page.title, description: page.description, url, type: 'website', siteName: 'Postial' },

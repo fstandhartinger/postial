@@ -40,7 +40,7 @@ export default async function AppLayout({
     <div className="app-shell">
       <aside className="app-sidebar">
         <Link href="/app" className="wordmark">
-          Social<span>Mint</span>
+          Postial
         </Link>
         <Navigation
           settingsHref={settingsHref}

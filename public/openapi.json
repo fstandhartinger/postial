@@ -2783,7 +2783,7 @@
       "post": {
         "operationId": "receiveWebhook",
         "summary": "Receive a signed Postial event",
-        "description": "Verify X-Postial-Signature against the raw body. X-SocialMint-Signature is sent as a deprecated compatibility header. At-least-once delivery; deduplicate payload.id.",
+        "description": "Verify X-Postial-Signature against the raw body. The X-SocialMint-Signature is a deprecated legacy compatibility header (sent until 2026-12-31). At-least-once delivery; deduplicate payload.id.",
         "security": [],
         "requestBody": {
           "required": true,

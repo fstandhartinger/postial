@@ -33,6 +33,7 @@ export const metadata: Metadata = {
     title: words("SEO", "OG title"),
     description: words("SEO", "OG description"),
   },
+  icons: { icon: '/favicon.ico' },
 };
 export default function RootLayout({
   children,

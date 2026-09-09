@@ -26,7 +26,10 @@ function canonicalOrigin(): string {
 
 function redirectToCanonical(request: NextRequest, origin: string): NextResponse {
   const location = `${origin}${request.nextUrl.pathname}${request.nextUrl.search}`;
-  return NextResponse.redirect(location, { status: 301, headers: { 'Cache-Control': 'max-age=300' } });
+  const path = request.nextUrl.pathname;
+  const isApiOrAction = path.startsWith('/api/') || path.startsWith('/m/') || path.startsWith('/r/');
+  const status = isApiOrAction || request.method !== 'GET' && request.method !== 'HEAD' ? 308 : 301;
+  return NextResponse.redirect(location, { status, headers: { 'Cache-Control': 'max-age=300' } });
 }
 
 /** Applies before RSC/Server Action parsing, including non-FormData action arguments. */
