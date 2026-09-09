@@ -5,7 +5,7 @@ import { apiKeys, workspaces } from '@/db/schema';
 import { workspaceEntitlements } from '@/lib/entitlements';
 import { apiRateLimit } from '@/lib/rate-limit';
 import { ApiError, apiError } from './errors';
-export const scopes = ['posts:write', 'posts:read', 'brands:read'] as const;
+export const scopes = ['posts:write', 'posts:read', 'brands:read', 'webhooks:manage'] as const;
 export type Scope = typeof scopes[number];
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export async function agencyAccess(workspaceId: string) {

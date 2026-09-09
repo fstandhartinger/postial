@@ -18,6 +18,10 @@ import * as postRoute from '../app/api/v1/posts/route';
 import * as detailRoute from '../app/api/v1/posts/[id]/route';
 import * as retryRoute from '../app/api/v1/posts/[id]/retry/route';
 
+import * as webhookRoute from '../app/api/v1/webhooks/route';
+import * as webhookDetailRoute from '../app/api/v1/webhooks/[id]/route';
+import * as webhookTestRoute from '../app/api/v1/webhooks/[id]/test/route';
+import * as webhookDeliveryRoute from '../app/api/v1/webhooks/[id]/deliveries/route';
 type Handler = (req: Request, ctx?: {params?: Promise<{id?: string}>}) => Promise<Response>;
 async function listen(server: Server) { await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve)); const address = server.address(); assert(address && typeof address !== 'string'); return `http://127.0.0.1:${address.port}`; }
 async function close(server: Server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
@@ -31,6 +35,8 @@ async function main() {
     [/^\/api\/v1\/me$/, me], [/^\/api\/v1\/brands$/, brandRoute],
     [/^\/api\/v1\/brands\/([^/]+)\/channels$/, channelRoute], [/^\/api\/v1\/posts$/, postRoute],
     [/^\/api\/v1\/posts\/([^/]+)\/retry$/, retryRoute], [/^\/api\/v1\/posts\/([^/]+)$/, detailRoute],
+    [/^\/api\/v1\/webhooks$/, webhookRoute], [/^\/api\/v1\/webhooks\/([^/]+)$/, webhookDetailRoute],
+    [/^\/api\/v1\/webhooks\/([^/]+)\/test$/, webhookTestRoute], [/^\/api\/v1\/webhooks\/([^/]+)\/deliveries$/, webhookDeliveryRoute],
   ].map(([re, mod]) => [re, Object.fromEntries(Object.entries(mod).filter(([, v]) => typeof v === 'function'))]) as [RegExp, Record<string, Handler>][];
   const server = createServer(async (req, res) => {
     try {
@@ -167,6 +173,7 @@ async function main() {
     assert.equal(approvalData.has_comment, false); assert.equal(approvalData.brand_id, brand.id);
     const approvalDetail = await (await request('/posts/' + approval.id)).json();
     assert.equal(approvalDetail.approvals[0].reviewer_name, 'Tester'); assert.equal(approvalDetail.approvals[0].comment, '');
+    assert.equal(approvalDetail.approvals[0].decision, 'approved'); assert(approvalDetail.approvals[0].created_at); assert(approvalDetail.approval_url.includes('/r/'));
     for (const r of received) {
       const match = /^t=(\d+),v1=([a-f0-9]{64})$/.exec(r.signature); assert(match);
       assert.equal(match[2], createHmac('sha256', webhook.secret).update(match[1] + '.' + r.body).digest('hex'));
@@ -225,6 +232,52 @@ async function main() {
     await manageWebhook(workspace.id, slow.id, 'delete'); receiverDelay = 0;
     console.log(`PASS dispatcher deadline=${budgetDuration.toFixed(0)}ms, peak concurrent HTTP=${peak}, 5s per-request abort`);
     console.log(`PASS E01–E08: payload allowlist, expiry, Starter save rejection, DNS/channel/routing contracts, pause/resume/delete; publishing baseline=${baseline.toFixed(0)}ms slow-receiver=${duration.toFixed(0)}ms`);
+    // A separate key proves existing keys do not gain the new scope.
+    const whKey = await createApiKey(workspace.id, userId, 'Webhook management', ['webhooks:manage']);
+    const whRequest = (path: string, options: RequestInit = {}) => request('/webhooks' + path, options, whKey.token);
+    const register = (url = receiverUrl, events: unknown = ['post.failed']) => whRequest('', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url, events})});
+    assert.equal((await request('/webhooks', {}, readKey.token)).status, 403);
+    assert.equal((await request('/webhooks')).status, 403);
+    for (const url of ['https://169.254.169.254/latest', 'https://127.0.0.1/private', 'not a url']) assert.equal((await register(url)).status, 422);
+    assert.equal((await register(receiverUrl, ['ping'])).status, 422);
+    assert.equal((await register(receiverUrl, [])).status, 422);
+    // Production rejects loopback registration; exercise the same route locally for signed delivery.
+    const localRegister = () => fetch(harnessBase + '/api/v1/webhooks', {method: 'POST', headers: {Authorization: 'Bearer ' + whKey.token, 'Content-Type': 'application/json'}, body: JSON.stringify({url: receiverUrl, events: ['post.failed']})});
+    if (process.env.API_HTTP_URL) assert.equal((await register()).status, 422);
+    const registration = await localRegister(); assert.equal(registration.status, 201);
+    const managed = await registration.json(); assert.equal(managed.active, true); assert(managed.secret.startsWith('whsec_'));
+    assert.deepEqual(Object.keys(managed).sort(), ['id', 'url', 'events', 'active', 'secret'].sort());
+    const listing = await (await whRequest('')).json(); assert(listing.data.some((e: {id: string}) => e.id === managed.id));
+    assert(!JSON.stringify(listing).includes('secret')); assert(!JSON.stringify(listing).includes(managed.secret));
+    const beforePing = received.length;
+    assert.equal((await whRequest('/' + managed.id + '/test', {method: 'POST'})).status, 202);
+    await deliverWebhooks(); const ping = received[beforePing]; assert(ping);
+    assert.equal(JSON.parse(ping.body).event, 'ping');
+    const match = /^t=(\d+),v1=([a-f0-9]{64})$/.exec(ping.signature); assert(match);
+    assert.equal(match[2], createHmac('sha256', managed.secret).update(match[1] + '.' + ping.body).digest('hex'));
+    const log = await (await whRequest('/' + managed.id + '/deliveries?limit=1')).json();
+    assert.equal(log.data.length, 1); assert.equal(log.data[0].status, 'delivered'); assert.equal(log.data[0].event, 'ping'); assert(!JSON.stringify(log).includes('secret'));
+    assert.equal((await whRequest('/' + managed.id + '/deliveries?limit=101')).status, 422);
+    const [foreignEndpoint] = await db.insert(webhookEndpoints).values({workspaceId: starter.id, url: receiverUrl, events: ['post.failed'], secretHash: '', secretEnc: ''}).returning();
+    for (const id of [foreignEndpoint.id, crypto.randomUUID(), 'invalid']) {
+      assert.equal((await whRequest('/' + id, {method: 'DELETE'})).status, 404);
+      assert.equal((await whRequest('/' + id + '/test', {method: 'POST'})).status, 404);
+      assert.equal((await whRequest('/' + id + '/deliveries')).status, 404);
+    }
+    // Eleven concurrent requests compete for the remaining nine slots.
+    const registrations = await Promise.all(Array.from({length: 11}, localRegister));
+    assert.equal(registrations.filter(r => r.status === 201).length, 9);
+    assert.equal(registrations.filter(r => r.status === 422).length, 2);
+    assert.equal((await localRegister()).status, 422);
+    assert.equal((await whRequest('/' + managed.id + '/test', {method: 'POST'})).status, 202);
+    const deletion = await whRequest('/' + managed.id, {method: 'DELETE'}); assert.equal(deletion.status, 204); assert.equal(await deletion.text(), '');
+    const afterDelete = await (await whRequest('/' + managed.id + '/deliveries')).json();
+    assert(afterDelete.data.some((d: {status: string; attempts: number}) => d.status === 'canceled' && d.attempts === 0));
+    assert(!JSON.stringify(afterDelete).includes(managed.secret));
+    assert(!(await (await whRequest('')).json()).data.some((e: {id: string}) => e.id === managed.id));
+    assert.equal((await whRequest('/' + managed.id + '/test', {method: 'POST'})).status, 404);
+    assert.equal((await localRegister()).status, 201);
+    console.log('PASS webhook API: one-time secret, scope isolation, ping signature, delivery logs, tenancy, SSRF, concurrent 10-endpoint limit and delete cancellation');
     await db.delete(apiRateLimits).where(eq(apiRateLimits.keyId, key.id));
     for (let i = 0; i < 60; i++) assert.equal((await request('/me')).status, 200);
     const limited = await request('/me'); assert.equal(limited.status, 429); assert(Number(limited.headers.get('retry-after')) > 0);

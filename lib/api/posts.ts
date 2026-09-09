@@ -39,9 +39,9 @@ export async function getPost(_request: Request, ctx: ApiContext, id?: string) {
   const events = await ctx.db.select({id: postEvents.id, target_id: postEvents.targetId, type: postEvents.type,
     message: postEvents.message, created_at: postEvents.createdAt}).from(postEvents).where(eq(postEvents.postId, post.id)).orderBy(asc(postEvents.createdAt), asc(postEvents.id));
   const approvals = await ctx.db.select({decision: approvalDecisions.decision, reviewer_name: approvalDecisions.reviewerName,
-    comment: approvalDecisions.comment, decided_at: approvalDecisions.createdAt}).from(approvalDecisions)
+    comment: approvalDecisions.comment, created_at: approvalDecisions.createdAt, decided_at: approvalDecisions.createdAt}).from(approvalDecisions)
     .where(eq(approvalDecisions.postId, post.id)).orderBy(asc(approvalDecisions.createdAt), asc(approvalDecisions.id));
-  return json({...postJson(post), targets, events, approvals});
+  return json({...postJson(post), targets, events, approvals, ...(post.requiresApproval ? {approval_url: post.approvalToken ? `${appUrl()}/r/${post.approvalToken}` : null} : {})});
 }
 export async function listPosts(request: Request, ctx: ApiContext) {
   const q = new URL(request.url).searchParams;
@@ -55,7 +55,7 @@ export async function listPosts(request: Request, ctx: ApiContext) {
       status ? eq(posts.status, status) : undefined, cursor ? gt(posts.id, cursor) : undefined)).orderBy(asc(posts.id)).limit(limit + 1);
   return json({data: rows.slice(0, limit).map(r => postJson(r.post)), next_cursor: rows.length > limit ? rows[limit - 1].post.id : null});
 }
-async function readJson(request: Request) {
+export async function readJson(request: Request) {
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError(422, 'validation_error', 'JSON body required.');
   let text = ''; const decoder = new TextDecoder(); let size = 0;

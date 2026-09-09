@@ -1,0 +1,10 @@
+import { endpoint } from '@/lib/api/auth';
+import { listDeliveries } from '@/lib/api/webhook-routes';
+import { methodNotAllowed, options } from '@/lib/api/routing';
+export const runtime = 'nodejs';
+export const GET = endpoint('webhooks:manage', listDeliveries);
+export const OPTIONS = options('GET, HEAD, OPTIONS');
+export const POST = methodNotAllowed('GET, HEAD, OPTIONS');
+export const PUT = methodNotAllowed('GET, HEAD, OPTIONS');
+export const PATCH = methodNotAllowed('GET, HEAD, OPTIONS');
+export const DELETE = methodNotAllowed('GET, HEAD, OPTIONS');

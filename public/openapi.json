@@ -3,7 +3,7 @@
   "info": {
     "title": "SocialMint API",
     "version": "1.0.0",
-    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts.",
+    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts. Register endpoints using webhooks:manage. Existing keys retain their scopes. POST /webhooks/{id}/test emits ping.",
     "license": {
       "name": "Proprietary",
       "identifier": "LicenseRef-Proprietary"
@@ -1010,6 +1010,619 @@
           }
         }
       }
+    },
+    "/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "summary": "List webhook endpoints without secrets",
+        "description": "Required scope: webhooks:manage. ",
+        "tags": [
+          "API v1"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookEndpoint"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or revoked API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Agency entitlement or scope missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "60 requests per minute exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWebhook",
+        "summary": "Register a webhook endpoint",
+        "description": "Required scope: webhooks:manage. Public HTTPS only; private/reserved DNS addresses and redirects are rejected. Maximum 10 non-deleted endpoints per workspace (including disabled); 422 at the limit. Signing secret is returned only in this response.",
+        "tags": [
+          "API v1"
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedWebhookEndpoint"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or revoked API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Agency entitlement or scope missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "60 requests per minute exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 2048
+                  },
+                  "events": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "post.published",
+                        "post.failed",
+                        "post.needs_review",
+                        "approval.decided"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "url",
+                  "events"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{id}": {
+      "delete": {
+        "operationId": "deleteWebhook",
+        "summary": "Delete endpoint and cancel open deliveries",
+        "description": "Required scope: webhooks:manage. Destroys signing credentials, retains delivery logs. In-flight requests may finish.",
+        "tags": [
+          "API v1"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful response"
+          },
+          "401": {
+            "description": "Missing, invalid or revoked API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Agency entitlement or scope missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "60 requests per minute exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{id}/test": {
+      "post": {
+        "operationId": "testWebhook",
+        "summary": "Queue a signed ping event",
+        "description": "Required scope: webhooks:manage. Active endpoint required. Queues asynchronously; ping is not a subscription event.",
+        "tags": [
+          "API v1"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "event": {
+                      "const": "ping",
+                      "type": "string"
+                    },
+                    "status": {
+                      "const": "pending",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "event",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or revoked API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Agency entitlement or scope missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "60 requests per minute exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{id}/deliveries": {
+      "get": {
+        "operationId": "listWebhookDeliveries",
+        "summary": "List latest deliveries",
+        "description": "Required scope: webhooks:manage. Newest first, ordered by created_at then id descending. Logs remain readable after deletion; no secrets or request payloads are returned.",
+        "tags": [
+          "API v1"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDelivery"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or revoked API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Agency entitlement or scope missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or foreign resource, including a channel outside the selected brand, or unknown API route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "60 requests per minute exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; JSON method_not_allowed error, Allow and Cache-Control: no-store headers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1305,7 +1918,8 @@
               "post.published",
               "post.failed",
               "post.needs_review",
-              "approval.decided"
+              "approval.decided",
+              "ping"
             ]
           },
           "created_at": {
@@ -1358,7 +1972,57 @@
           "created_at",
           "data"
         ],
-        "description": "Approval events contain only the documented technical metadata; names and comments are available in authorized GET /posts/{id} approvals[]. Test events contain data.test=true."
+        "description": "Approval events contain only the documented technical metadata; names and comments are available in authorized GET /posts/{id} approvals[]. Test events contain data.test=true.",
+        "examples": [
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "event": "post.published",
+            "created_at": "2026-09-09T12:00:00Z",
+            "data": {
+              "post_id": "33333333-3333-4333-8333-333333333333",
+              "status": "published"
+            }
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "event": "post.failed",
+            "created_at": "2026-09-09T12:00:00Z",
+            "data": {
+              "post_id": "33333333-3333-4333-8333-333333333333",
+              "status": "partially_failed"
+            }
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "event": "post.needs_review",
+            "created_at": "2026-09-09T12:00:00Z",
+            "data": {
+              "post_id": "33333333-3333-4333-8333-333333333333",
+              "target_id": "22222222-2222-4222-8222-222222222222"
+            }
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "event": "approval.decided",
+            "created_at": "2026-09-09T12:00:00Z",
+            "data": {
+              "post_id": "33333333-3333-4333-8333-333333333333",
+              "brand_id": "11111111-1111-4111-8111-111111111111",
+              "decision": "approved",
+              "decided_at": "2026-09-09T12:00:00Z",
+              "has_comment": false,
+              "post_url": "https://socialmint.app.mintapis.com/app/posts/33333333-3333-4333-8333-333333333333"
+            }
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "event": "ping",
+            "created_at": "2026-09-09T12:00:00Z",
+            "data": {
+              "test": true
+            }
+          }
+        ]
       },
       "PostDetail": {
         "allOf": [
@@ -1388,7 +2052,8 @@
                     "decision",
                     "reviewer_name",
                     "comment",
-                    "decided_at"
+                    "decided_at",
+                    "created_at"
                   ],
                   "properties": {
                     "decision": {
@@ -1409,10 +2074,23 @@
                     },
                     "decided_at": {
                       "type": "string",
+                      "format": "date-time",
+                      "description": "Compatibility alias for created_at."
+                    },
+                    "created_at": {
+                      "type": "string",
                       "format": "date-time"
                     }
                   }
                 }
+              },
+              "approval_url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uri",
+                "description": "Present when requires_approval; null for a draft without an approval token."
               }
             },
             "required": [
@@ -1518,6 +2196,124 @@
             "format": "uri"
           }
         }
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "post.published",
+                "post.failed",
+                "post.needs_review",
+                "approval.decided"
+              ]
+            }
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "active"
+        ]
+      },
+      "CreatedWebhookEndpoint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEndpoint"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "type": "string",
+                "description": "One-time signing secret. Store securely; never returned by reads."
+              }
+            },
+            "required": [
+              "secret"
+            ]
+          }
+        ]
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "post.published",
+              "post.failed",
+              "post.needs_review",
+              "approval.decided",
+              "ping"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "failed",
+              "paused",
+              "canceled"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "response_status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "pause_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_attempt_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "status",
+          "attempts",
+          "response_status",
+          "pause_reason",
+          "next_attempt_at",
+          "created_at"
+        ]
       }
     }
   },

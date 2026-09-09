@@ -293,3 +293,33 @@ On 2026-09-09 both modes passed, including eight concurrent idempotent creates,
 secret-free settings HTML, scoped/foreign-resource rejection and cleanup.
 Migration 0006, lint, TypeScript, production build, Redocly OpenAPI validation and
 a changed-file scan against environment secrets and credential patterns passed.
+
+### Webhook management API (cycle 4)
+
+Create a key with `webhooks:manage` in API settings; existing keys keep their
+original scopes. `POST /api/v1/webhooks` accepts `{url, events}` and returns 201
+with `{id, url, events, active, secret}`. Save the secret once. Public HTTPS and
+the same SSRF checks as the UI apply. Ten non-deleted endpoints per workspace
+(including disabled) are allowed; concurrent registrations respect this limit (422).
+
+- `GET /api/v1/webhooks`: `{data: [...]}` without secrets.
+- `POST /api/v1/webhooks/{id}/test`: 202, queues a signed `ping` (`data.test=true`).
+- `GET /api/v1/webhooks/{id}/deliveries?limit=20`: latest logs, limit 1–100;
+  logs remain accessible after endpoint deletion.
+- `DELETE /api/v1/webhooks/{id}`: 204, cancels open deliveries and destroys credentials.
+
+Post detail includes `approvals[]` with decision, reviewer_name, comment and
+created_at (`decided_at` retained for compatibility). When requires_approval is
+true, `approval_url` contains the link, or null for a draft without a token.
+The docs include registration, every event payload and Node signature verification.
+n8n community node: n8n-nodes-socialmint (coming to npm).
+
+The API verifier additionally checks management scopes, signed ping, safe lists,
+tenancy, SSRF rejection, concurrent endpoint limits and cancellation through HTTP.
+The optional workspace events polling endpoint is not included.
+
+Verified 2026-09-09: lint, TypeScript, production build, Redocly OpenAPI validator,
+changed-file secret scan and `verify-api.ts` passed both in the route harness and
+against the built Next.js server. Local receiver registration/delivery uses the
+non-production harness; the production server explicitly rejects loopback URLs.
+All temporary database fixtures were removed by the verifier.

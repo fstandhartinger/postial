@@ -1,7 +1,7 @@
 'use client';
 import { useActionState } from 'react';
 import { settingsAction, type SettingsState } from '@/app/app/settings/api/actions';
-const scopes = ['posts:write', 'posts:read', 'brands:read'];
+const scopes = ['posts:write', 'posts:read', 'brands:read', 'webhooks:manage'];
 const events = ['post.published', 'post.failed', 'post.needs_review', 'approval.decided'];
 export function ApiForm({kind, id}: {kind: 'create_key' | 'create_webhook' | 'revoke' | 'test_webhook' | 'disable_webhook' | 'enable_webhook' | 'delete_webhook'; id?: string}) {
   const [state, action, pending] = useActionState(settingsAction, {} as SettingsState);

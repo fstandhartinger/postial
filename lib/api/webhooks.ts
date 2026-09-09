@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, lt, lte, sql, inArray, isNull } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { apiIdempotency, brands, posts, webhookDeliveries, webhookEndpoints } from '@/db/schema';
+import { apiIdempotency, brands, posts, webhookDeliveries, webhookEndpoints, workspaces } from '@/db/schema';
 import { decryptCredentials, encryptCredentials } from '@/lib/crypto';
 import { safeFetch, validatePublicUrl } from '@/lib/publishers/safe-fetch';
 import { agencyAccess, hash, requireAgency } from './auth';
@@ -17,15 +17,23 @@ function loopback(value: string) {
 }
 export async function validateWebhookUrl(value: string) {
   if (value.length > 2048) throw new ApiError(422, 'validation_error', 'URL is too long.');
-  if (!loopback(value)) await validatePublicUrl(value);
+  try { if (!loopback(value)) await validatePublicUrl(value); }
+  catch { throw new ApiError(422, 'validation_error', 'Use a public HTTPS webhook URL.'); }
 }
 export async function createWebhook(workspaceId: string, url: string, events: string[]) {
   await requireAgency(workspaceId);
   if (!events.length || events.some(e => !webhookEvents.includes(e as WebhookEvent))) throw new ApiError(422, 'validation_error', 'Choose valid webhook events.');
   await validateWebhookUrl(url);
   const secret = 'whsec_' + randomBytes(32).toString('base64url');
-  const [endpoint] = await getDb().insert(webhookEndpoints).values({workspaceId, url, events: [...new Set(events)], secretHash: hash(secret), secretEnc: encryptCredentials({secret})}).returning({id: webhookEndpoints.id});
-  return {id: endpoint.id, secret};
+  return getDb().transaction(async tx => {
+    await tx.select({id: workspaces.id}).from(workspaces).where(eq(workspaces.id, workspaceId)).for('update');
+    const existing = await tx.select({id: webhookEndpoints.id}).from(webhookEndpoints)
+      .where(and(eq(webhookEndpoints.workspaceId, workspaceId), isNull(webhookEndpoints.deletedAt)));
+    if (existing.length >= 10) throw new ApiError(422, 'validation_error', 'Maximum 10 webhook endpoints per workspace.');
+    const [endpoint] = await tx.insert(webhookEndpoints).values({workspaceId, url, events: [...new Set(events)], secretHash: hash(secret), secretEnc: encryptCredentials({secret})})
+      .returning({id: webhookEndpoints.id, url: webhookEndpoints.url, events: webhookEndpoints.events, active: webhookEndpoints.active});
+    return {...endpoint, secret};
+  });
 }
 /** Transactional outbox: never perform network IO while writing post history. */
 export async function emit(tx: Tx, postId: string, event: WebhookEvent, data: Record<string, unknown> = {}) {
@@ -52,10 +60,13 @@ export async function emitPublishing(tx: Tx, postId: string, previousStatus: str
 }
 export async function sendTestEvent(workspaceId: string, endpointId: string) {
   await requireAgency(workspaceId);
-  const [endpoint] = await getDb().select().from(webhookEndpoints).where(and(eq(webhookEndpoints.id, endpointId), eq(webhookEndpoints.workspaceId, workspaceId), eq(webhookEndpoints.active, true)));
-  if (!endpoint) throw new ApiError(404, 'not_found', 'Active endpoint not found.');
-  const event = endpoint.events[0];
-  await getDb().insert(webhookDeliveries).values({endpointId, event, payload: {id: randomUUID(), event, created_at: new Date().toISOString(), data: {test: true}}});
+  return getDb().transaction(async tx => {
+    const [endpoint] = await tx.select({id: webhookEndpoints.id}).from(webhookEndpoints).where(and(eq(webhookEndpoints.id, endpointId), eq(webhookEndpoints.workspaceId, workspaceId), eq(webhookEndpoints.active, true), isNull(webhookEndpoints.deletedAt))).for('share');
+    if (!endpoint) throw new ApiError(404, 'not_found', 'Active endpoint not found.');
+    const event = 'ping';
+    const [delivery] = await tx.insert(webhookDeliveries).values({endpointId, event, payload: {id: randomUUID(), event, created_at: new Date().toISOString(), data: {test: true}}}).returning({id: webhookDeliveries.id});
+    return {id: delivery.id, event, status: 'pending'};
+  });
 }
 export const signature = (secret: string, timestamp: string, body: string) => `t=${timestamp},v1=${createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex')}`;
 /** Soft deletion preserves the canceled delivery audit trail and destroys signing credentials. */
