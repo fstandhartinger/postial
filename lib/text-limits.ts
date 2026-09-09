@@ -1,4 +1,4 @@
-import { parseTweet } from 'twitter-text';
+import twitterText from 'twitter-text';
 /** One final-text and grapheme policy shared by UI, actions and adapters. */
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 export function countText(text: string) { return Array.from(segmenter.segment(text)).length; }
@@ -10,5 +10,5 @@ export function channelTextLimit(channel: { provider: string; meta?: { maxTextLe
 }
 
 /** Official weighted counting includes t.co URLs, Unicode and emoji sequences. */
-export function countXText(text: string) { return parseTweet(text).weightedLength; }
+export function countXText(text: string) { return twitterText.parseTweet(text).weightedLength; }
 export function countChannelText(text: string, provider: string) { return provider === 'x' ? countXText(text) : countText(text); }

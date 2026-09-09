@@ -46,7 +46,7 @@ async function main() {
       const response = await handler(request, { params: Promise.resolve({ provider: req.url!.split('/')[3] }) });
       assert(response);
       res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(await response.text());
-    } catch (e) { console.error(e); res.writeHead(500).end('Harness failed'); }
+    } catch { res.writeHead(500).end('Harness failed'); }
   });
   let workspaceId: string | undefined;
   try {
@@ -56,12 +56,15 @@ async function main() {
     await db.insert(workspaceMembers).values({ workspaceId, userId, role: 'owner' });
     const [brand] = await db.insert(brands).values({ workspaceId, name: 'OAuth', slug: 'oauth' }).returning();
     await db.insert(sessions).values({ sessionToken, userId, expires: new Date(Date.now() + 3600000) });
+    const foreignToken = randomBytes(32).toString('hex');
+    await db.insert(sessions).values({ sessionToken: foreignToken, userId: foreignId, expires: new Date(Date.now() + 3600000) });
     const headers = { cookie: `authjs.session-token=${sessionToken}`, origin: appUrl };
     const start = (provider: string, withHeaders = headers) => fetch(`${appUrl}/api/oauth/${provider}/start`, { method: 'POST', headers: withHeaders, body: new URLSearchParams({ brandId: brand.id }), redirect: 'manual' });
     const callback = (provider: string, state: string, cookie = headers.cookie) => fetch(`${appUrl}/api/oauth/${provider}/callback?state=${state}&code=mock-code`, { headers: { cookie }, redirect: 'manual' });
     assert.equal((await start('x', { cookie: '', origin: appUrl })).status, 401);
     assert.equal((await start('x', { ...headers, origin: 'https://foreign.invalid' })).status, 403);
     assert.equal((await start('unknown')).status, 404);
+    assert.equal((await start('x', { ...headers, cookie: `authjs.session-token=${foreignToken}` })).status, 400);
     for (const provider of ['x', 'threads']) {
       const started = await start(provider); assert.equal(started.status, 303);
       const url = new URL(started.headers.get('location')!), state = url.searchParams.get('state')!;
@@ -74,6 +77,7 @@ async function main() {
         assert.equal(url.searchParams.get('code_challenge'), createHash('sha256').update(decryptCredentials(saved.codeVerifier).verifier).digest('base64url'));
       }
       assert.equal((await callback(provider, state, '')).status, 401);
+      assert.equal((await callback(provider, state, `authjs.session-token=${foreignToken}`)).status, 400);
       assert.equal((await callback(provider === 'x' ? 'threads' : 'x', state)).status, 400);
       const completed = await callback(provider, state); assert.equal(completed.status, 303);
       assert(completed.headers.get('location')?.includes(`/app/brands/${brand.id}`));
@@ -83,7 +87,8 @@ async function main() {
       assert.equal(credentials.accessToken, provider === 'x' ? 'x-access' : 'threads-long');
       const before = requests.length; assert.equal((await callback(provider, state)).status, 400); assert.equal(requests.length, before);
       const restarted = new URL((await start(provider)).headers.get('location')!);
-      assert.equal((await callback(provider, restarted.searchParams.get('state')!)).status, 303);
+      const race = await Promise.all([callback(provider, restarted.searchParams.get('state')!), callback(provider, restarted.searchParams.get('state')!)]);
+      assert.deepEqual(race.map(r => r.status).sort(), [303, 400]);
       assert.equal((await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider as 'x' | 'threads')))).length, 1);
       const expired = new URL((await start(provider)).headers.get('location')!).searchParams.get('state')!;
       await db.update(oauthStates).set({ expiresAt: new Date(0) }).where(eq(oauthStates.state, expired));
@@ -118,7 +123,7 @@ async function main() {
     delete process.env.X_CLIENT_SECRET; assert(!availableProviders().includes('x')); assert.equal((await start('x')).status, 400);
     const env = process.env as Record<string, string | undefined>; const prior = env.NODE_ENV; env.NODE_ENV = 'production';
     assert.equal(oauthEndpoint('x', '/2/users/me'), 'https://api.x.com/2/users/me'); env.NODE_ENV = prior;
-    console.log('OAuth HTTP verification passed: session, origin, PKCE, encrypted channel, reconnect, single-use, expiry, provider binding and production override guard.');
+    console.log('OAuth HTTP verification passed: session, origin, PKCE, encrypted channel, reconnect, single-use, expiry, provider/user binding, concurrent replay, worker refresh serialization, token_expired and production override guard.');
   } finally {
     if (workspaceId) await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     await db.delete(users).where(eq(users.id, userId)); await db.delete(users).where(eq(users.id, foreignId));

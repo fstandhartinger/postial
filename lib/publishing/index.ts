@@ -160,9 +160,13 @@ export async function tick() {
           // Serialize rotating refresh tokens across processes and re-read after waiting.
           const [current] = await tx.select().from(channels).where(eq(channels.id, c.id)).for('update');
           if (!current || current.status !== 'active') throw new PublishError({ code: 'AUTH_EXPIRED', retryable: false, humanMessage: 'Reconnect this channel.' });
+          c.credentialsEnc = current.credentialsEnc;
           const stored = decryptCredentials(current.credentialsEnc);
           const renewed = await publisher.refreshCredentials!(stored);
-          if (renewed) await tx.update(channels).set({ credentialsEnc: encryptCredentials(renewed), lastCheckedAt: new Date() }).where(eq(channels.id, c.id));
+          if (renewed) {
+            c.credentialsEnc = encryptCredentials(renewed);
+            await tx.update(channels).set({ credentialsEnc: c.credentialsEnc, lastCheckedAt: new Date() }).where(eq(channels.id, c.id));
+          }
           return renewed ?? stored;
         });
         result = await publisher.publish(
@@ -253,7 +257,7 @@ export async function tick() {
             await tx
               .update(channels)
               .set({ status: "token_expired" })
-              .where(eq(channels.id, c.id));
+              .where(and(eq(channels.id, c.id), eq(channels.status, "active"), eq(channels.credentialsEnc, c.credentialsEnc)));
           await tx.insert(postEvents).values({
             postId: p.id,
             targetId: t.id,
