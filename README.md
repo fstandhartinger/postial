@@ -52,6 +52,7 @@ Docker copies the same assets into its standalone runtime root and runs node ser
 - `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_AGENCY`: required billing price identifiers exposed
   by `lib/plans.ts`; Starter €19/month, Agency €49/month, trial 14 days.
 - `NEXT_PUBLIC_APP_URL`: public canonical origin, reserved for integrations.
+- `REDIRECT_HOSTS`: comma-separated hostnames that redirect permanently to `NEXT_PUBLIC_APP_URL`; defaults to `www.postial.co,postial.net,www.postial.net`. `socialmint.app.mintapis.com` redirects only when `LEGACY_HOST_REDIRECT=1`.
 
 Providers are enabled only when their complete configuration is present. With
 neither provider configured, `/login` renders a friendly message and disabled
