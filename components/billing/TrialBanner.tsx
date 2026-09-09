@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {useBrowserClock} from '@/components/core/browser-clock';
 import {trialNotice} from '@/lib/trial-notice';
-export function TrialBanner({subscription,held}:{subscription:{status:string;trialEnd:string|null}|null;held:number}) {
+export function TrialBanner({subscription,held}:{subscription:{status:string;trialEnd:string|null;currentPeriodEnd?:string|null}|null;held:number}) {
   const now=useBrowserClock();
   const zone=now?Intl.DateTimeFormat().resolvedOptions().timeZone:'UTC';
   const status=now?trialNotice(subscription,now):null;

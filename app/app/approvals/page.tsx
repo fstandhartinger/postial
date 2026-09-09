@@ -1,3 +1,4 @@
+import {statusLabel} from "@/lib/status-label";
 import Link from 'next/link';
 import { eq } from 'drizzle-orm';
 import { brands } from '@/db/schema';
@@ -22,7 +23,7 @@ export default async function ApprovalsPage({searchParams}:{searchParams:Promise
       {!rows.length && <Card><p>No posts in this group.</p></Card>}
       {rows.map(({post:p,brand:b,lastDecision:d})=><Card key={p.id} className="min-w-0 space-y-3">
         <Link className="block break-words font-semibold underline" href={`/app/posts/${p.id}`}>{b.name} · {p.body.slice(0,160)}</Link>
-        <p>Status: {p.status.replaceAll('_',' ')}</p><p>Scheduled: {p.scheduledAt ? p.scheduledAt.toLocaleString('en-GB',{timeZone:b.timezone})+' '+b.timezone : 'Not scheduled'}</p>
+        <p>Status: {statusLabel(p.status)}</p><p>Scheduled: {p.scheduledAt ? p.scheduledAt.toLocaleString('en-GB',{timeZone:b.timezone})+' '+b.timezone : 'Not scheduled'}</p>
         {d ? <div><p>Last decision: {d.decision.replaceAll('_',' ')} · {new Date(d.at).toLocaleString('en-GB',{timeZone:b.timezone})}</p><p className="whitespace-pre-wrap break-words">{d.comment || 'No comment'}</p></div> : <p>No client decision yet.</p>}
         {p.approvalToken && /^[A-Za-z0-9_-]{43}$/.test(p.approvalToken) && origin ? <CopyLink postId={p.id} link={`${origin.replace(/\/$/,'')}/r/${p.approvalToken}`}/> : <p>Save an approval request to create a shareable link.</p>}
         <form action={regenerateApprovalLink.bind(null,p.id)}><Button disabled={!canReview(p.status) || !access.activeBrandIds.includes(b.id)}>Regenerate link</Button></form>

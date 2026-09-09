@@ -126,7 +126,7 @@ export function Composer({
             </p>
           ))}
         </div>
-        {!!channelCounts.length && <section aria-label="Network preview" className="rounded-xl border p-3"><div role="tablist" aria-label="Preview network" className="flex flex-wrap gap-2">{channelCounts.map((c,i)=><button key={c.id} type="button" role="tab" aria-selected={(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)===c.id} onClick={()=>setPreviewChannel(c.id)} className="rounded border px-3 py-2">{c.provider}{i===0?'':''}</button>)}</div>{channelCounts.filter(c=>c.id===(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)).map(c=><div role="tabpanel" key={c.id}><p className="whitespace-pre-wrap break-words">{c.max>0 ? Array.from(text).slice(0,c.max).join('') : text}{c.max>0 && c.count>c.max ? '…' : ''}</p><p>{c.count} / {c.max || 'unlimited'} characters. {c.max>0 && c.count>c.max ? 'Over limit — shorten before publishing.' : 'Within limit.'}</p><p className="text-sm">Approximate preview; actual layout varies. Up to four images. {['bluesky','mastodon'].includes(c.provider)?'Image alt text is included.':'This channel does not receive image alt text.'}</p></div>)}</section>}
+        {!!channelCounts.length && <section aria-label="Network preview" className="rounded-xl border p-3"><div role="tablist" aria-label="Preview network" className="flex flex-wrap gap-2">{channelCounts.map((c,i)=><button key={c.id} type="button" role="tab" aria-selected={(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)===c.id} onClick={()=>setPreviewChannel(c.id)} className="rounded border px-3 py-2">{c.provider}{i===0?'':''}</button>)}</div>{channelCounts.filter(c=>c.id===(channelCounts.some(c=>c.id===previewChannel)?previewChannel:channelCounts[0].id)).map(c=><div role="tabpanel" key={c.id}><p className="whitespace-pre-wrap break-words">{c.max>0 && c.count>c.max ? Array.from(text).slice(0,c.max).join('') : text}{c.max>0 && c.count>c.max ? '…' : ''}</p><p>{c.count} / {c.max || 'unlimited'} characters. {c.max>0 && c.count>c.max ? 'Over limit — shorten before publishing.' : 'Within limit.'}</p><p className="text-sm">Approximate preview; actual layout varies. Up to four images. {['bluesky','mastodon'].includes(c.provider)?'Image alt text is included.':'This channel does not receive image alt text.'}</p></div>)}</section>}
         <fieldset className="space-y-2">
           <legend>Channels</legend>
           {channels
@@ -167,11 +167,11 @@ export function Composer({
           <p className="text-sm text-zinc-600">Drop images here or choose files. JPEG, PNG, WebP or GIF; up to 5 MB each, four per post.</p>
           {uploading && <div role="status">Uploading… {progress}%<progress className="block w-full" max={100} value={progress} /></div>}
           {uploadError && <p role="alert" className="text-red-700">{uploadError}</p>}
-          <div className="grid grid-cols-2 gap-2">{media.split(/\s+/).filter(Boolean).slice(0,4).map((url,i) => (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{media.split(/\s+/).filter(Boolean).slice(0,4).map((url,i) => (
             <div key={i} className="min-w-0">
-              <img src={url} alt={`Uploaded image ${i+1}`} className="aspect-square w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
+              <img src={url} alt={mediaAlt[url] || `Uploaded image ${i+1}`} className="aspect-square w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
               <label className="block text-sm">Alt text for image {i+1}<input className="block w-full rounded border p-2" maxLength={1000} value={mediaAlt[url] ?? ''} onChange={e=>setMediaAlt(old=>({...old,[url]:e.target.value}))}/></label>
-              <button type="button" disabled={uploading} className="mt-1 text-sm text-red-700 underline" onClick={() => setMedia(media.split(/\s+/).filter(Boolean).filter((_,index) => index !== i).join('\n'))}>Remove image {i+1}</button>
+              <button type="button" disabled={uploading} className="mt-1 whitespace-nowrap text-sm text-red-700 underline" onClick={() => setMedia(media.split(/\s+/).filter(Boolean).filter((_,index) => index !== i).join('\n'))}>Remove image {i+1}</button>
             </div>
           ))}</div>
         </div>
@@ -293,7 +293,7 @@ export function Composer({
               "Your story starts here. Write something your audience will love."}
           </p>
           {link && <p className="break-all text-sm text-emerald-700">{link}</p>}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {media
               .split(/\s+/)
               .filter((u) => u.startsWith("https://") || /^http:\/\/127\.0\.0\.1:\d+\/m\//.test(u))

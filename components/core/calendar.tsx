@@ -1,4 +1,5 @@
 "use client";
+import {statusLabel} from "@/lib/status-label";
 import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -118,7 +119,7 @@ export function Calendar({
                     >
                       <strong>{e.brand}</strong>
                       <p className="break-words">{e.body}</p>
-                      <span>{e.status.replaceAll("_", " ")}</span>
+                      <span>{statusLabel(e.status)}</span>
                     </Link>
                   ))}
                 {!entries.some(
@@ -162,7 +163,7 @@ export function Calendar({
                     >
                       <strong>{e.brand}</strong>
                       <p className="line-clamp-2">{e.body}</p>
-                      <span>{e.status.replaceAll("_", " ")}</span>
+                      <span>{statusLabel(e.status)}</span>
                     </Link>
                   ))}
               </div>

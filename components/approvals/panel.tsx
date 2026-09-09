@@ -1,3 +1,4 @@
+import {statusLabel} from "@/lib/status-label";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { approvalDecisions, posts } from "@/db/schema";
@@ -35,7 +36,7 @@ export async function ApprovalPanel({
       <p>
         {post.status === "pending_approval"
           ? "Awaiting approval"
-          : post.status.replaceAll("_", " ")}
+          : statusLabel(post.status)}
       </p>
       <p>Send this link to your client — no login needed.</p>
       {origin && post.approvalToken ? (

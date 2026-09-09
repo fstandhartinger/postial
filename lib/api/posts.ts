@@ -8,12 +8,13 @@ import { hash, type ApiContext } from './auth';
 import { changeTarget, reschedulePost, isUuid, savePost, type Tx } from './post-service';
 const input = z.object({
   brand_id: z.string().uuid(), body: z.string(), media_urls: z.array(z.string()).max(4).default([]),
+  media_alt: z.record(z.string(),z.string().max(1000)).default({}),
   link_url: z.string().optional(), channel_ids: z.array(z.string().uuid()).max(100).default([]),
   scheduled_at: z.union([z.literal('now'), z.string().datetime({offset: true})]).optional(),
   requires_approval: z.boolean().default(false),
 }).strict();
 export function postJson(post: typeof posts.$inferSelect) {
-  return {id: post.id, brand_id: post.brandId, body: post.body, media_urls: post.mediaUrls,
+  return {id: post.id, brand_id: post.brandId, body: post.body, media_urls: post.mediaUrls, media_alt: post.mediaAlt,
     link_url: post.linkUrl, scheduled_at: post.scheduledAt, status: post.status,
     requires_approval: post.requiresApproval, created_at: post.createdAt, updated_at: post.updatedAt};
 }
@@ -85,7 +86,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
     await ownBrand(ctx, data.brand_id, tx);
     const form = new FormData();
     for (const [k, v] of Object.entries({brandId: data.brand_id, body: data.body, mediaUrls: data.media_urls.join('\n'),
-      linkUrl: data.link_url ?? '', intent: data.scheduled_at ? 'publish' : 'draft', when: data.scheduled_at === 'now' ? 'now' : 'later',
+      mediaAlt: JSON.stringify(data.media_alt), linkUrl: data.link_url ?? '', intent: data.scheduled_at ? 'publish' : 'draft', when: data.scheduled_at === 'now' ? 'now' : 'later',
       scheduledAt: data.scheduled_at ?? '', requiresApproval: data.requires_approval ? 'on' : ''})) form.set(k, v);
     data.channel_ids.forEach(id => form.append('channelId', id));
     const id = await savePost(serviceContext, form, true, tx);

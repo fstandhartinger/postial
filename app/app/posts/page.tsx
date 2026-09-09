@@ -1,3 +1,4 @@
+import {statusLabel} from "@/lib/status-label";
 import { ActionForm } from "@/components/core/forms";
 import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ export default async function PostsPage({
           <p>
             <span style={{ color: b.color }}>{b.name}</span>
             {!["pending_approval", "changes_requested"].includes(p.status) && (
-              <> · {p.status.replaceAll("_", " ")}</>
+              <> · {statusLabel(p.status)}</>
             )}
           </p>
           <ApprovalStatusBadge post={p} />

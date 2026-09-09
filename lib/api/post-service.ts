@@ -122,7 +122,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           const targets = await tx.select().from(postTargets).where(eq(postTargets.postId, id)).for('update');
           check(!targets.some(t => ['publishing', 'published'].includes(t.status) || t.attempts > 0), 'Publishing has started; this post cannot be edited.');
           // An existing approval requirement cannot be removed by editing approved content.
-          if (old.post.requiresApproval && old.post.status === 'approved') {
+          if (old.post.requiresApproval && ['approved','scheduled'].includes(old.post.status)) {
             check(access.approvalLinks, "Client approval requires Agency.");
             requiresApproval = true;
             status = draft ? 'draft' : 'pending_approval';

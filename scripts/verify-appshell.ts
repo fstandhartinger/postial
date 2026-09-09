@@ -143,9 +143,9 @@ async function main() {
           body: '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="600" height="600" fill="#ecfdf5"/><circle cx="300" cy="270" r="150" fill="#047857"/><text x="300" y="500" text-anchor="middle" font-size="42" fill="#065f46">Maple Studio</text></svg>',
         }),
     );
-    await page
-      .getByLabel("Media URLs", { exact: false })
-      .fill("https://images.example.org/appshell.svg");
+    await page.getByText("Add image by URL",{exact:true}).click();
+    await page.getByLabel("Public HTTPS image URL").fill("https://images.example.org/appshell.svg");
+    await page.getByRole("button",{name:"Add image",exact:true}).click();
     await page.waitForFunction(() => {
       const img = document.querySelector(
         'img[alt="Media preview 1"]',
@@ -167,7 +167,7 @@ async function main() {
         fullPage: true,
       });
     }
-    await page.getByLabel("Media URLs", { exact: false }).fill("");
+    await page.getByRole("button",{name:"Remove image 1",exact:true}).click();
     await page.getByRole("button", { name: "Schedule", exact: true }).click();
     await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
     await page

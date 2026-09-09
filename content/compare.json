@@ -94,7 +94,7 @@
           ]
         }
       ],
-      "fits": "SocialMint’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and API + n8n planned in the September rollout. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "fits": "SocialMint’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. The n8n node awaits npm publication. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
       "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate SocialMint’s narrower rollout before moving.",
       "vendorFitSources": [
         "integrations",
@@ -107,7 +107,7 @@
         },
         {
           "question": "Can Hootsuite clients approve without a login?",
-          "answer": "The checked pricing page lists team approvals on Advanced, but does not establish login-free external approval links. Confirm that workflow with Hootsuite. SocialMint plans login-free Agency client links in its September rollout."
+          "answer": "The checked pricing page lists team approvals on Advanced, but does not establish login-free external approval links. Confirm that workflow with Hootsuite. SocialMint provides login-free Agency client links today."
         },
         {
           "question": "Should an Instagram-focused agency switch now?",
@@ -196,7 +196,7 @@
           ]
         }
       ],
-      "fits": "SocialMint fits teams that want a managed service hosted in Germany and a plan defined around brands and five teammates. Its Agency client approval links are designed for reviewers without accounts. Pilot the September rollout to confirm this workflow is available before relying on it.",
+      "fits": "SocialMint fits teams that want a managed service hosted in Germany and a plan defined around brands and five teammates. Its Agency client approval links are designed for reviewers without accounts. Client approval links are available today on Agency.",
       "vendorFits": "Postiz fits teams that want to self-host or need a broader network selection today. Its documented API and n8n node already support automation. Unlimited team members on eligible cloud plans can suit teams larger than SocialMint Agency’s five-user allowance.",
       "vendorFitSources": [
         "pricing",
@@ -213,11 +213,11 @@
         },
         {
           "question": "Is API automation unique to SocialMint?",
-          "answer": "No. Postiz documents a public API and custom n8n node. SocialMint Agency includes API + n8n in its September 2026 early-access rollout; verify readiness before migrating automations."
+          "answer": "No. Postiz documents a public API and custom n8n node. SocialMint Agency includes REST API and webhooks today; the n8n node awaits npm publication."
         },
         {
           "question": "Can clients review SocialMint posts without signing up?",
-          "answer": "Login-free client approval links are part of the Agency offer rolling out in September 2026. Verify the feature in your workspace during the 14-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
+          "answer": "Login-free client approval links are available on Agency today, including during the 14-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
         }
       ],
       "sources": [

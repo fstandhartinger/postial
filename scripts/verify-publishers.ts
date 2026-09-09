@@ -121,9 +121,10 @@ test('Bluesky uploads images and warns for streamed oversize', async () => {
     if (url.endsWith('uploadBlob')) return response({ blob: { ref: 'blob-ref' } });
     return ok(url);
   });
-  const result = await getPublisher('bluesky').publish(credentials.bluesky, { text: 'hello', mediaUrls: ['https://image.test/large', 'https://image.test/small'], idempotencyKey: 'k' });
+  const result = await getPublisher('bluesky').publish(credentials.bluesky, { text: 'hello', mediaUrls: ['https://image.test/large', 'https://image.test/small'], mediaAlt: {'https://image.test/small':'Accessible small image'}, idempotencyKey: 'k' });
   assert.equal(result.warnings?.length, 1);
   assert.equal(JSON.parse(String(calls.at(-1)!.init.body)).record.embed.images.length, 1);
+  assert.equal(JSON.parse(String(calls.at(-1)!.init.body)).record.embed.images[0].alt, 'Accessible small image');
 });
 test('Mastodon polls async media and attaches IDs', async () => {
   let polls = 0;
@@ -133,9 +134,10 @@ test('Mastodon polls async media and attaches IDs', async () => {
     if (url.endsWith('/api/v1/media/media1')) { polls++; return polls === 1 ? new Response(null, { status: 206 }) : response({ id: 'media1', url: 'https://image.test/ready' }); }
     return ok(url);
   });
-  await getPublisher('mastodon').publish(credentials.mastodon, { text: 'hi', mediaUrls: ['https://image.test/small'], idempotencyKey: 'k' });
+  await getPublisher('mastodon').publish(credentials.mastodon, { text: 'hi', mediaUrls: ['https://image.test/small'], mediaAlt: {'https://image.test/small':'Accessible small image'}, idempotencyKey: 'k' });
   assert.equal(polls, 2);
   assert.ok(calls.find(c => c.url.endsWith('/api/v2/media'))!.init.body instanceof FormData);
+  assert.equal((calls.find(c => c.url.endsWith('/api/v2/media'))!.init.body as FormData).get('description'), 'Accessible small image');
   assert.deepEqual(JSON.parse(String(calls.at(-1)!.init.body)).media_ids, ['media1']);
 });
 test('Mastodon caches discovered limit for preflight', async () => {

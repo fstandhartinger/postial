@@ -52,7 +52,9 @@ async function main() {
     await page.getByLabel('Studio channel', { exact: true }).check();
     // Public URL is intercepted locally; validates browser CSP without a third-party request.
     await page.route('https://images.example.org/fixture.svg', (route: { fulfill: (options: object) => Promise<void> }) => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#047857"/><circle cx="100" cy="100" r="60" fill="#a7f3d0"/></svg>' }));
-    await page.getByLabel('Media URLs', { exact: false }).fill('https://images.example.org/fixture.svg');
+    await page.getByText('Add image by URL', {exact:true}).click();
+    await page.getByLabel('Public HTTPS image URL').fill('https://images.example.org/fixture.svg');
+    await page.getByRole('button', {name:'Add image',exact:true}).click();
     await page.waitForFunction(() => { const image = document.querySelector('img[alt="Media preview 1"]') as HTMLImageElement; return image?.complete && image.naturalWidth > 0; });
     assert((await page.locator('form').filter({has: page.locator('[name=body]')}).innerText()).includes('/ 1000'));
     await page.screenshot({ path: evidence + '/composer-image-390.png', fullPage: true });

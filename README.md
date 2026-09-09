@@ -85,8 +85,8 @@ included explicitly alongside the standalone Next.js output.
 Foundation: workspace ownership, auth and billing are implemented.
 Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
 Product: brands, channel connections, composer, calendar and publishing worker are
-implemented, including public customer approval links. Public API v1 is implemented; the native n8n node remains upcoming work.
-The owner must verify company registration details and provide the DPA on request. Google/SMTP credentials enable their
+implemented, including public customer approval links. Public API v1 is implemented; the native n8n node is implemented and awaits npm publication.
+The owner must verify company registration details. The DPA is available at `/legal/dpa` with owner acceptance in `/app/settings/legal`. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 Network integrations and production deployment are separate work.
 
@@ -217,7 +217,7 @@ The composer validates channel ownership, provider text limits, four HTTPS media
 URLs, and dates in the brand's IANA timezone. Ambiguous/nonexistent DST minutes
 are rejected. Drafts and pending approval requests cannot publish. The customer
 approval link sets the post status to `approved`; the worker activates targets at
-`scheduled_at`. Editing is restricted to drafts and pending/changes-requested posts.
+`scheduled_at`. Unstarted scheduled and approved posts can also be edited; saving approved content resets approval. Date-only rescheduling preserves approval.
 
 The Node instrumentation starts one publishing timer per process (30 seconds).
 `POST /api/internal/tick` also runs a batch, authenticated by `x-cron-secret`
@@ -464,3 +464,48 @@ writes. Logs contain removed count and bytes; referenced assets survive across
 app-origin changes. Run `npx tsx scripts/verify-retention.ts` and
 `npx tsx scripts/verify-pilot.ts` against an isolated local test database, before
 starting a standalone worker. Both remove their fixtures.
+
+## Customer workflow fixes (cycle 6)
+
+Migration 0012 adds shared workspace notifications, versioned DPA acceptances,
+image alt-text storage and an endpoint kind for team alerts. Availability on the
+landing page, FAQ, pricing and comparisons comes from `content/availability.json`.
+Bluesky, Mastodon and Telegram are available; X, Threads, LinkedIn and
+Instagram/Facebook await platform approval without a date. Sign-in remains gated.
+
+The shell warns during the last 72 hours of a trial, shows browser-local date,
+time and timezone, and shows held-post counts after expiry. Billing names the
+plan price, effective trial status, Stripe upcoming-invoice estimate when a
+payment method exists, invoice history and cancellation consequences. Stripe
+lookup failures are shown as unavailable, never as a fabricated zero charge.
+
+Unstarted scheduled/approved posts support Reschedule. `PATCH /api/v1/posts/{id}`
+accepts only a future ISO `scheduled_at` with timezone and requires `posts:write`.
+It shifts queued targets atomically and preserves approval. Editing content
+recreates unstarted targets and resets approved content to pending approval;
+started targets cannot be edited. Post and target locks coordinate with the worker.
+
+Images are uploaded first; URL entry is an expandable alternative. Descriptions
+are stored in `posts.media_alt` keyed by image URL and forwarded to Bluesky and
+Mastodon. The API accepts/returns `media_alt`; other adapters ignore it. Preview
+tabs show network limits and approximate truncation without altering saved text.
+
+Notifications in the shell are shared acknowledgements for the workspace (up to
+50 unread displayed). Owners configure Slack, Discord or Mattermost incoming
+webhooks at `/app/settings/notifications`. URLs and signing keys are encrypted;
+settings do not reveal them again. Alerts use the existing outbox, signatures,
+SSRF-safe fetch and five-attempt retry policy; alert deliveries continue when
+subscription access expires. They carry event notices and post links, not post
+bodies or client comments. Test messages are limited to one per destination per
+minute. API endpoints remain Agency-gated and separately listed. No email or
+Telegram notification delivery is included.
+
+DPA acceptance is owner-only, idempotent per workspace/version and stores the
+user, server time and exact document SHA-256. Preserve prior contract versions
+when revising the DPA. Print / Save as PDF is available through the browser.
+
+Run `npx tsx scripts/verify-c6.ts` for service/route/outbox checks; add
+`C6_HTTP_URL=http://localhost:3997` and `PLAYWRIGHT_MODULE` for 390/1280 browser
+checks against a running build. Test-only loopback delivery is disabled in
+production. The verifier uses synthetic sessions and a local alert receiver,
+removes its database fixtures, and never performs a real provider login or post.

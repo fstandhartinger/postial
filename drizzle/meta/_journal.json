@@ -85,6 +85,13 @@
       "when": 1788929287689,
       "tag": "0011_chief_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788930599457,
+      "tag": "0012_smiling_stardust",
+      "breakpoints": true
     }
   ]
 }

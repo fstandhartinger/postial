@@ -2014,6 +2014,14 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "media_alt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "description": "Image URL to alt text mapping; passed to Bluesky and Mastodon."
           }
         },
         "required": [
@@ -2072,6 +2080,14 @@
           "requires_approval": {
             "type": "boolean",
             "default": false
+          },
+          "media_alt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "description": "Image URL to alt text mapping; passed to Bluesky and Mastodon."
           }
         },
         "required": [

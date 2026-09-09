@@ -84,7 +84,7 @@ export default async function AppLayout({
           </details>
         </header>
         <main id="main-content" className="app-content space-y-6">
-          <TrialBanner subscription={subscription ? {status:subscription.status,trialEnd:subscription.trialEnd?.toISOString()??null} : null} held={held.total}/>
+          <TrialBanner subscription={subscription ? {status:subscription.status,trialEnd:subscription.trialEnd?.toISOString()??null,currentPeriodEnd:subscription.currentPeriodEnd?.toISOString()??null} : null} held={held.total}/>
           {children}
         </main>
       </div>

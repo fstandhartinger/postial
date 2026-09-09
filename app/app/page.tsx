@@ -1,3 +1,4 @@
+import {statusLabel} from "@/lib/status-label";
 import Link from "next/link";
 import { eq, and, asc } from "drizzle-orm";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
@@ -328,7 +329,7 @@ export default async function Overview({
                 <p className="font-medium">
                   {r.brand} · {r.channel}
                 </p>
-                <Badge>{r.target.status.replaceAll("_", " ")}</Badge>
+                <Badge>{statusLabel(r.target.status)}</Badge>
                 <p className="text-sm">
                   {r.target.status === "needs_review"
                     ? "We couldn’t confirm delivery. Check the channel before retrying to avoid a duplicate."

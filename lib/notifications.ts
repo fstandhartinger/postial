@@ -47,10 +47,10 @@ export async function createAlertDestination(workspaceId:string,userId:string,ki
 export async function testAlert(workspaceId:string,userId:string,id:string) {
   await requireNotificationOwner(workspaceId,userId);
   return getDb().transaction(async tx=>{
+    await tx.select().from(workspaces).where(eq(workspaces.id,workspaceId)).for('update');
     const [endpoint]=await tx.select().from(webhookEndpoints).where(and(eq(webhookEndpoints.workspaceId,workspaceId),eq(webhookEndpoints.id,id),eq(webhookEndpoints.active,true),isNull(webhookEndpoints.deletedAt))).for('share');
     if(!endpoint||endpoint.kind==='api') throw new ApiError(404,'not_found','Alert destination not found.');
-    // Bound repeated tests using the durable outbox under a workspace lock.
-    await tx.select().from(workspaces).where(eq(workspaces.id,workspaceId)).for('update');
+    // Bound repeated tests using the durable outbox.
     const [last]=await tx.select().from(webhookDeliveries).where(and(eq(webhookDeliveries.endpointId,id),eq(webhookDeliveries.event,'alert.test'))).orderBy(desc(webhookDeliveries.createdAt)).limit(1);
     if(last && Date.now()-last.createdAt.getTime()<60000) throw new ApiError(429,'rate_limited','Wait a minute before testing again.');
     await tx.insert(webhookDeliveries).values({endpointId:id,event:'alert.test',payload:{id:randomUUID(),...(endpoint.kind==='discord'?{content:'SocialMint test alert: your destination is connected.'}:{text:'SocialMint test alert: your destination is connected.'})}});

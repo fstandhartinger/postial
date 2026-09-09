@@ -64,7 +64,7 @@
     },
     {
       "label": "Plan note",
-      "text": "Client approval links, API, and n8n are included with Agency."
+      "text": "Client approval links, API, and n8n are included with Agency. The n8n node awaits npm publication."
     }
   ],
   "Social-proof alternative": [
@@ -162,7 +162,7 @@
     },
     {
       "label": "Body",
-      "text": "Connect your workflows to SocialMint through its API and n8n node. Bring automated post preparation into the same review and publishing process."
+      "text": "Connect your workflows to SocialMint through its API and n8n node. Bring automated post preparation into the same review and publishing process. The n8n node awaits npm publication."
     }
   ],
   "How it works": [
@@ -382,7 +382,7 @@
     },
     {
       "label": "Body",
-      "text": "Agency includes API access and an n8n node for connecting your own automations."
+      "text": "Agency includes API access and an n8n node for connecting your own automations. The n8n node awaits npm publication."
     },
     {
       "label": "Fair-comparison note",
@@ -522,7 +522,7 @@
     },
     {
       "label": "OG description",
-      "text": "Manage client brands, collect approvals, and follow publishing retries. Agency includes API + n8n. Try it free for 14 days, no card needed."
+      "text": "Manage client brands, collect approvals, and follow publishing retries. Agency includes API + n8n. Try it free for 14 days, no card needed. The n8n node awaits npm publication."
     }
   ]
 }
