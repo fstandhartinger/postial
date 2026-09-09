@@ -16,7 +16,7 @@ Date: 2026-09-09
 - `npm run lint`: passed (after cleanup of two warnings).
 - `npx tsc --noEmit`: passed.
 - `npm run build`: passed.
-- `npm run verify:all`: passed completely against an isolated schema; the temporary schema was removed.
+- `npm run verify:all`: passed completely against an isolated schema with a schema-local Drizzle migration history; the temporary schema was removed.
 - Production sweep with explicit `VERIFY_ALLOW_SHARED_DB=1`: dry-run reported zero marked workspaces, subscriptions, and users. No production fixture rows were changed.
 - Direct PostgreSQL post-check: zero `postial_verify_*` databases and zero `verify_*` schemas after cleanup.
 - `npm run verify:http`: isolation/cleanup worked, but the existing suite reported five unrelated baseline failures: stale docs index, approval assertion, C6 marketing copy assertion, C7 bulk-action assertion, and fixer2 browser assertion. The remaining HTTP verifiers passed, including C8 and fixture cleanup.

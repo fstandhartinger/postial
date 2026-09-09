@@ -36,8 +36,8 @@ function withSchema(url, schema) {
   return result.toString();
 }
 
-async function migrate(url) {
-  const child = spawn(process.execPath, ['scripts/migrate.mjs'], { env: { ...process.env, DATABASE_URL: url }, stdio: 'inherit' });
+async function migrate(url, schema) {
+  const child = spawn(process.execPath, ['scripts/migrate.mjs'], { env: { ...process.env, DATABASE_URL: url, ...(schema ? { MIGRATIONS_SCHEMA: schema } : {}) }, stdio: 'inherit' });
   const [code, signal] = await once(child, 'exit');
   if (code !== 0) throw new Error(`Database migration failed (${signal || code})`);
 }
@@ -63,7 +63,7 @@ export async function createIsolatedDatabase(source = process.env.DATABASE_URL) 
       url = withSchema(directUrl(source, databaseName(source)), schema);
     }
     const databaseUrl = url;
-    await migrate(databaseUrl);
+    await migrate(databaseUrl, schema);
     return {
       url: databaseUrl,
       name: mode === 'database' ? name : databaseName(source),
