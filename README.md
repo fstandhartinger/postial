@@ -88,7 +88,8 @@ Product: brands, channel connections, composer, calendar and publishing worker a
 implemented, including public customer approval links. Public API v1 is implemented; the native n8n node is implemented and awaits npm publication.
 The owner must verify company registration details. The DPA is available at `/legal/dpa` with owner acceptance in `/app/settings/legal`. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
-Network integrations and production deployment are separate work.
+The Sandy deployment is documented below. External provider approvals/sign-in and
+a complete Stripe payment lifecycle remain separate acceptance checks.
 
 See `VERIFICATION.md` for executed milestone checks and dependency audit findings.
 Implementation references: [Next.js installation](https://nextjs.org/docs/app/getting-started/installation)
