@@ -210,6 +210,25 @@ only creates uncompleted Checkout sessions and deletes the temporary customers.
   fixtures for automatic checkout continuation, retry and expired Portal login.
   Checkout is intercepted in this UI test; no provider login or payment occurs.
 
+### Isolated verification and fixture cleanup
+
+`npm run verify:all` and `npm run verify:http` create a temporary PostgreSQL
+database named `postial_verify_<timestamp>_<random>`, run migrations there,
+and remove it in `finally` (including SIGINT). The source `DATABASE_URL` is
+used only for creating the temporary database; verifier children receive only
+the isolated URL. The database role must have `CREATEDB`. If it does not, the
+runner creates a temporary schema with an isolated `search_path` instead and
+removes that schema in `finally`. A verifier refuses `dbname=socialmint` unless
+`VERIFY_ALLOW_SHARED_DB=1` is explicitly set.
+
+Fixtures use `@fixture.postial.invalid` and `fixture:` workspace names. Every
+fixture-producing verifier cleans up in `finally`; the isolated database is a
+second safety boundary. To inspect old leftovers without changing data, run
+`npm run fixture-sweep -- --dry-run`; use `--apply` only against the intended
+database. The sweep recognizes legacy `@example.invalid`, `C7 fixture`, and
+`sub_fixture_*` rows. No cron entry is installed; schedule this command only
+through an separately approved operations scheduler.
+
 ## Product core
 
 `/app` provides workspace navigation, brands and channel connections, a composer,

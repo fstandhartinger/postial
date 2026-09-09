@@ -3,6 +3,7 @@ if (process.env.VERIFY_BASE_URL) process.env.BROWSER_BASE_URL = process.env.VERI
 import postgres from 'postgres';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { assertVerificationDatabase } from './isolated-db.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.BROWSER_BASE_URL || 'http://localhost:3992';
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
@@ -40,7 +41,8 @@ try {
   console.log('PASS browser: six routes at 320/1440, all security headers, no overflow, no console/page/HTTP errors, Agency CTA preserves plan without 401');
   // Missing runtime configuration now fails at startup (covered by verify-c7).
   // Local DB session fixtures exercise authenticated UI without any provider login.
-  if (process.env.DATABASE_URL) {
+if (process.env.DATABASE_URL) {
+    assertVerificationDatabase();
     const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
     const userId = randomUUID(), token = randomUUID(), workspaceId = randomUUID();
     try {

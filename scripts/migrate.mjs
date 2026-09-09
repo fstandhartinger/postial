@@ -8,6 +8,6 @@ try {
   console.log("Database migrations complete");
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Database migration failed; check database connectivity and migration state.", message.replace(/postgres(ql)?:\/\/[^\s]+/g, "<db-url>").slice(0, 400));
+  console.error("Database migration failed; check database connectivity and migration state.", message.replace(/postgres(ql)?:\/\/[^\s]+/g, "<db-url>").slice(0, 800));
   process.exitCode = 1;
 } finally { await client.end(); }

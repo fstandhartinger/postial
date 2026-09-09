@@ -42,8 +42,8 @@ async function main() {
   const request=(url:string,init:RequestInit={})=>new Request('http://localhost'+url,init);
   const [previous]=await db.select().from(maintenanceRuns).where(eq(maintenanceRuns.name,'media_retention'));
   try {
-    await db.insert(users).values([{id:user,name:'C7 owner',email:user+'@example.invalid'},{id:other,name:'C7 successor'}]);
-    await db.insert(workspaces).values({id:workspaceId,name:'C7 fixture',slug:user,ownerUserId:user});
+    await db.insert(users).values([{id:user,name:'C7 owner',email:user+'@fixture.postial.invalid'},{id:other,name:'C7 successor',email:other+'@fixture.postial.invalid'}]);
+    await db.insert(workspaces).values({id:workspaceId,name:'fixture:C7',slug:user,ownerUserId:user});
     await db.insert(workspaceMembers).values([{workspaceId,userId:user,role:'owner'},{workspaceId,userId:other,role:'editor'}]);
     await db.insert(subscriptions).values({workspaceId,plan:'agency',status:'active',stripeSubscriptionId:'sub_fixture_'+user,currentPeriodEnd:new Date(Date.now()+day)});
     await db.insert(brands).values({id:brandId,workspaceId,name:'C7',slug:user});
@@ -121,7 +121,7 @@ async function main() {
     await assert.rejects(()=>exportWorkspace(workspaceId,other),(e:{status:number})=>e.status===403);
     await assert.rejects(()=>deleteAccount(user,'DELETE'),(e:{code:string})=>e.code==='last_owner');
     await assert.rejects(()=>deleteWorkspace(workspaceId,user,'wrong',async()=>{}),(e:{status:number})=>e.status===422);
-    await assert.rejects(()=>deleteWorkspace(workspaceId,other,'C7 fixture',async()=>{}),(e:{status:number})=>e.status===403);
+    await assert.rejects(()=>deleteWorkspace(workspaceId,other,'fixture:C7',async()=>{}),(e:{status:number})=>e.status===403);
     console.log('S04 owner-only export has no credentials, last-owner and typed deletion confirmation enforced');
     if(process.env.C7_HTTP_URL && process.env.PLAYWRIGHT_MODULE) {
       const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
@@ -212,7 +212,7 @@ async function main() {
     assert.equal((await db.execute(sql`select 1 from request_rate_limits where key=${'c7:'+user}`)).length,0);
     console.log('S05 retention removes deliveries/notifications/rate/invite/OAuth fixtures');
     await db.insert(sessions).values({userId:user,sessionToken:randomUUID(),expires:new Date(Date.now()+day)});
-    await db.insert(postEvents).values({postId,type:'fixture',message:'By '+user+'@example.invalid'});
+    await db.insert(postEvents).values({postId,type:'fixture',message:'By '+user+'@fixture.postial.invalid'});
     await transferOwnership(workspaceId,user,other);
     await deleteAccount(user,'DELETE');
     assert.equal((await db.select().from(users).where(eq(users.id,user))).length,0);
@@ -220,12 +220,12 @@ async function main() {
     assert.equal((await db.select().from(sessions).where(eq(sessions.userId,user))).length,0);
     assert.equal((await db.select().from(posts).where(eq(posts.id,postId)))[0].authorUserId,null);
     assert.equal((await db.select().from(mediaAssets).where(eq(mediaAssets.id,asset)))[0].uploaderUserId,null);
-    assert(!JSON.stringify(await exportWorkspace(workspaceId,other)).includes(user+'@example.invalid'));
-    await assert.rejects(()=>deleteWorkspace(workspaceId,other,'C7 fixture',async()=>{throw Error('mock Stripe outage');}));
+    assert(!JSON.stringify(await exportWorkspace(workspaceId,other)).includes(user+'@fixture.postial.invalid'));
+    await assert.rejects(()=>deleteWorkspace(workspaceId,other,'fixture:C7',async()=>{throw Error('mock Stripe outage');}));
     assert.equal((await db.select().from(workspaces).where(eq(workspaces.id,workspaceId))).length,1);
     let cancellations=0;const client=stripe(), cancel=client.subscriptions.cancel;
     client.subscriptions.cancel=(async(id:string,options:unknown)=>{assert.equal(id,'sub_fixture_'+user);assert.deepEqual(options,{invoice_now:false,prorate:false});cancellations++;return {id,status:'canceled'};}) as typeof client.subscriptions.cancel;
-    try { await deleteWorkspace(workspaceId,other,'C7 fixture'); } finally { client.subscriptions.cancel=cancel; }
+      try { await deleteWorkspace(workspaceId,other,'fixture:C7'); } finally { client.subscriptions.cancel=cancel; }
     assert.equal(cancellations,1);
     for(const table of ['brands','api_keys','webhook_endpoints','workspace_invites','media_assets','workspace_members','subscriptions'])
       assert.equal((await db.execute(sql`select 1 from ${sql.identifier(table)} where workspace_id=${workspaceId}::uuid`)).length,0);

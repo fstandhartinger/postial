@@ -3,11 +3,13 @@ if (process.env.VERIFY_BASE_URL) process.env.WAITLIST_BASE_URL = process.env.VER
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
+import { assertVerificationDatabase } from './isolated-db.mjs';
 async function main() {
 const base = process.env.WAITLIST_BASE_URL ?? 'http://127.0.0.1:3987';
 const url = new URL(base);
 if (!['127.0.0.1', 'localhost'].includes(url.hostname)) throw new Error('Local test server required');
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL required for fixture cleanup');
+assertVerificationDatabase();
 const db = postgres(process.env.DATABASE_URL, { max: 1 });
 const run = randomUUID();
 const ip = `2001:db8:${Math.floor(Math.random()*65535).toString(16)}::1`;

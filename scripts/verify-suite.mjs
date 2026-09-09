@@ -4,10 +4,14 @@ import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { mkdirSync, openSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createIsolatedDatabase } from './isolated-db.mjs';
 
 const mode = process.argv[2];
 if (!['db', 'http'].includes(mode)) throw new Error('Usage: verify-suite.mjs db|http');
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL must point to a migrated disposable test database');
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required; the suite creates and migrates its own isolated database');
+const sourceDatabaseUrl = process.env.DATABASE_URL;
+const isolated = await createIsolatedDatabase(sourceDatabaseUrl);
+process.env.DATABASE_URL = isolated.url;
 // Fixtures may run retention and worker batches: never use a production database.
 // Do not pass provider credentials or delivery configuration to any child.
 const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'DATABASE_URL', 'APP_ENCRYPTION_KEY', 'APP_ENCRYPTION_KEYS',
@@ -18,6 +22,8 @@ Object.assign(env, {
   STRIPE_PRICE_STARTER: 'price_fixture_starter', STRIPE_PRICE_AGENCY: 'price_fixture_agency',
   STRIPE_PORTAL_CONFIG: 'bpc_fixture', WORKER_ENABLED: 'false', AUTH_TRUST_HOST: 'true',
   APPROVAL_TRUST_PROXY: 'true', PLAYWRIGHT_MODULE: env.PLAYWRIGHT_MODULE || 'playwright',
+  VERIFY_MODE: '1',
+  ...(isolated.mode === 'schema' ? { VERIFY_ISOLATED_SCHEMA: '1' } : {}),
   VERIFY_EVIDENCE_DIR: resolve(process.env.VERIFY_EVIDENCE_DIR || '../work/verification'),
   APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
 });
@@ -29,7 +35,13 @@ const db = ['entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api',
   const http = ['http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
     'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];
-let server, active;
+let server, active, cleaningUp = false;
+async function cleanupSuite() {
+  if (cleaningUp) return;
+  cleaningUp = true;
+  await stop(active); await stop(server);
+  await isolated.cleanup();
+}
 async function stop(child) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const done = once(child, 'exit');
@@ -39,7 +51,7 @@ async function stop(child) {
   clearTimeout(timer);
 }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => {
-  await stop(active); await stop(server); process.exit(signal === 'SIGINT' ? 130 : 143);
+  await cleanupSuite(); process.exit(signal === 'SIGINT' ? 130 : 143);
 });
 async function run(name) {
   const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
@@ -78,4 +90,6 @@ try {
   }
   if (failures.length) throw new Error(failures.join('\n'));
   console.log(`PASS verify:${mode === 'db' ? 'all' : 'http'}`);
-} finally { await stop(active); await stop(server); }
+} finally {
+  await cleanupSuite();
+}
