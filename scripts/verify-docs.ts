@@ -26,9 +26,7 @@ for (const article of index) {
   const [heading, summary] = source.trim().split(/\n\s*\n/);
   assert.equal(heading, `# ${article.title}`);
   assert.equal(summary, article.summary);
-  // The n8n article is intentionally maintained separately while its native-node
-  // instructions evolve; the rendered article remains the source of truth.
-  if (article.slug !== 'n8n') assert.equal(article.keywords, source.split('## Related')[0], 'Regenerate stale index with npx tsx scripts/generate-help-index.ts');
+  assert.equal(article.keywords, source.split('## Related')[0], 'Regenerate stale index with npx tsx scripts/generate-help-index.ts');
   assert.match(source, /## Steps/);
   assert.match(source, /## Related\n\n- \[/);
   assert.doesNotMatch(source, /<\/?[a-z][^>]*>|<!--|\[CHECK\]/i, 'No raw HTML or placeholders in help Markdown');
