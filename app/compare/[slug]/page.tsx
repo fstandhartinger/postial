@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
 import { appUrl } from '@/components/marketing/copy';
+import { SignInNotice } from '@/components/marketing/SignInNotice';
 import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
 import styles from '../compare.module.css';
@@ -52,6 +53,7 @@ export default async function ComparePage({ params }: Props) {
       <h1>{page.title}</h1>
       <p className="hero-sub">{page.intro}</p>
       <div className="actions"><Link className="primary" href="/login">Start free — no card needed</Link><Link className="secondary" href="/pricing">See pricing</Link></div>
+      <SignInNotice />
       <p className="note">Starter €19/month · Agency €49/month · including VAT · 14 days free · cancel anytime</p>
       <AccessStatus />
     </section>
@@ -79,6 +81,6 @@ export default async function ComparePage({ params }: Props) {
       <p className="note">{page.vendor} is named for comparison only. No affiliation or endorsement is implied.</p>
       <p><Link className="text-link" href={`/compare/${copy.pages.find(other => other.slug !== page.slug)!.slug}`}>Also compare {page.vendor === 'Hootsuite' ? 'Postiz' : 'Hootsuite'} →</Link></p>
     </section>
-    <section className="section final-cta"><h2>Try one client workflow first</h2><p>Check the available networks and approval flow before moving your agency’s schedule.</p><Link className="primary" href="/login">Start free — no card needed</Link></section>
+    <section className="section final-cta"><h2>Try one client workflow first</h2><p>Check the available networks and approval flow before moving your agency’s schedule.</p><Link className="primary" href="/login">Start free — no card needed</Link><SignInNotice /></section>
   </div>;
 }

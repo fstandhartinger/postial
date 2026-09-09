@@ -7,6 +7,7 @@ import { workspaceEntitlements } from '@/lib/entitlements';
 function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads'].includes(provider); }
 function reviewMessage(provider: string) { return provider === 'telegram' ? TELEGRAM_REVIEW : `We couldn't confirm whether ${provider === 'x' ? 'X' : 'Threads'} received this post. Check the account, then retry or skip.`; }
 export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
+export const UNKNOWN_FAILED_MESSAGE = "Unexpected error while publishing. Our team has been notified; you can retry manually.";
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
@@ -239,10 +240,13 @@ export async function tick() {
           });
         } else if (error) {
           const uncertain = uncertainProvider(c.provider) && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code);
+          // Unexpected provider errors (UNKNOWN) fail after 3 attempts, others after 5.
+          const attemptLimit = error.code === "UNKNOWN" ? 3 : 5;
           const retry = !uncertain &&
             error.retryable &&
             !["AUTH_EXPIRED", "CONTENT_REJECTED"].includes(error.code) &&
-            attempt < 5;
+            attempt < attemptLimit;
+          const failureHuman = error.code === "UNKNOWN" ? UNKNOWN_FAILED_MESSAGE : error.humanMessage;
           const seconds = Math.max(
             [60, 240, 900, 3600][attempt - 1] ?? 3600,
             error.retryAfterSeconds ?? 0,
@@ -252,7 +256,7 @@ export async function tick() {
             .set({
               status: uncertain ? "needs_review" : retry ? "queued" : "failed",
               lastErrorCode: error.code,
-              lastErrorHuman: uncertain ? reviewMessage(c.provider) : error.humanMessage,
+              lastErrorHuman: uncertain ? reviewMessage(c.provider) : retry ? error.humanMessage : failureHuman,
               nextAttemptAt: retry
                 ? new Date(Date.now() + seconds * 1000)
                 : null,
@@ -269,7 +273,7 @@ export async function tick() {
             postId: p.id,
             targetId: t.id,
             type: uncertain ? "needs_review" : retry ? "retry_scheduled" : "failed",
-            message: uncertain ? reviewMessage(c.provider) : `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
+            message: uncertain ? reviewMessage(c.provider) : `Attempt ${attempt} failed: ${retry ? error.humanMessage : failureHuman}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
           });
         }
         // needs_review is per target and may leave the aggregate status unchanged.

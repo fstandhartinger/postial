@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Header } from "@/components/marketing/Header";
 import { Footer } from "@/components/marketing/Footer";
+import { SignInNotice } from "@/components/marketing/SignInNotice";
 import { appUrl, description, words } from "@/components/marketing/copy";
 import "./globals.css";
 import { SiteFrame } from "@/components/app/site-frame";
@@ -42,7 +43,7 @@ export default function RootLayout({
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
-        <SiteFrame header={<Header />} footer={<Footer />}>
+        <SiteFrame header={<Header notice={<SignInNotice />} />} footer={<Footer />}>
           {children}
         </SiteFrame>
       </body>

@@ -47,6 +47,7 @@ async function main() {
           retryable: false,
           humanMessage: "Reconnect your account.",
         });
+      if (behavior === "crash") throw new Error("Injected unexpected publisher failure");
       return {
         remoteId: input.idempotencyKey,
         url: "https://example.com/post",
@@ -275,6 +276,22 @@ async function main() {
     await db.update(subscriptions).set({ plan: "agency" }).where(eq(subscriptions.workspaceId, workspace.id));
     await tick(); assert.equal((await readTarget(extraPost.targets[0].id)).status, "published");
     console.log("PASS: Agency downgrade keeps oldest brands active and holds excess brand jobs until upgrade");
+    behavior = "crash";
+    const unexpected = await fixture();
+    await tick();
+    assert.equal((await readTarget(unexpected.targets[0].id)).status, "queued");
+    for (let n = 2; n <= 3; n++) {
+      await db.update(postTargets).set({ nextAttemptAt: new Date(Date.now() - 1000) }).where(eq(postTargets.id, unexpected.targets[0].id));
+      await tick();
+    }
+    const unknownFailed = await readTarget(unexpected.targets[0].id);
+    assert.equal(unknownFailed.attempts, 3);
+    assert.equal(unknownFailed.status, "failed");
+    assert.equal(unknownFailed.lastErrorCode, "UNKNOWN");
+    assert.equal(unknownFailed.lastErrorHuman, "Unexpected error while publishing. Our team has been notified; you can retry manually.");
+    assert((await db.select().from(postEvents).where(and(eq(postEvents.postId, unexpected.post.id), eq(postEvents.type, "failed")))).some((e) => e.message.includes("Unexpected error while publishing")));
+    behavior = "success";
+    console.log("PASS: unexpected publisher error retries twice with backoff, then fails on the third attempt with the team-notified message");
     // Inject an outcome-commit outage after the fake remote has accepted the post.
     const originalTransaction = db.transaction.bind(db);
     for (const provider of ["mastodon", "telegram", "bluesky"] as const) {

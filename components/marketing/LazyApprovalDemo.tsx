@@ -5,7 +5,7 @@ const Demo = dynamic(() => import('./ApprovalDemo').then(m => m.ApprovalDemo), {
   ssr: false,
   loading: () => <p role="status">Loading interactive demo…</p>,
 });
-export function LazyApprovalDemo() {
+export function LazyApprovalDemo({ notice }: { notice?: React.ReactNode }) {
   const container = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -16,6 +16,6 @@ export function LazyApprovalDemo() {
     return () => observer.disconnect();
   }, []);
   return <div ref={container} style={{minHeight:420}}>
-    {visible ? <Demo /> : <button type="button" className="secondary" onClick={() => setVisible(true)}>Load interactive demo</button>}
+    {visible ? <Demo notice={notice} /> : <button type="button" className="secondary" onClick={() => setVisible(true)}>Load interactive demo</button>}
   </div>;
 }

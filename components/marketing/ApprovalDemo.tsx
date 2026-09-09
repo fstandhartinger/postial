@@ -17,7 +17,7 @@ const original = 'A fresh look for your next chapter. Explore our new studio por
 const revision = 'A fresh look for your next chapter. Explore our new studio portfolio this Monday.';
 const defaultFeedback = 'Please change Friday to Monday.';
 type Activity = { state: State; text: string };
-export function ApprovalDemo() {
+export function ApprovalDemo({ notice }: { notice?: React.ReactNode }) {
   const [state, setState] = useState<State>('S0');
   const [revised, setRevised] = useState(false);
   const [approvedVersion, setApprovedVersion] = useState<string | null>(null);
@@ -64,5 +64,5 @@ export function ApprovalDemo() {
       {state === 'S7' && <button type="button" className="primary" onClick={() => { setHistory(previous => previous.filter(entry => !['S4', 'S5', 'S6', 'S7'].includes(entry.state))); enter('S4'); }}>Replay publishing</button>}
     </div>}
     <div className="activity"><h4>Demo activity</h4><ol>{history.map((entry, index) => <li key={index} className={entry.state === 'S5' ? 'failed' : ''}>{entry.text}</li>)}</ol></div><button type="button" className="secondary" onClick={reset}>Reset demo</button>
-  </div><div className="demo-signup"><Link prefetch={false} className="primary" href="/login?plan=agency">Start free — no card needed</Link><p className="note">Client approval links are included with Agency.</p></div></div>;
+  </div><div className="demo-signup"><Link prefetch={false} className="primary" href="/login?plan=agency">Start free — no card needed</Link>{notice}<p className="note">Client approval links are included with Agency.</p></div></div>;
 }
