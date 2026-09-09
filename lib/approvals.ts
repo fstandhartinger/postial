@@ -22,7 +22,7 @@ export async function publicApproval(token: string) {
   if (!validToken(token)) return null;
   const db = getDb();
   const [row] = await db.select({
-    postId: posts.id, body: posts.body, mediaUrls: posts.mediaUrls, linkUrl: posts.linkUrl,
+    postId: posts.id, body: posts.body, mediaUrls: posts.mediaUrls, mediaAlt: posts.mediaAlt, linkUrl: posts.linkUrl,
     scheduledAt: posts.scheduledAt, status: posts.status, name: brands.name,
     color: brands.color, timezone: brands.timezone,
   }).from(posts).innerJoin(brands, eq(brands.id, posts.brandId))

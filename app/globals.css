@@ -158,3 +158,17 @@ button:disabled { cursor: wait; opacity: .7; }
 @media (min-width: 768px) { .app-new-post-desktop { display: inline-flex; } }
 
 @media print { .site-header, .site-footer, .app-sidebar, .app-topbar, .mobile-nav { display:none !important; } .legal {max-width:none; color:black;} .legal a {text-decoration:underline;} }
+
+/* Keep keyboard targets above the mobile navigation, including safe areas. */
+@media (max-width: 767px) {
+  html { scroll-padding-bottom: var(--mobile-nav-clearance, calc(100px + env(safe-area-inset-bottom))); }
+  .app-content :is(input, textarea, select, button, a, [tabindex]) { scroll-margin-bottom: 16px; }
+  .bulk-table, .bulk-table tbody, .bulk-table tr, .bulk-table td { display: block; width: 100%; min-width: 0; max-width: none; }
+  .bulk-table thead { display: none; }
+  .bulk-table tr { margin-bottom: 16px; border: 1px solid #d4d4d8; border-radius: 12px; padding: 4px; }
+  .bulk-table td { overflow-wrap: anywhere; }
+  .bulk-preview td::before { content: attr(data-label); display: block; font-weight: 600; }
+}
+
+/* Marketing emphasis shares the heading weight; 700 remains available in the app. */
+.main-content strong, .main-content th, .site-footer strong { font-weight: 600; }

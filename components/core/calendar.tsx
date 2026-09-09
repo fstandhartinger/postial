@@ -3,7 +3,8 @@ import {statusLabel} from "@/lib/status-label";
 import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { calendarWindow, dateKey } from "@/lib/calendar-window";
 type Entry = {
   id: string;
   body: string;
@@ -13,36 +14,27 @@ type Entry = {
   color: string;
   status: string;
 };
-const dateKey = (d: Date) => d.toISOString().slice(0, 10);
 export function Calendar({
   entries,
-  brand,
+  brand, anchor, view,
 }: {
   entries: Entry[];
   brand?: string;
+  anchor: string;
+  view: string;
 }) {
-  const [anchor, setAnchor] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [view, setView] = useState("month");
-  const date = new Date(anchor + "T12:00:00Z");
-  const first =
-    view === "month"
-      ? new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 12))
-      : new Date(date);
-  first.setUTCDate(first.getUTCDate() - ((first.getUTCDay() + 6) % 7));
-  const days = Array.from({ length: view === "month" ? 42 : 7 }, (_, i) => {
-    const d = new Date(first);
-    d.setUTCDate(d.getUTCDate() + i);
-    return d;
-  });
+  const router = useRouter();
+  const {date, days} = calendarWindow(anchor, view);
+  function navigate(nextDate: string, nextView = view) {
+    router.push('/app/calendar?' + new URLSearchParams({date: nextDate, view: nextView, ...(brand ? {brand} : {})}), {scroll: false});
+  }
   function move(step: number) {
     const d = new Date(date);
     if (view === "month") {
       d.setUTCDate(1);
       d.setUTCMonth(d.getUTCMonth() + step);
     } else d.setUTCDate(d.getUTCDate() + 7 * step);
-    setAnchor(dateKey(d));
+    navigate(dateKey(d));
   }
   return (
     <div className="space-y-4">
@@ -71,14 +63,14 @@ export function Calendar({
         <Select
           aria-label="Calendar view"
           value={view}
-          onChange={(e) => setView(e.target.value)}
+          onChange={(e) => navigate(anchor, e.target.value)}
         >
           <option value="month">Month</option>
           <option value="week">Week</option>
         </Select>
         <Button
           variant="secondary"
-          onClick={() => setAnchor(dateKey(new Date()))}
+          onClick={() => navigate(dateKey(new Date()))}
         >
           Today
         </Button>

@@ -1,6 +1,6 @@
 import {statusLabel} from "@/lib/status-label";
 import Link from "next/link";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql, inArray, gt } from "drizzle-orm";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
 import { coreContext } from "@/lib/core";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { buttonClass } from "@/components/ui/button";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { CopyLink } from "@/components/approvals/copy-link";
 import { ProviderBadge } from "@/components/app/provider-badge";
-import { inZone } from "@/lib/timezone";
+
 export default async function Overview({
   searchParams,
 }: {
@@ -17,55 +17,36 @@ export default async function Overview({
 }) {
   const { db, workspace } = await coreContext(),
     query = await searchParams;
-  const [bs, rows, cs, targets, shared] = await Promise.all([
-    db
-      .select()
-      .from(brands)
-      .where(eq(brands.workspaceId, workspace.id))
-      .orderBy(asc(brands.createdAt)),
-    db
-      .select({ post: posts, brand: brands })
-      .from(posts)
+  const scope = and(eq(brands.workspaceId, workspace.id), query.brand ? eq(brands.id, query.brand) : undefined);
+  const week = (column: typeof posts.scheduledAt | typeof postTargets.publishedAt | typeof postTargets.updatedAt) =>
+    sql`(${column} AT TIME ZONE ${brands.timezone}) >= date_trunc('week', now() AT TIME ZONE ${brands.timezone}) AND (${column} AT TIME ZONE ${brands.timezone}) < date_trunc('week', now() AT TIME ZONE ${brands.timezone}) + interval '7 days'`;
+  const [bs, next, awaiting, cs, shared, [onboarding], [counts]] = await Promise.all([
+    db.select().from(brands).where(eq(brands.workspaceId, workspace.id)).orderBy(asc(brands.createdAt)),
+    db.select({post: posts, brand: brands}).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
+      .where(and(scope, inArray(posts.status, ['scheduled', 'approved']), gt(posts.scheduledAt, new Date())))
+      .orderBy(asc(posts.scheduledAt), asc(posts.id)).limit(5),
+    db.select({post: posts, brand: brands}).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
+      .where(and(scope, eq(posts.status, 'pending_approval'))).orderBy(asc(posts.createdAt), asc(posts.id)).limit(10),
+    db.select({id: channels.id, brandId: channels.brandId, provider: channels.provider, name: channels.displayName, status: channels.status, brand: brands.name})
+      .from(channels).innerJoin(brands, eq(channels.brandId, brands.id)).where(eq(brands.workspaceId, workspace.id)),
+    db.select({id: postEvents.id}).from(postEvents).innerJoin(posts, eq(postEvents.postId, posts.id))
       .innerJoin(brands, eq(posts.brandId, brands.id))
-      .where(eq(brands.workspaceId, workspace.id)),
-    db
-      .select({
-        id: channels.id,
-        brandId: channels.brandId,
-        provider: channels.provider,
-        name: channels.displayName,
-        status: channels.status,
-        brand: brands.name,
-      })
-      .from(channels)
-      .innerJoin(brands, eq(channels.brandId, brands.id))
-      .where(eq(brands.workspaceId, workspace.id)),
-    db
-      .select({
-        target: postTargets,
-        postId: posts.id,
-        brandId: brands.id,
-        brand: brands.name,
-        channel: channels.displayName,
-        provider: channels.provider,
-      })
-      .from(postTargets)
-      .innerJoin(posts, eq(postTargets.postId, posts.id))
-      .innerJoin(brands, eq(posts.brandId, brands.id))
-      .innerJoin(channels, eq(postTargets.channelId, channels.id))
-      .where(eq(brands.workspaceId, workspace.id)),
-    db
-      .select({ id: postEvents.id })
-      .from(postEvents)
-      .innerJoin(posts, eq(postEvents.postId, posts.id))
-      .innerJoin(brands, eq(posts.brandId, brands.id))
-      .where(
-        and(
-          eq(brands.workspaceId, workspace.id),
-          eq(postEvents.type, "approval_link_copied"),
-        ),
-      )
-      .limit(1),
+      .where(and(eq(brands.workspaceId, workspace.id), eq(postEvents.type, 'approval_link_copied'))).limit(1),
+    db.select({scheduled: sql<boolean>`coalesce(bool_or(${posts.scheduledAt} is not null and ${posts.status} <> 'draft'), false)`,
+      awaiting: sql<boolean>`coalesce(bool_or(${posts.status} = 'pending_approval'), false)`})
+      .from(posts).innerJoin(brands, eq(posts.brandId, brands.id)).where(eq(brands.workspaceId, workspace.id)),
+    db.select({
+      scheduled: sql<number>`count(*) filter (where ${posts.status} in ('scheduled', 'approved') and ${week(posts.scheduledAt)})`.mapWith(Number),
+      published: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'published' and ${week(postTargets.publishedAt)}))`.mapWith(Number),
+      failed: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'failed' and ${week(postTargets.updatedAt)}))`.mapWith(Number),
+    }).from(posts).innerJoin(brands, eq(posts.brandId, brands.id)).where(scope),
+  ]);
+  const targetQuery = () => db.select({target: postTargets, postId: posts.id, brandId: brands.id, brand: brands.name, channel: channels.displayName, provider: channels.provider})
+    .from(postTargets).innerJoin(posts, eq(postTargets.postId, posts.id)).innerJoin(brands, eq(posts.brandId, brands.id)).innerJoin(channels, eq(postTargets.channelId, channels.id));
+  const [targets, attention] = await Promise.all([
+    next.length ? targetQuery().where(and(scope, inArray(posts.id, next.map(r => r.post.id)))) : Promise.resolve([]),
+    targetQuery().where(and(scope, inArray(postTargets.status, ['failed', 'needs_review', 'held'])))
+      .orderBy(asc(postTargets.updatedAt), asc(postTargets.id)).limit(10),
   ]);
   const access = await workspaceEntitlements(workspace);
   const brandUrl = bs[0] ? `/app/brands/${bs[0].id}#connect` : "/app/brands";
@@ -87,7 +68,7 @@ export default async function Overview({
     {
       title: "Schedule your first post",
       benefit: "Choose a time and let SocialMint handle the publishing.",
-      done: rows.some((r) => !!r.post.scheduledAt && r.post.status !== "draft"),
+      done: onboarding.scheduled,
       href: "/app/posts/new",
       action: "Schedule post",
     },
@@ -96,73 +77,18 @@ export default async function Overview({
       benefit:
         "Copy a client approval link, then send it for feedback without a login. Included with Agency.",
       done: shared.length > 0,
-      href: !access.approvalLinks ? "/app/billing" : rows.find((r) => r.post.status === "pending_approval")
+      href: !access.approvalLinks ? "/app/billing" : onboarding.awaiting
         ? "#awaiting-approval"
         : "/app/posts/new",
       action: access.approvalLinks ? "Prepare approval link" : "Included with Agency — upgrade",
     },
   ];
   const completed = steps.filter((s) => s.done).length;
-  const visible = rows.filter(
-    (r) => !query.brand || r.brand.id === query.brand,
-  );
-  const next = visible
-    .filter(
-      (r) =>
-        ["scheduled", "approved"].includes(r.post.status) &&
-        r.post.scheduledAt &&
-        r.post.scheduledAt > new Date(),
-    )
-    .sort((a, b) => +a.post.scheduledAt! - +b.post.scheduledAt!)
-    .slice(0, 5);
-  const attention = targets.filter(
-    (r) =>
-      (!query.brand || r.brandId === query.brand) &&
-      ["failed", "needs_review", "held"].includes(r.target.status),
-  );
   const expired = cs.filter(
     (c) =>
       (!query.brand || c.brandId === query.brand) &&
       c.status === "token_expired",
   );
-  const awaiting = visible.filter((r) => r.post.status === "pending_approval");
-  function thisWeek(date: Date | null, timezone: string) {
-    if (!date) return false;
-    const today = new Date(
-      inZone(new Date(), timezone).slice(0, 10) + "T12:00:00Z",
-    );
-    today.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
-    const end = new Date(today);
-    end.setUTCDate(end.getUTCDate() + 7);
-    const day = inZone(date, timezone).slice(0, 10);
-    return (
-      day >= today.toISOString().slice(0, 10) &&
-      day < end.toISOString().slice(0, 10)
-    );
-  }
-  const counts = {
-    scheduled: visible.filter(
-      (r) =>
-        ["scheduled", "approved"].includes(r.post.status) &&
-        thisWeek(r.post.scheduledAt, r.brand.timezone),
-    ).length,
-    published: visible.filter((r) =>
-      targets.some(
-        (t) =>
-          t.postId === r.post.id &&
-          t.target.status === "published" &&
-          thisWeek(t.target.publishedAt, r.brand.timezone),
-      ),
-    ).length,
-    failed: visible.filter((r) =>
-      targets.some(
-        (t) =>
-          t.postId === r.post.id &&
-          t.target.status === "failed" &&
-          thisWeek(t.target.updatedAt, r.brand.timezone),
-      ),
-    ).length,
-  };
   const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL;
   return (
     <>
@@ -250,7 +176,7 @@ export default async function Overview({
           {Object.entries(counts).map(([label, n]) => (
             <Card key={label} className="!p-4">
               <p className="text-3xl font-semibold">{n}</p>
-              <p className="mt-1 text-sm capitalize">{label}</p>
+              <p className="mt-1 text-sm">{statusLabel(label)}</p>
             </Card>
           ))}
         </div>
@@ -305,6 +231,7 @@ export default async function Overview({
         </Card>
         <Card>
           <h2>Needs attention</h2>
+          <p className="text-sm text-zinc-600">Up to 10 channel issues shown. <Link className="underline" href="/app/posts">View all posts</Link></p>
           <Link href="/app/channels" className="text-emerald-700 underline">Review channel health</Link>
           <ul className="divide-y divide-zinc-200">
             {expired.map((c) => (
@@ -356,6 +283,7 @@ export default async function Overview({
       </div>
       <Card id="awaiting-approval">
         <h2>Awaiting approval</h2>
+        <Link className="underline" href={"/app/posts?status=pending_approval" + (query.brand ? "&brand=" + encodeURIComponent(query.brand) : "")}>View all awaiting posts</Link>
         <div className="divide-y divide-zinc-200">
           {awaiting.map(({ post, brand }) => (
             <div key={post.id} className="space-y-3 py-4">

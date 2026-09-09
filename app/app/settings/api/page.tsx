@@ -1,3 +1,4 @@
+import {statusLabel} from "@/lib/status-label";
 import Link from 'next/link';
 import { desc, eq, and, isNull } from 'drizzle-orm';
 import { coreContext } from '@/lib/core';
@@ -28,9 +29,9 @@ export default async function ApiSettings() {
     <section className="space-y-4"><h2 className="text-xl font-bold">Webhook endpoints</h2><p>Use a public HTTPS URL. Save the signing secret when creating an endpoint. Delivery is asynchronous; refresh this page for updates.</p>{allowed && <ApiForm kind="create_webhook"/>}
       {!endpoints.length && <p>No webhook endpoints yet.</p>}{endpoints.map(endpoint => <article className="space-y-2 rounded border p-4" key={endpoint.id}><h3 className="break-all font-bold">{endpoint.url}</h3><p>{endpoint.events.join(', ')}</p>{endpoint.active ? <>{allowed && <ApiForm kind="test_webhook" id={endpoint.id}/>}<ApiForm kind="disable_webhook" id={endpoint.id}/></> : <><p>Disabled</p>{allowed && <ApiForm kind="enable_webhook" id={endpoint.id}/>}</>}<ApiForm kind="delete_webhook" id={endpoint.id}/></article>)}</section>
     <section><h2 className="text-xl font-bold">Latest 20 deliveries</h2><ul className="space-y-3 md:hidden" aria-label="Delivery log">{deliveries.map(d => <li key={d.id} className="mt-3 space-y-2 rounded border p-4 text-sm">
-      <p className="font-semibold">{d.event}</p><p className="break-all">{d.url}</p>
-      <p>Status: {d.status} · Attempts: {d.attempts} · HTTP: {d.response ?? '—'}</p>{d.reason && <p>{d.reason}</p>}
+      <p className="font-semibold">{statusLabel(d.event)}</p><p className="break-all">{d.url}</p>
+      <p>Status: {statusLabel(d.status)} · Attempts: {d.attempts} · HTTP: {d.response ?? '—'}</p>{d.reason && <p>{d.reason}</p>}
       <p>Created: {d.createdAt.toISOString()}</p><p>Next attempt: {d.next?.toISOString() ?? '—'}</p>
-    </li>)}</ul><div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm"><thead><tr>{['Created', 'Endpoint', 'Event', 'Status', 'Attempts', 'HTTP', 'Next attempt'].map(h => <th className="p-2" key={h}>{h}</th>)}</tr></thead><tbody>{deliveries.map(d => <tr key={d.id}><td className="p-2">{d.createdAt.toISOString()}</td><td className="max-w-60 break-all p-2">{d.url}</td><td>{d.event}</td><td>{d.status}{d.reason && <p>{d.reason}</p>}</td><td>{d.attempts}</td><td>{d.response ?? '—'}</td><td>{d.next?.toISOString() ?? '—'}</td></tr>)}</tbody></table></div>{!deliveries.length && <p>No deliveries yet.</p>}</section>
+    </li>)}</ul><div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm"><thead><tr>{['Created', 'Endpoint', 'Event', 'Status', 'Attempts', 'HTTP', 'Next attempt'].map(h => <th className="p-2" key={h}>{h}</th>)}</tr></thead><tbody>{deliveries.map(d => <tr key={d.id}><td className="p-2">{d.createdAt.toISOString()}</td><td className="max-w-60 break-all p-2">{d.url}</td><td>{statusLabel(d.event)}</td><td>{statusLabel(d.status)}{d.reason && <p>{d.reason}</p>}</td><td>{d.attempts}</td><td>{d.response ?? '—'}</td><td>{d.next?.toISOString() ?? '—'}</td></tr>)}</tbody></table></div>{!deliveries.length && <p>No deliveries yet.</p>}</section>
   </div>;
 }

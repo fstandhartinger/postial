@@ -6,7 +6,13 @@ import { appUrl, description, words } from "@/components/marketing/copy";
 import "./globals.css";
 import { SiteFrame } from "@/components/app/site-frame";
 const inter = localFont({
-  src: "../public/fonts/InterVariable.woff2",
+  src: [
+    { path: "../public/fonts/Inter-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/Inter-latin-500.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/Inter-latin-600.woff2", weight: "600", style: "normal" },
+    { path: "../public/fonts/Inter-latin-700.woff2", weight: "700", style: "normal" },
+  ],
+  preload: false,
   variable: "--font-inter",
   display: "swap",
 });

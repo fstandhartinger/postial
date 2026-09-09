@@ -1,4 +1,5 @@
 "use client";
+import { statusLabel } from "@/lib/status-label";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -229,7 +230,7 @@ export function BulkEditor({
                 ownership are checked again when saving.
               </p>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="bulk-table bulk-preview w-full text-left text-sm">
                   <thead>
                     <tr>
                       {[
@@ -257,11 +258,11 @@ export function BulkEditor({
                       ];
                       return (
                         <tr className="border-t" key={i}>
-                          <td className="p-2">{i + 1}</td>
-                          <td className="min-w-48 max-w-80 break-words p-2">
+                          <td data-label="Row" className="p-2">{i + 1}</td>
+                          <td data-label="Text" className="min-w-48 max-w-80 break-words p-2">
                             {r.text}
                           </td>
-                          <td className="p-2">
+                          <td data-label="Channels" className="p-2">
                             {r.channelIds
                               .map(
                                 (id) =>
@@ -269,14 +270,14 @@ export function BulkEditor({
                               )
                               .join(", ")}
                           </td>
-                          <td className="p-2">{r.scheduledAt}</td>
-                          <td className="max-w-48 break-all p-2">
+                          <td data-label="Date / time" className="p-2">{r.scheduledAt}</td>
+                          <td data-label="Image URL" className="max-w-48 break-all p-2">
                             {r.imageUrl || "—"}
                           </td>
-                          <td className="p-2">
+                          <td data-label="Approval" className="p-2">
                             {r.requiresApproval ? "Yes" : "No"}
                           </td>
-                          <td
+                          <td data-label="Validation"
                             className={
                               "min-w-48 p-2 " +
                               (errors.length
@@ -378,7 +379,7 @@ export function BulkEditor({
             .join(" · ") || "Choose dates to see your daily totals."}
         </p>
         <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-left" aria-label="Bulk posts editor">
+          <table className="bulk-table w-full text-left" aria-label="Bulk posts editor">
             <thead>
               <tr>
                 {[
@@ -436,7 +437,7 @@ export function BulkEditor({
                         className="text-emerald-700 underline"
                         href={`/app/posts/${r.result.id}`}
                       >
-                        {r.result.post_status} — Open post
+                        {statusLabel(r.result.post_status || "draft")} — Open post
                       </Link>
                     ) : (
                       <div className="mt-2 text-sm text-red-700">
@@ -447,7 +448,7 @@ export function BulkEditor({
                   </td>
                   <td className="min-w-44 p-3">
                     <fieldset disabled={!!r.result?.id || brand.readOnly}>
-                      <legend className="sr-only">
+                      <legend className="md:sr-only">
                         Channels for post {i + 1}
                       </legend>
                       {cs.map((c) => (

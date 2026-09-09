@@ -13,7 +13,7 @@ export function approvalDocument(post: PublicApproval | null, options: { error?:
   const content = !post ? `<section><h1>Page not found</h1><p>This page is unavailable.</p></section>` : `
     <header><p class="muted">Client review</p><h1>${escape(post.name)}</h1></header>
     <article aria-label="Social post"><p>${escape(post.body)}</p>
-    ${post.mediaUrls.map((url, i) => https(url) ? `<img src="?media=${i}" alt="Post image ${i + 1}" referrerpolicy="no-referrer" loading="lazy">` : "").join("")}
+    ${post.mediaUrls.map((url, i) => https(url) ? `<img src="?media=${i}" alt="${escape(post.mediaAlt[url]?.trim() || `Image ${i + 1} of ${post.mediaUrls.length}`)}" referrerpolicy="no-referrer" loading="lazy">` : "").join("")}
     ${https(post.linkUrl) ? `<a href="${escape(post.linkUrl)}" rel="noreferrer noopener" target="_blank">${escape(post.linkUrl)}</a>` : ""}
     <p class="muted">${post.scheduledAt ? `Scheduled for ${date(post.scheduledAt)} (${escape(post.timezone)})` : "No publishing time set"}</p>
     <p class="muted">${post.targets.map((t) => `${providers[t.provider]} · ${escape(t.name)}`).join("<br>")}</p></article>

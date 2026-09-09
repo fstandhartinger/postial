@@ -1,3 +1,4 @@
+import { FocusClearance } from "@/components/app/focus-clearance";
 import { headers } from 'next/headers';
 import { NotificationBell } from '@/components/app/notification-bell';
 import { TrialBanner } from '@/components/billing/TrialBanner';
@@ -103,7 +104,7 @@ export default async function AppLayout({
           {children}
         </main>
       </div>
-      <Navigation mobile />
+      <Navigation mobile /><FocusClearance />
       <NewPostLink mobile />
     </div>
   );

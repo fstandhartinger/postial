@@ -254,6 +254,7 @@ async function main() {
         "/home/flori/n8n-local/node_modules/playwright/index.mjs";
       const { chromium } = await import(modulePath);
       const browser = await chromium.launch({
+        executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome",
         headless: true,
         args: ["--no-sandbox"],
       });

@@ -621,3 +621,25 @@ Run `npx tsx scripts/verify-c7.ts`; optional C7_HTTP_URL adds built HTTP checks.
 The verifier uses synthetic fixtures, a mocked mail transport and mocked Stripe
 cancellation. Re-encryption is checked inside a rolled-back transaction so existing
 credentials never become dependent on a test key.
+
+
+### Cycle 8 performance and accessibility
+
+Inter is bundled as Latin WOFF2 in weights 400/500/600/700 with `font-display: swap`.
+Fonts load on demand; the marketing pages use 600 for emphasis and defer the
+interactive demo until it approaches the viewport. Marketing links do not prefetch.
+Regenerate the subsets from the retained, licensed source with
+`scripts/subset-inter.py` in a temporary Python environment with `fonttools[woff]`.
+
+Posts load 50 per page, preserving brand/status filters in pagination links.
+Calendar date/view are URL parameters; SQL returns only the displayed 42-day
+month grid or seven-day week using each brand's timezone. Overview counters are
+SQL aggregates; next-up, attention and approval previews have bounded sizes.
+Mobile keyboard targets reserve space for bottom navigation; bulk rows and CSV
+previews stack into cards below 768px. Public approvals render saved image alt text.
+
+`C8_HTTP_URL=http://localhost:4098 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs
+npx tsx scripts/verify-c8.ts` checks pagination, timezone boundaries, weekly counters,
+keyboard focus, mobile cards, alt escaping/fallback and axe with temporary DB fixtures.
+It needs the local test database, a built app with `WORKER_ENABLED=false`, and the
+axe-core path in the script (installed in the cycle-8 evidence folder).
