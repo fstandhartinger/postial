@@ -52,7 +52,19 @@ Docker copies the same assets into its standalone runtime root and runs node ser
 - `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_AGENCY`: required billing price identifiers exposed
   by `lib/plans.ts`; Starter €19/month, Agency €49/month, trial 14 days.
 - `NEXT_PUBLIC_APP_URL`: public canonical origin, reserved for integrations.
+- `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`: optional search-engine
+  ownership tokens. When set, Postial emits the corresponding Google
+  `google-site-verification` and Bing `msvalidate.01` meta tags in the root
+  document; blank values are ignored.
 - `REDIRECT_HOSTS`: comma-separated hostnames that redirect permanently to `NEXT_PUBLIC_APP_URL`; defaults to `www.postial.co,postial.net,www.postial.net`. `socialmint.app.mintapis.com` redirects only when `LEGACY_HOST_REDIRECT=1`.
+
+### SEO / Verification
+
+Set `GOOGLE_SITE_VERIFICATION` and/or `BING_SITE_VERIFICATION` in the runtime
+environment to verify the production site with Google Search Console and Bing
+Webmaster Tools. The values are server-only and are rendered as meta tags on
+the root document. Leave either variable empty when that provider is not being
+verified.
 
 Providers are enabled only when their complete configuration is present. With
 neither provider configured, `/login` renders a friendly message and disabled

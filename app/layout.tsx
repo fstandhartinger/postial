@@ -6,6 +6,19 @@ import { SignInNotice } from "@/components/marketing/SignInNotice";
 import { appUrl, description, words } from "@/components/marketing/copy";
 import "./globals.css";
 import { SiteFrame } from "@/components/app/site-frame";
+
+const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+const bingSiteVerification = process.env.BING_SITE_VERIFICATION?.trim();
+const verification: Metadata["verification"] =
+  googleSiteVerification || bingSiteVerification
+    ? {
+        ...(googleSiteVerification ? { google: googleSiteVerification } : {}),
+        ...(bingSiteVerification
+          ? { other: { "msvalidate.01": bingSiteVerification } }
+          : {}),
+      }
+    : undefined;
+
 const inter = localFont({
   src: [
     { path: "../public/fonts/Inter-latin-400.woff2", weight: "400", style: "normal" },
@@ -21,6 +34,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: { default: words("SEO", "<title>"), template: "%s · Postial" },
   description,
+  verification,
   openGraph: {
     type: "website",
     siteName: "Postial",
