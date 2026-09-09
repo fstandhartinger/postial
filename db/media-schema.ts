@@ -5,7 +5,7 @@ export const mediaAssets = pgTable('media_assets', {
   id: text('id').primaryKey(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, {onDelete:'cascade'}),
   brandId: uuid('brand_id').references(() => brands.id, {onDelete:'set null'}),
-  uploaderUserId: text('uploader_user_id').notNull().references(() => users.id, {onDelete:'cascade'}),
+  uploaderUserId: text('uploader_user_id').references(() => users.id, {onDelete:'set null'}),
   mime: text('mime').notNull(), bytes: integer('bytes').notNull(),
   width: integer('width').notNull(), height: integer('height').notNull(),
   sha256: text('sha256').notNull(), data: bytea('data').notNull(),

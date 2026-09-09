@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
@@ -22,7 +23,7 @@ async function main() {
   const db = getDb(),
     uid = crypto.randomUUID(),
     token = crypto.randomUUID();
-  const base = "http://localhost:3997",
+  const base = process.env.APPSHELL_HTTP_URL || "http://localhost:3997",
     evidence = "work/appshell-evidence";
   mkdirSync(evidence, { recursive: true });
   const browser = await chromium.launch({
@@ -327,7 +328,7 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await browser.close();
-    await db.delete(users).where(eq(users.id, uid));
+    await deleteFixtureUsers(db).where(eq(users.id, uid));
     await db.$client.end();
   }
 }

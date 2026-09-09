@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
@@ -84,7 +85,7 @@ async function main() {
     assert.equal(errors.length, 0);
     console.log('PASS E03/E10/E12 Playwright 390/1280: disabled publish/schedule with no channel, draft enabled, Starter approval disabled, onboarding upgrade, mobile cards/desktop table; no pageerrors or horizontal overflow');
   } finally {
-    await browser.close(); await db.delete(users).where(eq(users.id, uid));
+    await browser.close(); await deleteFixtureUsers(db).where(eq(users.id, uid));
     assert.equal((await db.select().from(users).where(eq(users.id, uid))).length, 0);
     console.log('PASS browser fixture cleanup');
   }

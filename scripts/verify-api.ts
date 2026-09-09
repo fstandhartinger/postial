@@ -1,7 +1,8 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import { createHmac, randomBytes } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { apiKeys, apiRateLimits, brands, channels, posts, postTargets, subscriptions, users, sessions, workspaceMembers, webhookDeliveries, webhookEndpoints, workspaces } from '../db/schema';
 import { createApiKey, hash } from '../lib/api/auth';
@@ -223,7 +224,9 @@ async function main() {
     const [deleted] = await db.select().from(webhookEndpoints).where(eq(webhookEndpoints.id, webhook.id)); assert(deleted.deletedAt); assert.equal(deleted.secretEnc, '');
     await assert.rejects(manageWebhook(workspace.id, webhook.id, 'enable'));
     const slow = await createWebhook(workspace.id, receiverUrl, ['post.failed']);
-    for (let i = 0; i < 10; i++) await sendTestEvent(workspace.id, slow.id);
+    // Dispatcher backlog fixture is not ten customer test-button requests.
+    await db.insert(webhookDeliveries).values(Array.from({length:10},()=>({endpointId:slow.id,event:'ping',payload:{id:crypto.randomUUID(),event:'ping',data:{test:true}}})));
+    await db.execute(sql`delete from request_rate_limits where key=${'webhook-test:'+workspace.id}`);
     receiverDelay = 6000; peak = 0;
     const budgetStart = performance.now(); await deliverWebhooksTick(); const budgetDuration = performance.now() - budgetStart;
     assert(peak <= 4); assert(budgetDuration < 10000, 'Ten-second dispatcher budget with bounded DB overhead');
@@ -287,7 +290,7 @@ async function main() {
     assert.equal((await request('/me', {}, readKey.token)).status, 403);
     console.log('PASS 60/min persistent limit, Retry-After, revocation and downgrade');
   } finally {
-    await db.delete(users).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
     await close(server); await close(receiver);
     const leftovers = await db.select().from(workspaces).where(eq(workspaces.ownerUserId, userId)); assert.equal(leftovers.length, 0);
     console.log('PASS fixture cleanup');

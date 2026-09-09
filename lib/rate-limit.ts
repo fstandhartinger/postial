@@ -1,3 +1,4 @@
+import ipaddr from 'ipaddr.js';
 import { getDb } from "@/db";
 import { apiRateLimits } from "@/db/schema";
 import { sql } from "drizzle-orm";
@@ -21,7 +22,7 @@ export async function sessionActionBudget(userId: string) {
 }
 export async function anonymousLimit(headers: Headers, path: string, limit: number) {
   const forwarded = process.env.APPROVAL_TRUST_PROXY === 'true' ? headers.get('x-real-ip') : null;
-  const ip = forwarded && isIP(forwarded) ? forwarded : 'untrusted-peer';
+  const ip = forwarded && isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'untrusted-peer';
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error('AUTH_SECRET is required');
   const key = createHmac('sha256', secret).update(ip).digest('hex');

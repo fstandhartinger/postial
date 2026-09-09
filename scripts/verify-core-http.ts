@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
@@ -45,7 +46,7 @@ async function main() {
       "PASS: five authenticated pages 200, anonymous pages 307, cron without secret 401",
     );
   } finally {
-    await db.delete(users).where(eq(users.id, id));
+    await deleteFixtureUsers(db).where(eq(users.id, id));
     await db.$client.end();
   }
 }

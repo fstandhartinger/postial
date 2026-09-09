@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import { mock } from 'node:test';
@@ -74,7 +75,7 @@ async function main() {
     const uploaded = await upload(png); assert.equal(uploaded.status,201); const asset = await uploaded.json();
     assert.equal(asset.id.length,43); assert.equal(asset.width,1); assert.equal(asset.height,1); assert(asset.bytes > 0);
     const get = await fetch(asset.url); assert.equal(get.status,200); assert.equal(get.headers.get('content-type'),'image/png');
-    assert.equal(get.headers.get('cache-control'),'public, max-age=31536000, immutable'); assert.equal(get.headers.get('x-content-type-options'),'nosniff');
+    assert.equal(get.headers.get('cache-control'),'private, no-store, max-age=0'); assert.equal(get.headers.get('x-content-type-options'),'nosniff');
     const stored = Buffer.from(await get.arrayBuffer());
     assert.deepEqual(await sharp(stored).raw().toBuffer(),await sharp(png).raw().toBuffer());
     const select = db.select.bind(db);
@@ -89,7 +90,7 @@ async function main() {
     assert.equal((await upload(gif)).status,422);
     const validGif = await sharp(png).gif().toBuffer();
     assert.deepEqual((await normalizeImage(validGif)).data,validGif);
-    const manyFrames = await sharp(randomBytes(201*3),{raw:{width:1,height:201,channels:3,pageHeight:1}}).gif({delay:Array(201).fill(100)}).toBuffer();
+    const manyFrames = await sharp(randomBytes(201*3),{raw:{width:1,height:201,channels:3,pageHeight:1}}).gif({delay:Array(201).fill(100),keepDuplicateFrames:true}).toBuffer();
     await assert.rejects(normalizeImage(manyFrames));
     const frameBomb = await sharp({create:{width:5000,height:15000,pageHeight:5000,channels:3,background:'#fff'}}).gif({delay:[100,100,100],keepDuplicateFrames:true}).toBuffer();
     await assert.rejects(normalizeImage(frameBomb));
@@ -201,15 +202,15 @@ async function main() {
       }
     } finally { await browser.close(); }
     assert.equal((await fetch(base+'/api/media/'+asset.id,{method:'DELETE',headers:cookie})).status,204);
-    assert.equal((await fetch(asset.url,{cache:'no-store'})).status,404);
+    assert.equal((await fetch(asset.url,{cache:'no-store'})).status,410);
     // Exhaust the per-process budget with rejected uploads; no additional stored images.
     let limited:Response|undefined;
     for(let i=0;i<31;i++) { limited = await upload(Buffer.from('invalid')); if(limited.status === 429) break; }
     assert.equal(limited?.status,429); assert(Number(limited?.headers.get('retry-after')) > 0);
     console.log('PASS Playwright 390/1280 upload/thumbnail/removal/no overflow, deletion, 30/minute limit');
   } finally {
-    await db.delete(users).where(eq(users.id,userId)); await db.delete(users).where(eq(users.id,foreignId));
+    await deleteFixtureUsers(db).where(eq(users.id,userId)); await deleteFixtureUsers(db).where(eq(users.id,foreignId));
     console.log('PASS fixture cleanup');
   }
 }
-main().then(() => process.exit(0)).catch(e => {console.error('FAIL',e instanceof Error ? e.message.replace(/sm_live_[\w-]+/g,'[redacted]') : 'unknown');process.exit(1);});
+main().then(() => process.exit(0)).catch(e => {console.error('FAIL location',e instanceof Error?e.stack?.split('\n').filter(l=>l.trim().startsWith('at ')).slice(0,4):[]);console.error('FAIL',e instanceof Error ? e.message.replace(/sm_live_[\w-]+/g,'[redacted]') : 'unknown');process.exit(1);});

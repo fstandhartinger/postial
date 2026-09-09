@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
@@ -97,6 +98,6 @@ async function main() {
     assert.equal(pageErrors, 0);
     writeFileSync(evidence + '/browser-results.json', JSON.stringify({ mobileAgendaDays: 1, desktopColumns: 7, externalImageLoaded: true, providerAndValuesPreserved: true, secretPreservedAfterError: true, warningsVisible: true, inactiveDraftAllowed: true, retryGatedAndManualReset: true, redirectPathsPreserved: 5, expiredSessionPathPreserved: true, pageErrors }, null, 2));
     console.log('PASS: 390px agenda, 7 desktop columns, external-image CSP, connect-error state, warnings, canceled billing/drafts/retry, 5 exact login destinations');
-  } finally { await browser.close(); await db.delete(users).where(eq(users.id, uid)); await db.$client.end(); }
+  } finally { await browser.close(); await deleteFixtureUsers(db).where(eq(users.id, uid)); await db.$client.end(); }
 }
 main().catch(error => { console.error('Browser verification failed', error.name, error.message); process.exitCode = 1; });

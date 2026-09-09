@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../db';
@@ -47,6 +48,6 @@ async function main() {
     const [target]=await db.select().from(postTargets).where(eq(postTargets.postId,copyId));assert.equal(target.channelId,cs[0].id);assert.equal(target.attempts,0);assert.equal(target.remoteId,null);assert.equal(target.nextAttemptAt,null);
     await assert.rejects(duplicatePost({db,workspace:{id:crypto.randomUUID()},userId},source.id));
     await verifyRetention(); console.log('Pilot: health auth/24h/budget/disconnected, approval groups/filter/decision, duplicate fields/draft/tenancy passed');
-  } finally {await db.delete(users).where(eq(users.id,userId));}
+  } finally {await deleteFixtureUsers(db).where(eq(users.id,userId));}
 }
 main().then(()=>process.exit(0)).catch(()=>{console.error('Pilot verification failed');process.exit(1);});

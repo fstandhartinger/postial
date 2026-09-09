@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
@@ -364,7 +365,7 @@ async function main() {
       );
     }
   } finally {
-    await db.delete(users).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
   }
 }
 main()

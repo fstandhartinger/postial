@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -79,6 +80,6 @@ async function main() {
     for (let i = 6; i < 10; i++) await manageTeam(ws.id, owner, 'create');
     await assert.rejects(manageTeam(ws.id, owner, 'create'), /Invite limit/);
     console.log('PASS team: browser join, editor billing 403, settings guards, roles, seats, expiry, revocation, removal, last owner, rate limit, workspace cookie/context, 390/1280 screenshots');
-  } finally { await browser?.close(); await db.delete(users).where(inArray(users.id, [owner, editor, other])); await db.$client.end(); }
+  } finally { await browser?.close(); await deleteFixtureUsers(db).where(inArray(users.id, [owner, editor, other])); await db.$client.end(); }
 }
 main().catch(e => { console.error(e instanceof Error ? e.message : 'Team verification failed'); process.exitCode = 1; });

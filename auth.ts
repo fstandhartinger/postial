@@ -1,3 +1,4 @@
+import { normalizeEmail } from '@/lib/auth-email';
 import { identityOnlyAdapter } from '@/lib/auth-adapter';
 import NextAuth from "next-auth";
 import type { Adapter } from "next-auth/adapters";
@@ -28,7 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
     pages: { signIn: "/login", error: "/login", verifyRequest: "/login?sent=1" },
     providers: [
       ...(enabled.google ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []),
-      ...(enabled.email ? [Nodemailer({ server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
+      ...(enabled.email ? [Nodemailer({ normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
     logger: { error() { console.error("Authentication request failed"); } },

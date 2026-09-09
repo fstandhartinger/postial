@@ -42,7 +42,7 @@ Docker copies the same assets into its standalone runtime root and runs node ser
 - `AUTH_SECRET`: strong random session/authentication secret, required for auth.
 - `AUTH_URL`: canonical app origin; production: https://socialmint.app.mintapis.com.
 - `AUTH_TRUST_HOST`: set to `true` behind the trusted hosting proxy; Auth.js is
-  explicitly configured with `trustHost: true`.
+  configured with `trustHost` only when `AUTH_TRUST_HOST=true`.
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: both enable Google OAuth. Register
   `/api/auth/callback/google` on the app origin as the provider callback URL.
 - `SMTP_URL`, `EMAIL_FROM`: both enable Nodemailer magic links. Links return via
@@ -122,7 +122,7 @@ Run `npm run db:migrate` before serving traffic. Both schema files are included
 in Drizzle discovery. Unique workspace/customer/subscription constraints,
 transactional advisory locks and `stripe_processed_events` make updates
 idempotent. `stripe_billing_state` persists Checkout and the fixed past-due grace
-start, with cascading workspace cleanup. The Node webhook reads `request.text()`,
+start, with cascading workspace cleanup. The Node webhook reads bounded raw bytes (512 KiB, 10-second deadline),
 verifies the Stripe signature, ignores unknown events with 200, and fetches the
 latest subscription outside transactions, then checks the local revision under
 the workspace lock before upserting (retrying on concurrent changes).
@@ -152,10 +152,7 @@ Set NEXT_PUBLIC_APP_URL and AUTH_URL to `http://localhost:3992`.
 - Start the built application with `PORT=3992 npm start`, then run
   `npx tsx scripts/verify-billing.ts`: anonymous 401, protected page redirect,
   authenticated Checkout and Portal URLs, reusable Checkout, correct redirects,
-  paid restart without a second trial, shared 429/Retry-After, and cross-origin 403. This explicitly creates a temporary Stripe customer and
-  an uncompleted Checkout, expires the session, deletes the customer and database
-  fixtures. It never follows Checkout or creates a payment. Use LIVE only with
-  explicit authorization; use sandbox for ordinary development.
+  paid restart without a second trial, shared 429/Retry-After, and cross-origin 403. The verifier uses a mocked Stripe SDK with the real handlers and DB sessions, plus the running app for pages. No Stripe customer, provider login or payment is created.
 - In a Stripe sandbox, complete Checkout and test trial expiry, plan changes,
   cancellation, failed invoices and recovery through real delivered webhooks.
   Payment lifecycle testing is separate from the non-purchasing LIVE smoke test.
@@ -170,11 +167,8 @@ Retired subscription IDs prevent late events from replacing a newer contract.
 Checkout uses a ten-minute persistent lease, short DB writes and targeted Stripe
 customer metadata search. The customer mapping is saved before Checkout creation.
 Checkout and Portal share a limit of five calls per user per minute (429 with
-Retry-After). This limit is in memory per process; use a shared store before
-running multiple replicas. Stripe requests time out after ten seconds per attempt.
-Startup warns about missing configuration by variable name only. `/healthz`
-remains database liveness, not auth/billing feature readiness. Anonymous protected
-pages redirect before adapter/database access, including without DATABASE_URL.
+Retry-After). This limit is atomic in PostgreSQL and shared across replicas. Stripe requests time out after ten seconds per attempt.
+Startup fails on missing DATABASE_URL, AUTH_SECRET, CRON_SECRET or encryption keys, invalid keys or conflicting canonical origins. Builds remain secret-free. `/healthz` checks migrations and worker progress as described below.
 Login retains validated internal `next` and starter/agency `plan` through both
 providers' Auth.js callbackUrl; the continuation page starts a same-origin POST.
 Security headers apply centrally; inline scripts/styles support Next's renderer.
@@ -209,8 +203,7 @@ only creates uncompleted Checkout sessions and deletes the temporary customers.
 post status/history with retry and skip controls, and month/week calendars.
 Starter supports 3 brands, Agency 15; without an active subscription/trial the
 Starter limit applies. Credentials are AES-256-GCM encrypted at rest using
-`APP_ENCRYPTION_KEY` (base64, exactly 32 random bytes). Preserve this key across
-restarts; replacing it requires reconnecting channels. Never expose it publicly.
+`APP_ENCRYPTION_KEY(S)` (base64, exactly 32 random bytes per key). Preserve read keys across restarts and rotate with the versioned keyring described below. Never expose keys publicly.
 Reconnecting the same provider account updates its existing channel credentials.
 
 The composer validates channel ownership, provider text limits, four HTTPS media
@@ -275,7 +268,7 @@ Outbound production requests use the existing DNS-pinned SSRF-safe fetcher and
 never follow POST redirects. Receivers must verify the raw bytes, enforce a
 five-minute timestamp tolerance, and deduplicate payload.id. Approval event data contains only post_id, brand_id, decision, decided_at, has_comment and post_url. GET /api/v1/posts/{id} exposes authorized approvals[] history. Migration 0007 removes historical outbox names/comments. Disable pauses deliveries; Enable resumes them; Delete cancels open deliveries and removes signing credentials while retaining logs. Entitlement pauses consume no attempts and resume automatically. Requests already in flight may reach the receiver. Logs retain safe
 HTTP status only. API settings show the latest 20 deliveries. Expired idempotency
-records are removed by the tick; provision retention for long-term delivery logs.
+records are removed by the tick; webhook deliveries are deleted after 30 days by daily retention.
 
 Validation: `npx tsx scripts/verify-api.ts` uses isolated database fixtures and a
 local HTTP receiver, checks route handlers over HTTP, auth, scopes, tenancy,
@@ -310,7 +303,7 @@ the same SSRF checks as the UI apply. Ten non-deleted endpoints per workspace
 
 Post detail includes `approvals[]` with decision, reviewer_name, comment and
 created_at (`decided_at` retained for compatibility). When requires_approval is
-true, `approval_url` contains the link, or null for a draft without a token.
+true and the key also has `posts:write`, `approval_url` contains the link, or null for a draft without a token. Keys with only `posts:read` receive status/history without an approval URL.
 The docs include registration, every event payload and Node signature verification.
 n8n community node: n8n-nodes-socialmint (coming to npm).
 
@@ -329,7 +322,7 @@ All temporary database fixtures were removed by the verifier.
 The composer accepts drag-and-drop and file selection with progress, thumbnails and
 removal, alongside external HTTPS URLs. Uploads are public capability URLs; anyone
 with the URL can view the image. Removing a thumbnail only detaches it from the
-post. Unused uploads remain until explicitly deleted; automatic retention is future work.
+post. Unreferenced uploads older than 30 days are deleted by the daily retention job.
 
 `POST /api/media` accepts a session-authenticated multipart `file` and optional
 `brand_id`. `POST /api/v1/media` requires Agency API scope `posts:write` and accepts
@@ -343,13 +336,12 @@ pixels across frames. Each frame/still image is limited to 25 megapixels. Input
 and output are at most 5 MiB; output quality is reduced if needed, or rejected with
 422. Damaged/incomplete images and appended payloads are rejected. Four images per post. Workspace storage: Starter 200 MiB; active Agency 2 GiB. Oversize
 returns 413, invalid images/exhausted storage return 422. Uploads have a 30/minute
-per-user/workspace process budget (use shared storage before multiple replicas);
+per-user/workspace PostgreSQL budget shared across replicas;
 API keys additionally retain their persistent API budget.
 
 Postgres `media_assets` stores the normalized bytes (validated original bytes for GIF) (`bytea`). Set
 `NEXT_PUBLIC_APP_URL` to the public HTTPS origin. `GET /m/{id}` is unauthenticated,
-with 256-bit random IDs, immutable one-year caching, ETag and nosniff. Never reuse
-IDs. `DELETE /api/media/{id}` requires a session in the owning workspace and
+with 256-bit random IDs, private/no-store caching, ETag and nosniff. Never reuse IDs. Deleted IDs return 410 using minimal tombstones. Copies previously cached under the old one-year policy cannot be recalled. `DELETE /api/media/{id}` requires a session in the owning workspace and
 rejects assets referenced by any post (422); other workspaces receive 404.
 Post creation and deletion serialize asset checks to prevent dangling references.
 Provider downloads retain DNS validation and connection pinning, including our
@@ -528,3 +520,104 @@ the complete response for 24 hours; changed payloads return 409. The existing
 Agency API access and posts:write scope apply. No schema migration is needed.
 Run `npx tsx scripts/verify-bulk.ts`; set BULK_BROWSER_URL to a local built app
 for Playwright checks and screenshots in `work/bulk-evidence/`.
+
+
+## Runtime safeguards (cycle 7)
+
+Required at startup: DATABASE_URL, AUTH_SECRET, CRON_SECRET and a valid
+APP_ENCRYPTION_KEY or APP_ENCRYPTION_KEYS. At least one canonical origin is required;
+APP_URL, AUTH_URL and NEXT_PUBLIC_APP_URL must agree when set. Production origins
+must use HTTPS (literal local test hosts may use HTTP). Optional Google/SMTP/Stripe
+features remain gated by their own configuration; health is not a provider-login test.
+AUTH_TRUST_HOST=true is valid only behind a proxy that overwrites Host/forwarded
+headers. APPROVAL_TRUST_PROXY=true additionally trusts overwritten X-Real-IP for
+anonymous limits. Without it, requests share the conservative untrusted-peer bucket.
+Never expose the app port around that proxy.
+
+`/healthz` keeps `{ok,db,version}` and adds `migrations:{applied,latest}` and
+`worker:{lastTickAt,ageSeconds,expected}`. It uses the shared five-connection client,
+a two-second response deadline and 60 requests/minute/IP. Readiness is 503 on missing
+migrations or a worker without a successful tick for more than five minutes. The
+initial five-minute window starts at process startup. WORKER_ENABLED=false explicitly
+disables the in-process worker and its stale-tick requirement for web-only replicas.
+Coolify's existing GET /healthz healthcheck remains valid.
+
+Central `lib/http/body.ts` caps raw Stripe bodies at 512 KiB, ordinary JSON/forms at
+64 KiB, bulk at 2 MiB and upload bytes at the existing 5 MiB plus encoding overhead.
+Content-Length is checked before reading and the real stream is capped with a
+10-second deadline. Server Actions pass the same pre-parser proxy checks (bulk path
+2 MiB; others 64 KiB); Next's additional action limit is 2 MiB. Anonymous budgets in
+PostgreSQL: /r/* 60/min, /m/* 300/min, /join/* 30/min and /healthz 60/min per IP.
+Session actions share 120/min/user, uploads 30/min/user/workspace, billing 5/min/user,
+webhook tests 10/hour/workspace, API calls 60/min/key. A workspace may have at most
+20 active API keys; revoke a key before creating another. Concurrent creates lock
+the workspace. Revoked key history is retained until creator/workspace deletion.
+
+Per publishing tick at most 10 due targets are claimed, with at most five channel
+health checks. Health claims and fenced results use short transactions; provider I/O
+runs outside them. Webhook dispatch has a 10-second budget, at most 10 claims and four
+concurrent requests across its small batches. These are
+processing bounds, not an unlimited-throughput guarantee or a total stored-post
+quota. Admission is controlled by the request budgets and plan/storage limits.
+
+## Key rotation
+
+All new ciphertext uses `v1:<keyId>:<iv>:<ct>:<tag>` (AES-256-GCM, authenticated
+version/key ID). Set `APP_ENCRYPTION_KEYS=id1:base64,id2:base64`; the first entry is
+the write key, all entries are read keys. The existing APP_ENCRYPTION_KEY remains
+readable as k0, including legacy `iv.tag.ct` records. Without a ring, k0 writes v1.
+Never reuse an ID for a different key. Keep keys in the secret vault separately
+from ciphertext backups.
+
+1. Take a predeploy dump and securely preserve the existing keyring.
+2. Deploy the new first/write key followed by all previous read keys, keeping the
+   legacy APP_ENCRYPTION_KEY until legacy records have been migrated.
+3. Export the same runtime environment privately and run `npx tsx scripts/reencrypt.ts`
+   from a dependency-installed checkout (tsx is a development runner, not included
+   in the runtime image). Channels, API/alert webhook secrets and OAuth verifiers
+   are rewritten in one transaction. The command logs counts only, is idempotent,
+   serializes rotations and rolls back completely if any ciphertext is unreadable.
+4. Verify channels/webhooks and retain old keys for the entire backup rollback
+   window. Remove old read keys only when neither live records nor retained backups
+   need them. On failure retain the full ring, investigate privately and retry.
+   Never remove an old key merely because a new image is healthy.
+
+## Data lifecycle and release operations
+
+Owners can export or delete a workspace and transfer ownership at
+/app/settings/workspace. Account deletion is at /app/settings/account and blocks
+last owners. Posts/media survive account deletion with anonymous creator IDs;
+workspace deletion cancels Stripe without proration, expires open checkouts and
+cascades workspace data. See [offboarding runbook](docs/offboarding.md) and
+[migration/rollback contract](docs/migrations.md). Identity-provider access, refresh
+and ID tokens are discarded by the adapter; migration 0014 clears existing tokens.
+
+Daily guarded retention: unused media 30 days, webhook deliveries 30 days,
+notifications 90 days, rate windows expired for one day, invites consumed/revoked/
+expired for 30 days, OAuth states expired for one day, offboarding events 90 days.
+Post/approval history lasts until post/workspace deletion. Media/deleted-workspace
+markers keep random IDs and timestamps for revocation. Public media is a capability:
+anyone with its URL can fetch it, and network/previous cache copies may outlive deletion.
+
+Observed 2026-09-09 in the SocialMint Coolify container: Docker json-file logs,
+max-size=10m and max-file=3 (approximately 30 MB/container, not 30 days). Proxy and
+build-log time retention were not verified. The existing host backup job keeps two
+successful dumps per database; predeploy dumps are manually retained through release
+acceptance. No verified offsite copy of the host SocialMint DB is claimed. Restore
+procedures and evidence live in the venture ops/ directory.
+
+Dependency decision rechecked 2026-09-09: Nodemailer 10.0.1 is latest; next-auth beta.32
+and @auth/core 0.41.3 permit only ^7.0.7 or ^8.0.5. No supported override reaches the
+raw/content-resolver fixes (9.x+). Keep 8.0.11 without force; do not accept arbitrary
+mailer options. Auth.js's fixed sendVerificationRequest supplies only to/from/subject/
+text/html, never raw or resolveContent. A bounded strict normalizeIdentifier runs
+before address parsing, and verify-c7 sends the actual fixed message through a mocked
+transport, without a login or email delivery. Audit risks remain in that dependency
+chain until its peer range supports a patched version. Sources: [Auth.js peer range](https://github.com/nextauthjs/next-auth/blob/main/packages/next-auth/package.json),
+[Nodemailer advisory](https://github.com/advisories/GHSA-p6gq-j5cr-w38f).
+Zod is an explicit production dependency.
+
+Run `npx tsx scripts/verify-c7.ts`; optional C7_HTTP_URL adds built HTTP checks.
+The verifier uses synthetic fixtures, a mocked mail transport and mocked Stripe
+cancellation. Re-encryption is checked inside a rolled-back transaction so existing
+credentials never become dependent on a test key.

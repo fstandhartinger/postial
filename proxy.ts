@@ -2,7 +2,8 @@ import { auth } from '@/auth';
 import { ensureWorkspace } from '@/lib/workspaces';
 import { NextRequest, NextResponse } from 'next/server';
 import { anonymousLimit } from '@/lib/rate-limit';
-import { readBody, JSON_LIMIT, BULK_LIMIT } from '@/lib/http/body';
+import { actionBodyLimit } from '@/lib/http/action-limit';
+import { readBody } from '@/lib/http/body';
 import { apiError } from '@/lib/api/errors';
 /** Applies before RSC/Server Action parsing, including non-FormData action arguments. */
 export async function proxy(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function proxy(request: NextRequest) {
       if (limited) return limited;
     }
     if (request.method === 'POST' && !request.nextUrl.pathname.startsWith('/api/media')) {
-      await readBody(request.clone(), request.nextUrl.pathname === '/app/posts/bulk' ? BULK_LIMIT : JSON_LIMIT);
+      await readBody(request.clone(), await actionBodyLimit(request));
     }
     const headers = new Headers(request.headers);
     headers.set('x-socialmint-path',request.nextUrl.pathname+request.nextUrl.search);

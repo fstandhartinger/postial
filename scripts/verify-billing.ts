@@ -1,3 +1,6 @@
+import './test-runtime';
+import { installBillingMock } from './billing-mock';
+import { deleteFixtureUsers } from './fixture-cleanup';
 // Creates only an uncompleted Checkout, Portal session and temporary customer.
 // Never follows the returned Stripe URLs or creates a subscription/payment.
 import assert from "node:assert/strict";
@@ -24,6 +27,7 @@ async function main() {
   await getDb().execute(sql`update request_rate_limits set expires_at=now()-interval '1 second' where key=${'billing:'+limitKey}`);
   assert.equal(await billingRateLimit(limitKey), 0);
   await getDb().execute(sql`delete from request_rate_limits where key=${'billing:'+limitKey}`);
+  const restoreFetch = await installBillingMock();
   const db = getDb(), client = stripe();
   const base = "http://localhost:3992";
   const userId = crypto.randomUUID(), token = crypto.randomUUID();
@@ -94,8 +98,8 @@ async function main() {
     assert.equal((await post('/api/stripe/checkout')).status, 200);
     const limited = await post('/api/stripe/portal');
     assert.equal(limited.status, 429); assert.ok(Number(limited.headers.get('Retry-After')) > 0);
-    console.log('PASS trial/restart: request trial 14/cancel vs absent, LIVE retrieve if_required vs always, trial metadata, canceled Restart plan, neutral banner, continuation page, shared 429/Retry-After, login whitelist and limiter reset');
-    console.log("PASS LIVE checkout/portal: anonymous 401, protected page 307, owner 200 Stripe URLs, retry reuses Checkout, redirects correct, cross-origin 403. No checkout completed.");
+    console.log('PASS trial/restart: request trial 14/cancel vs absent, mocked SDK retrieve if_required vs always, trial metadata, canceled Restart plan, neutral banner, continuation page, shared 429/Retry-After, login whitelist and limiter reset');
+    console.log("PASS mocked checkout/portal: anonymous 401, protected page 307, owner 200 Stripe URLs, retry reuses Checkout, redirects correct, cross-origin 403. No checkout completed.");
   } finally {
     // Recover customer mapping even when an assertion failed after provisioning.
     if (!customerId && workspaceId) {
@@ -111,7 +115,8 @@ async function main() {
       for (const session of open.data) await client.checkout.sessions.expire(session.id);
       assert.equal((await client.customers.del(customerId)).deleted, true);
     }
-    await db.delete(users).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
+    restoreFetch();
     await db.$client.end();
     console.log("Cleanup completed; last stage:", stage);
   }

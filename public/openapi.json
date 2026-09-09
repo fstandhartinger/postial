@@ -625,7 +625,7 @@
             }
           },
           "413": {
-            "description": "Request exceeds 512 KB",
+            "description": "Request exceeds 64 KiB",
             "content": {
               "application/json": {
                 "schema": {
@@ -1803,7 +1803,7 @@
       "post": {
         "operationId": "createBulkPosts",
         "summary": "Plan up to 200 posts with individual results",
-        "description": "Requires posts:write. Array of 1\u2013200 posts, at most one image per post and 512 KB per request. Each row uses composer validation; invalid rows do not prevent valid rows being saved. HTTP 200 returns zero-based results in input order, including errors. Idempotency-Key replays the exact result for 24 hours; changed input or reuse on another endpoint returns 409. Bulk editor is included on all plans; public API access retains the Agency requirement.",
+        "description": "Requires posts:write. Array of 1\u2013200 posts, at most one image per post and 2 MiB per request. Each row uses composer validation; invalid rows do not prevent valid rows being saved. HTTP 200 returns zero-based results in input order, including errors. Idempotency-Key replays the exact result for 24 hours; changed input or reuse on another endpoint returns 409. Bulk editor is included on all plans; public API access retains the Agency requirement.",
         "tags": [
           "API v1"
         ],
@@ -1899,7 +1899,7 @@
             }
           },
           "413": {
-            "description": "Request exceeds 512 KB",
+            "description": "Request exceeds 2 MiB",
             "content": {
               "application/json": {
                 "schema": {
@@ -2138,7 +2138,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "maxLength": 2048
           },
           "scheduled_at": {
             "type": [
@@ -2212,7 +2213,8 @@
           },
           "link_url": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "maxLength": 2048
           },
           "channel_ids": {
             "type": "array",
@@ -2439,7 +2441,7 @@
                   "null"
                 ],
                 "format": "uri",
-                "description": "Present when requires_approval; null for a draft without an approval token."
+                "description": "Decision capability. Included only for keys with posts:write; omitted entirely from posts:read-only responses. May be null for an approval draft without a token."
               }
             },
             "required": [
@@ -2461,7 +2463,7 @@
               "approval_url": {
                 "type": "string",
                 "format": "uri",
-                "description": "Returned when a scheduled post requires approval."
+                "description": "Decision capability. Included only for keys with posts:write; omitted entirely from posts:read-only responses. May be null for an approval draft without a token."
               }
             }
           }
@@ -2687,7 +2689,8 @@
           },
           "link_url": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "maxLength": 2048
           },
           "channel_ids": {
             "type": "array",

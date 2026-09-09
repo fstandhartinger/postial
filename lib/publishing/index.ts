@@ -1,3 +1,4 @@
+import { workerState } from './state';
 import { checkChannelHealth } from "./health";
 import { mediaRetentionTick } from "@/lib/media/retention";
 import { notifyWorkspace } from '@/lib/notifications';
@@ -280,5 +281,6 @@ export async function tick() {
   );
   await checkChannelHealth().catch(() => console.error("Channel health tick failed"));
   await mediaRetentionTick().catch(() => console.error("Media retention tick failed"));
+  workerState.lastTickAt = new Date().toISOString();
   return { claimed: claimed.length };
 }

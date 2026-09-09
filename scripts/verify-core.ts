@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db";
@@ -335,7 +336,7 @@ async function main() {
       );
     }
   } finally {
-    await db.delete(users).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
     await db.$client.end();
   }
 }

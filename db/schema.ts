@@ -68,7 +68,7 @@ export const workspaces = pgTable("workspaces", {
   slug: text("slug").notNull().unique(),
   ownerUserId: text("owner_user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "restrict" }),
   trialUsedAt: timestamp("trial_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -182,8 +182,7 @@ export const posts = pgTable("posts", {
     .notNull()
     .references(() => brands.id, { onDelete: "cascade" }),
   authorUserId: text("author_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "set null" }),
   body: text("body").notNull(),
   mediaAlt: jsonb("media_alt").$type<Record<string, string>>().notNull().default({}),
   mediaUrls: jsonb("media_urls").$type<string[]>().notNull().default([]),
@@ -366,3 +365,21 @@ export const networkWaitlist = pgTable("network_waitlist", {
   ipHash: text("ip_hash").notNull(),
   source: text("source").notNull(),
 }, table => [uniqueIndex("network_waitlist_network_email_unique").on(table.network, table.email), index("network_waitlist_ip_created_idx").on(table.ipHash, table.createdAt)]);
+
+export const requestRateLimits = pgTable('request_rate_limits', {
+  key:text('key').primaryKey(), attempts:integer('attempts').notNull().default(1),
+  expiresAt:timestamp('expires_at',{withTimezone:true}).notNull(),
+},t=>[index('request_rate_limits_expiry').on(t.expiresAt)]);
+// Deletion audit retains only random workspace identifiers, event kind and timestamp.
+export const offboardingEvents = pgTable('offboarding_events', {
+  id:uuid('id').defaultRandom().primaryKey(),workspaceId:uuid('workspace_id'),event:text('event').notNull(),
+  createdAt:timestamp('created_at',{withTimezone:true}).notNull().defaultNow(),
+});
+// Durable billing tombstone prevents late webhooks from resurrecting deleted workspaces.
+export const workspaceDeletions = pgTable('workspace_deletions', {
+  workspaceId:uuid('workspace_id').primaryKey(),startedAt:timestamp('started_at',{withTimezone:true}).notNull().defaultNow(),
+  completedAt:timestamp('completed_at',{withTimezone:true}),
+});
+export const mediaTombstones = pgTable('media_tombstones', {
+  id:text('id').primaryKey(),deletedAt:timestamp('deleted_at',{withTimezone:true}).notNull().defaultNow(),
+});

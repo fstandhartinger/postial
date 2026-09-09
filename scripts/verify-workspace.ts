@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
@@ -29,7 +30,7 @@ async function main() {
     assert.equal(await adapter.getSessionAndUser!(token), null);
     console.log("PASS: concurrent onboarding, owner membership, no unearned trial, database session lifecycle");
   } finally {
-    await db.delete(users).where(eq(users.id, id));
+    await deleteFixtureUsers(db).where(eq(users.id, id));
     await db.$client.end();
   }
 }

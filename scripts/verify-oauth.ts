@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 // Local HTTP + real PostgreSQL. All X/Meta endpoints are replaced by a loopback server.
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
@@ -52,7 +53,7 @@ async function main() {
   });
   let workspaceId: string | undefined;
   try {
-    appUrl = await listen(server); process.env.APP_URL = appUrl; process.env.AUTH_URL = appUrl;
+    appUrl = await listen(server); process.env.APP_URL = appUrl; process.env.AUTH_URL = appUrl; process.env.NEXT_PUBLIC_APP_URL = appUrl;
     await db.insert(users).values([{ id: userId, email: `${userId}@example.invalid` }, { id: foreignId, email: `${foreignId}@example.invalid` }]);
     const [workspace] = await db.insert(workspaces).values({ name: 'OAuth verification', slug: userId, ownerUserId: userId }).returning(); workspaceId = workspace.id;
     await db.insert(workspaceMembers).values({ workspaceId, userId, role: 'owner' });
@@ -138,7 +139,7 @@ async function main() {
     console.log('OAuth HTTP verification passed: session, origin, PKCE, encrypted channel, reconnect, single-use, expiry, provider/user binding, concurrent replay, worker refresh serialization, token_expired and production override guard.');
   } finally {
     if (workspaceId) await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
-    await db.delete(users).where(eq(users.id, userId)); await db.delete(users).where(eq(users.id, foreignId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId)); await deleteFixtureUsers(db).where(eq(users.id, foreignId));
     await close(server); await close(endpoint);
   }
 }

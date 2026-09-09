@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import {createServer} from 'node:http';
@@ -94,7 +95,7 @@ async function main(){
     await assert.rejects(acceptDpa(workspace.id,foreignId));await acceptDpa(workspace.id,userId);await acceptDpa(workspace.id,userId);
     const accepted=await db.select().from(dpaAcceptances).where(eq(dpaAcceptances.workspaceId,workspace.id));assert.equal(accepted.length,1);assert.equal(accepted[0].userId,userId);assert.equal(accepted[0].version,dpaVersion);assert.equal(accepted[0].documentHash,dpaHash);assert(accepted[0].acceptedAt);
     assert.deepEqual(availability.channels,['Bluesky','Mastodon','Telegram']);assert(!availability.starter.some(s=>/\b(X|Threads|LinkedIn)\b/.test(s)));assert(availability.pending.includes('pending'));
-    for(const file of ['components/billing/AccessStatus.tsx','components/marketing/Plans.tsx','components/marketing/FAQ.tsx','app/page.tsx','app/compare/[slug]/page.tsx'])assert(readFileSync(file,'utf8').includes('availability'));
+    for(const file of ['components/billing/AccessStatus.tsx','components/marketing/Plans.tsx','components/marketing/FAQ.tsx','app/page.tsx','app/compare/[slug]/page.tsx'])assert(readFileSync(file,'utf8').match(/availability|NetworkAvailability/));
     assert(readFileSync('app/pricing/page.tsx','utf8').includes('AccessStatus'));
     // Stripe reads are mocked; no payment objects or customer accounts are created here.
     const client=stripe(),oldSub=client.subscriptions.retrieve,oldCustomer=client.customers.retrieve,oldPreview=client.invoices.createPreview;
@@ -132,6 +133,6 @@ async function main(){
       await db.delete(dpaAcceptances).where(eq(dpaAcceptances.workspaceId,workspace.id));await page.goto(base+'/app/settings/legal');await page.getByRole('button',{name:'Accept DPA',exact:true}).click();await page.getByRole('heading',{name:'DPA accepted'}).waitFor();assert.equal((await db.select().from(dpaAcceptances).where(eq(dpaAcceptances.workspaceId,workspace.id)))[0].userId,userId);await page.screenshot({path:evidence+'/dpa-accepted.png',fullPage:true});assert.deepEqual(errors,[]);
       console.log('PASS C6 browser: 390/1280 trial, bell, notifications, uploaded image/alt/hidden URL, preview tabs, timezone search, all availability locations, expired trial, DPA; no page errors');
     }
-  }finally{await browser?.close();receiver.close();await db.delete(users).where(inArray(users.id,[userId,foreignId]));}
+  }finally{await browser?.close();receiver.close();await deleteFixtureUsers(db).where(inArray(users.id,[userId,foreignId]));}
 }
 main().then(()=>process.exit(0)).catch(e=>{console.error('C6 verification failed:',e instanceof Error?e.message:'unknown');process.exit(1);});

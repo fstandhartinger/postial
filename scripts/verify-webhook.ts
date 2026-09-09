@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 // Exercises the actual route over HTTP with real PostgreSQL and signed raw bodies.
 // Stripe retrieval alone is mocked: no live subscription or payment is created.
 import assert from "node:assert/strict";
@@ -113,7 +114,7 @@ async function main() {
     client.subscriptions.retrieve = retrieve; client.prices.retrieve = priceRetrieve;
     if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await db.delete(stripeEvents).where(inArray(stripeEvents.id, eventIds));
-    await db.delete(users).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
     assert.equal((await db.select().from(billingState).where(eq(billingState.workspaceId, workspaceId))).length, 0);
     await db.$client.end();
   }

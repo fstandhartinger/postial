@@ -1,3 +1,4 @@
+import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
@@ -23,7 +24,7 @@ export async function verifyRetention() {
     assert.equal((await retainMedia()).ran,false);
     console.log('Retention: old unused deleted, old referenced and fresh preserved, DB daily guard passed');
   } finally {
-    await db.delete(users).where(eq(users.id,userId));
+    await deleteFixtureUsers(db).where(eq(users.id,userId));
     if(previous) await db.update(maintenanceRuns).set({completedAt:previous.completedAt}).where(eq(maintenanceRuns.name,'media_retention'));
     else await db.delete(maintenanceRuns).where(eq(maintenanceRuns.name,'media_retention'));
   }

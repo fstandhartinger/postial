@@ -1,10 +1,11 @@
+import type { Tx } from '@/lib/api/post-service';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { currentKeyId, decryptCredentials, encryptCredentials } from '@/lib/crypto';
 /** One transaction: corrupt ciphertext/missing read keys roll back every update. No plaintext logs. */
-export async function reencrypt() {
+export async function reencrypt(transaction?: Tx) {
   const prefix = 'v1:' + currentKeyId() + ':';
-  return getDb().transaction(async tx => {
+  const run = async (tx:Tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('socialmint-reencrypt',0))`);
     let count = 0;
     // Static identifiers only. Row locks serialize with refresh/disconnect/other rotations.
@@ -21,5 +22,6 @@ export async function reencrypt() {
       }
     }
     return {count};
-  });
+  };
+  return transaction ? run(transaction) : getDb().transaction(run);
 }

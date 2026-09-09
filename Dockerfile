@@ -28,4 +28,4 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.mjs ./scripts/mig
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["sh", "-c", "node scripts/migrate.mjs && exec node server.js"]
+CMD ["sh", "-c", "node -e \"require('./runtime-config.cjs').validateRuntimeConfig()\" && node scripts/migrate.mjs && exec node server.js"]

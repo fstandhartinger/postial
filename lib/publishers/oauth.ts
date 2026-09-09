@@ -1,3 +1,4 @@
+import { visibleIdentifier, linkInput } from '@/lib/text-input';
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, lt } from 'drizzle-orm';
 import { getDb } from '@/db';
@@ -65,7 +66,7 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   await db.transaction(async tx => {
     await tx.select().from(brands).where(eq(brands.id, saved.brandId)).for('update');
     const [existing] = await tx.select().from(channels).where(and(eq(channels.brandId, saved.brandId), eq(channels.provider, provider), eq(channels.externalId, account.externalId)));
-    const values = { brandId: saved.brandId, provider, credentialsEnc: encryptCredentials(credentials), externalId: account.externalId, displayName: account.displayName, url: account.url ?? null, meta: account.meta ?? {}, status: 'active' as const, lastCheckedAt: new Date(), lastHealthError: null };
+    const values = { brandId: saved.brandId, provider, credentialsEnc: encryptCredentials(credentials), externalId: account.externalId, displayName: visibleIdentifier(account.displayName,"Channel name"), url: account.url ? linkInput(account.url) : null, meta: account.meta ?? {}, status: 'active' as const, lastCheckedAt: new Date(), lastHealthError: null };
     if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
     else await tx.insert(channels).values(values);
   });
