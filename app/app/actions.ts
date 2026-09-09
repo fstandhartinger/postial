@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { coreContext, isUuid } from "@/lib/core";
 import { encryptCredentials } from "@/lib/crypto";
+import { newApprovalToken } from "@/lib/approvals";
 import {
   availableProviders,
   getPublisher,
@@ -261,7 +262,7 @@ export async function coreAction(
           status,
           requiresApproval,
           approvalToken:
-            requiresApproval && !draft ? crypto.randomUUID() : null,
+            requiresApproval && !draft ? newApprovalToken() : null,
           approvalNote: null,
           updatedAt: new Date(),
         } as const;

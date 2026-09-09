@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { brands, posts, postStatus } from "@/db/schema";
 import { coreContext } from "@/lib/core";
 import { Card } from "@/components/ui/card";
+import { ApprovalStatusBadge } from "@/components/approvals/status-badge";
 export default async function PostsPage({
   searchParams,
 }: {
@@ -55,7 +56,9 @@ export default async function PostsPage({
         >
           <option value="">All statuses</option>
           {postStatus.enumValues.map((s) => (
-            <option key={s}>{s}</option>
+            <option key={s} value={s}>
+              {s === "pending_approval" ? "Awaiting approval" : s === "changes_requested" ? "Changes requested" : s}
+            </option>
           ))}
         </select>
         <button className="rounded border px-4">Filter</button>
@@ -66,9 +69,11 @@ export default async function PostsPage({
             {p.body.slice(0, 140)}
           </Link>
           <p>
-            <span style={{ color: b.color }}>{b.name}</span> ·{" "}
-            {p.status.replaceAll("_", " ")}
+            <span style={{ color: b.color }}>{b.name}</span>
+            {!["pending_approval", "changes_requested"].includes(p.status) &&
+              <> · {p.status.replaceAll("_", " ")}</>}
           </p>
+          <ApprovalStatusBadge post={p} />
           {p.scheduledAt && (
             <p className="text-sm text-gray-500">
               {p.scheduledAt.toLocaleString("en-GB", { timeZone: b.timezone })}{" "}
