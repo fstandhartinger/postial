@@ -6,7 +6,8 @@ const client = postgres(process.env.DATABASE_URL, { prepare: false, max: 1, conn
 try {
   await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
   console.log("Database migrations complete");
-} catch {
-  console.error("Database migration failed; check database connectivity and migration state.");
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Database migration failed; check database connectivity and migration state.", message.replace(/postgres(ql)?:\/\/[^\s]+/g, "<db-url>").slice(0, 400));
   process.exitCode = 1;
 } finally { await client.end(); }

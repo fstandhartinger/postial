@@ -1,1 +1,1 @@
-ALTER TYPE "public"."channel_provider" ADD VALUE 'linkedin';
+ALTER TYPE "public"."channel_provider" ADD VALUE IF NOT EXISTS 'linkedin';
