@@ -20,8 +20,8 @@ export async function uploadMedia(request: Request, workspaceId: string, userId:
   try {
     if (isJson && allowJson) {
       const parsed = JSON.parse(body.toString());
-      if (typeof parsed.data !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(parsed.data)) throw new Error();
-      data = Buffer.from(parsed.data,'base64'); brandId = parsed.brand_id;
+      if (typeof parsed.data !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(parsed.data)) throw new Error();
+      data = Buffer.from(parsed.data,'base64'); if (data.toString('base64') !== parsed.data) throw new Error(); brandId = parsed.brand_id;
       if (brandId !== undefined && typeof brandId !== 'string') throw new Error();
     } else {
       const form = await new Request(request.url,{method:'POST',headers:request.headers,body}).formData();

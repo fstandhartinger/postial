@@ -1,7 +1,7 @@
 export function ownMediaId(value: string): string | null {
   try {
     const url = new URL(value), origin = new URL(process.env.NEXT_PUBLIC_APP_URL!).origin;
-    return url.origin === origin && !url.search && !url.hash && !url.username && !url.password ? /^\/m\/([A-Za-z0-9_-]{43})$/.exec(url.pathname)?.[1] ?? null : null;
+    return url.origin === origin && !url.username && !url.password ? /^\/m\/([A-Za-z0-9_-]{43})$/.exec(decodeURIComponent(url.pathname))?.[1] ?? null : null;
   } catch { return null; }
 }
 export function localMediaUrl(value: string): boolean {

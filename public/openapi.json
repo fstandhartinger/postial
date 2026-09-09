@@ -1624,7 +1624,7 @@
         }
       }
     },
-    "/api/v1/media": {
+    "/media": {
       "post": {
         "summary": "Upload an image",
         "description": "Requires posts:write. JPEG/PNG/WebP/GIF; 5 MiB per image. Agency storage 2 GiB. 30 uploads/minute per user/workspace (per process), plus API key budget. Returned URL is public; use it in post media_urls.",
@@ -1676,7 +1676,43 @@
         },
         "responses": {
           "201": {
-            "description": "Uploaded: {id,url,width,height,bytes}"
+            "description": "Uploaded: {id,url,width,height,bytes}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "url",
+                    "width",
+                    "height",
+                    "bytes"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "maximum": 5242880
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "API key required"
@@ -1693,7 +1729,11 @@
           "429": {
             "description": "Rate limit exceeded"
           }
-        }
+        },
+        "operationId": "uploadMedia",
+        "tags": [
+          "API v1"
+        ]
       }
     }
   },

@@ -1,5 +1,5 @@
 import { mediaAssets } from '@/db/media-schema';
-import { ownMediaId, localMediaUrl } from '@/lib/media/url';
+import { ownMediaId, localMediaUrl, mediaUrl } from '@/lib/media/url';
 import { ApiError } from "./errors";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -31,7 +31,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
       check(brand, "Brand not found.");
       check(access.activeBrandIds.includes(brandId), "This brand is read-only under your plan. Review Billing.");
       const body = str(form, "body"),
-        mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean),
+        mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean).map(url => { const id = ownMediaId(url); return id ? mediaUrl(id) : url; }),
         linkUrl = str(form, "linkUrl");
       check(
         body.length > 0 && body.length <= 100000,
