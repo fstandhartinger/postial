@@ -32,7 +32,7 @@ export async function createAuth(provider: OAuthProvider, brandId: string, userI
   const db = getDb();
   await db.delete(oauthStates).where(lt(oauthStates.expiresAt, new Date()));
   await db.insert(oauthStates).values({ state, codeVerifier: encryptCredentials({ verifier }), brandId, userId, provider, expiresAt: new Date(Date.now() + 600000) });
-  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : 'https://threads.net/oauth/authorize');
+  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : 'https://www.threads.com/oauth/authorize');
   url.search = new URLSearchParams({ client_id: config.id, redirect_uri: callbackUrl(provider), response_type: 'code', state,
     scope: provider === 'x' ? 'tweet.read tweet.write users.read offline.access media.write' : 'threads_basic,threads_content_publish',
     // Threads does not document PKCE support. Its confidential code exchange uses app_secret.
