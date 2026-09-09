@@ -7,10 +7,11 @@ export async function oauthJson<T>(provider: OAuthProvider, path: string, init: 
     return guarded(provider, async () => {
       const r = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(20000) });
       if (!r.ok) throw failure(r.status === 429 ? 'RATE_LIMITED' : r.status >= 500 ? 'PROVIDER_DOWN' : 'AUTH_EXPIRED', `Reconnect ${provider === 'x' ? 'X' : 'Threads'}.`);
+      if (r.status === 400 || r.status === 422) throw failure('CONTENT_REJECTED', `The ${provider} request was rejected.`);
       return await r.json() as T;
     });
   }
-  return json<T>(provider === 'x' ? 'X' : 'Threads', url, init);
+  return json<T>(provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : 'LinkedIn', url, init);
 }
 export function bearer(c: Credentials) {
   if (!c.accessToken) throw failure('AUTH_EXPIRED', 'Reconnect this channel.');
@@ -25,4 +26,9 @@ export async function xToken(body: Record<string, string>) {
   const config = oauthConfig('x');
   if (!config) throw failure('AUTH_EXPIRED', 'X connection is not configured.');
   return oauthJson<TokenResponse>('x', '/2/oauth2/token', { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${encodeURIComponent(config.id)}:${encodeURIComponent(config.secret)}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ ...body, client_id: config.id }) });
+}
+export async function linkedinToken(body: Record<string, string>) {
+  const config = oauthConfig('linkedin');
+  if (!config) throw failure('AUTH_EXPIRED', 'LinkedIn connection is not configured.');
+  return oauthJson<TokenResponse>('linkedin', '/oauth/v2/accessToken', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ ...body, client_id: config.id, client_secret: config.secret }) });
 }

@@ -47,6 +47,7 @@ function responseError(provider: string, status: number, body: Record<string, un
   const description = JSON.stringify(body);
   if (provider === 'X' && status === 403 && /duplicate/i.test(description)) return failure('DUPLICATE', 'X reports that this post already exists.');
   if (provider === 'Threads' && (body.error as {code?: number})?.code === 190) return failure('AUTH_EXPIRED', 'Reconnect Threads.');
+  if (provider === 'LinkedIn' && (status === 409 || /duplicate|already exists|already posted/i.test(description))) return failure('DUPLICATE', 'LinkedIn reports that this post was already submitted.');
   if (status === 401 || status === 403 || /AuthenticationRequired|ExpiredToken|Unauthorized|bot was kicked|chat not found/i.test(description)) {
     return failure('AUTH_EXPIRED', provider === 'Bluesky' ? 'Bluesky rejected the app password. Reconnect the channel to continue posting.' : `${provider} rejected the credentials or channel access. Reconnect the channel to continue posting.`);
   }

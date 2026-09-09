@@ -15,7 +15,10 @@ const credentials: Record<string, Credentials> = {
   bluesky: { identifier: 'alice.test', appPassword: 'test-secret' },
   mastodon: { instanceUrl: 'https://mastodon.test', accessToken: 'test-secret' },
   telegram: { botToken: 'test-secret', chatId: '@channel' },
+  linkedin: { accessToken: 'test-secret', externalId: 'person-1' },
 };
+process.env.LINKEDIN_CLIENT_ID = 'local-linkedin';
+process.env.LINKEDIN_CLIENT_SECRET = 'local-linkedin-secret';
 const session = { did: 'did:plc:alice', handle: 'alice.test', accessJwt: 'temporary-secret', didDoc: { service: [{ id: '#atproto_pds', serviceEndpoint: 'https://bsky.social' }] } };
 const message = { message_id: 42, chat: { id: -123, username: 'channel' } };
 function response(body: unknown, status = 200, headers: HeadersInit = {}) { return new Response(JSON.stringify(body), { status, headers }); }
@@ -50,7 +53,7 @@ function errorCode(code: string, retryable?: boolean, retryAfterSeconds?: number
   };
 }
 
-test('registry loads all three providers', () => assert.deepEqual(availableProviders().sort(), ['bluesky', 'mastodon', 'telegram']));
+test('registry loads configured providers', () => assert.deepEqual(availableProviders().sort(), ['bluesky', 'linkedin', 'mastodon', 'telegram']));
 for (const provider of ['bluesky', 'mastodon', 'telegram'] as const) {
   const adapter = getPublisher(provider);
   const creds = credentials[provider];
@@ -148,6 +151,38 @@ test('Mastodon caches discovered limit for preflight', async () => {
   const calls = mock();
   await assert.rejects(getPublisher('mastodon').publish(creds, { text: 'x'.repeat(1001), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED'));
   assert.equal(calls.length, 1);
+});
+
+test('LinkedIn: validate, text-only publish headers/body and warnings', async () => {
+  const calls = mock((url, init) => {
+    if (url.endsWith('/v2/userinfo')) return response({ sub: 'person-1', name: 'Test Person', vanityName: 'test-person' });
+    assert.equal(url, 'https://api.linkedin.com/rest/posts');
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('LinkedIn-Version'), '202508');
+    assert.equal(headers.get('X-Restli-Protocol-Version'), '2.0.0');
+    assert.equal(headers.get('Authorization'), 'Bearer test-secret');
+    const body = JSON.parse(String(init?.body));
+    assert.deepEqual(body, { author: 'urn:li:person:person-1', commentary: 'hello', visibility: 'PUBLIC', distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] }, lifecycleState: 'PUBLISHED', isReshareDisabledByAuthor: false });
+    return response({ id: 'urn:li:share:1' });
+  });
+  const adapter = getPublisher('linkedin');
+  const account = await adapter.validate(credentials.linkedin); assert.equal(account.externalId, 'person-1'); assert.equal(account.url, 'https://www.linkedin.com/in/test-person');
+  const result = await adapter.publish(credentials.linkedin, { text: 'hello', mediaUrls: ['https://image.test/x'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'urn:li:share:1'); assert.equal(result.warnings?.length, 1); assert.equal(calls.length, 2);
+});
+test('LinkedIn: 401, 429 Retry-After and 5xx mappings', async () => {
+  const adapter = getPublisher('linkedin');
+  mock(url => url.endsWith('/v2/userinfo') ? response({ error: 'no' }, 401) : response({ error: 'busy' }, 429, { 'Retry-After': '17' }));
+  await assert.rejects(adapter.validate(credentials.linkedin), errorCode('AUTH_EXPIRED', false));
+  mock(() => response({ error: 'busy' }, 429, { 'Retry-After': '17' }));
+  await assert.rejects(adapter.publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' }), errorCode('RATE_LIMITED', true, 17));
+  mock(() => response({ error: 'down' }, 503));
+  await assert.rejects(adapter.publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' }), errorCode('PROVIDER_DOWN', true));
+});
+test('LinkedIn: long text is rejected before HTTP and refresh without token is null', async () => {
+  const adapter = getPublisher('linkedin'); const calls = mock();
+  await assert.rejects(adapter.publish(credentials.linkedin, { text: 'x'.repeat(3001), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0); assert.equal(await adapter.refreshCredentials?.({ accessToken: 'test-secret', expiresAt: '1' }), null);
 });
 test('Mastodon 404 instance fallback and duplicate mapping', async () => {
   mock(url => url.endsWith('/instance') ? response({}, 404) : url.endsWith('/statuses') ? response({ error: 'duplicate idempotency key' }, 422) : ok(url));
@@ -359,7 +394,7 @@ test('Threads refresh extends long-lived tokens and refuses expired ones', async
   await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
 });
 
-for (const provider of ['x','bluesky','mastodon','telegram','threads'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
+for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
   const adapter = getPublisher(provider), limit = adapter.maxMediaBytes;
   const {downloadImage} = await import('../lib/publishers/http');
   mock(() => new Response(new Uint8Array(limit),{headers:{'content-type':'image/png'}}));

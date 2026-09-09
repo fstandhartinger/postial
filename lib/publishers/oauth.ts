@@ -9,7 +9,7 @@ import { ownBrand, isUuid } from '@/lib/core';
 import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, oauthConfig, type OAuthProvider } from './oauth-config';
-import { oauthJson, tokenCredentials, xToken, type TokenResponse } from './oauth-http';
+import { oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
 
 async function authorizeBrand(brandId: string, userId: string) {
   if (!isUuid(brandId)) throw failure('AUTH_EXPIRED', 'Brand not found.');
@@ -32,9 +32,9 @@ export async function createAuth(provider: OAuthProvider, brandId: string, userI
   const db = getDb();
   await db.delete(oauthStates).where(lt(oauthStates.expiresAt, new Date()));
   await db.insert(oauthStates).values({ state, codeVerifier: encryptCredentials({ verifier }), brandId, userId, provider, expiresAt: new Date(Date.now() + 600000) });
-  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : 'https://www.threads.com/oauth/authorize');
+  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : provider === 'threads' ? 'https://www.threads.com/oauth/authorize' : 'https://www.linkedin.com/oauth/v2/authorization');
   url.search = new URLSearchParams({ client_id: config.id, redirect_uri: callbackUrl(provider), response_type: 'code', state,
-    scope: provider === 'x' ? 'tweet.read tweet.write users.read offline.access media.write' : 'threads_basic,threads_content_publish',
+    scope: provider === 'x' ? 'tweet.read tweet.write users.read offline.access media.write' : provider === 'threads' ? 'threads_basic,threads_content_publish' : 'openid profile email w_member_social',
     // Threads does not document PKCE support. Its confidential code exchange uses app_secret.
     ...(provider === 'x' ? { code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256' } : {}),
   }).toString();
@@ -56,12 +56,14 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   if (!config) throw new OAuthCallbackError('provider_error', saved.brandId);
   let token: TokenResponse;
   if (provider === 'x') token = await xToken({ grant_type: 'authorization_code', code, code_verifier: decryptCredentials(saved.codeVerifier).verifier, redirect_uri: callbackUrl(provider) });
-  else {
+  else if (provider === 'threads') {
     const short = await oauthJson<TokenResponse>('threads', '/oauth/access_token', { method: 'POST', body: new URLSearchParams({ client_id: config.id, client_secret: config.secret, grant_type: 'authorization_code', redirect_uri: callbackUrl(provider), code }) });
     if (!short.access_token) throw failure('AUTH_EXPIRED', 'Threads did not issue a token.');
     token = await oauthJson<TokenResponse>('threads', `/access_token?${new URLSearchParams({ grant_type: 'th_exchange_token', client_secret: config.secret, access_token: short.access_token })}`);
-  }
-  const credentials = tokenCredentials(token), account = await getPublisher(provider).validate(credentials);
+  } else token = await linkedinToken({ grant_type: 'authorization_code', code, redirect_uri: callbackUrl(provider) });
+  const issuedCredentials = tokenCredentials(token);
+  const account = await getPublisher(provider).validate(issuedCredentials);
+  const credentials = { ...issuedCredentials, ...(provider === 'linkedin' ? { externalId: account.externalId } : {}) };
   await authorizeBrand(saved.brandId, userId);
   await db.transaction(async tx => {
     await tx.select().from(brands).where(eq(brands.id, saved.brandId)).for('update');

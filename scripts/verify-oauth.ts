@@ -16,9 +16,11 @@ async function close(server: Server) { server.closeAllConnections(); await new P
 async function main() {
   assert.notEqual(process.env.NODE_ENV, 'production');
   process.env.AUTH_SECRET = randomBytes(32).toString('hex');
+  process.env.AUTH_TRUST_HOST = 'true';
   process.env.APP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
   process.env.X_CLIENT_ID = 'local-x'; process.env.X_CLIENT_SECRET = 'local-x-secret';
   process.env.THREADS_APP_ID = 'local-threads'; process.env.THREADS_APP_SECRET = 'local-threads-secret';
+  process.env.LINKEDIN_CLIENT_ID = 'local-linkedin'; process.env.LINKEDIN_CLIENT_SECRET = 'local-linkedin-secret';
   const db = getDb(), userId = crypto.randomUUID(), foreignId = crypto.randomUUID(), sessionToken = randomBytes(32).toString('hex');
   let tokenFailure = false;
   const requests: { path: string; body: URLSearchParams }[] = [];
@@ -33,11 +35,13 @@ async function main() {
       '/oauth/access_token': { access_token: 'threads-short' },
       '/access_token': { access_token: 'threads-long', expires_in: 5184000 },
       '/v1.0/me': { id: 'threads-account', username: 'test' },
+      '/oauth/v2/accessToken': { access_token: 'linkedin-access', expires_in: 5184000 },
+      '/v2/userinfo': { sub: 'linkedin-account', name: 'LinkedIn Test', vanityName: 'linkedin-test' },
     };
     res.writeHead(responses[url.pathname] ? 200 : 404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(responses[url.pathname] ?? {}));
   });
   const endpointUrl = await listen(endpoint);
-  process.env.X_API_BASE_URL = endpointUrl; process.env.THREADS_API_BASE_URL = endpointUrl;
+  process.env.X_API_BASE_URL = endpointUrl; process.env.THREADS_API_BASE_URL = endpointUrl; process.env.LINKEDIN_API_BASE_URL = endpointUrl;
   const { POST } = await import('../app/api/oauth/[provider]/start/route');
   const { GET } = await import('../app/api/oauth/[provider]/callback/route');
   let appUrl = '';
@@ -68,7 +72,7 @@ async function main() {
     assert.equal((await start('x', { ...headers, origin: 'https://foreign.invalid' })).status, 403);
     assert.equal((await start('unknown')).status, 404);
     assert.equal((await start('x', { ...headers, cookie: `authjs.session-token=${foreignToken}` })).status, 400);
-    for (const provider of ['x', 'threads']) {
+    for (const provider of ['x', 'threads', 'linkedin'] as const) {
       const started = await start(provider); assert.equal(started.status, 303);
       const url = new URL(started.headers.get('location')!), state = url.searchParams.get('state')!;
       assert.equal(url.searchParams.get('redirect_uri'), `${appUrl}/api/oauth/${provider}/callback`);
@@ -84,15 +88,15 @@ async function main() {
       assert.match((await callback(provider === 'x' ? 'threads' : 'x', state)).headers.get('location')!, /connect_error=expired$/);
       const completed = await callback(provider, state); assert.equal(completed.status, 303);
       assert(completed.headers.get('location')?.includes(`/app/brands/${brand.id}`));
-      const [channel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider as 'x' | 'threads')));
+      const [channel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider)));
       assert.equal(channel.status, 'active'); assert(!channel.credentialsEnc.includes('access'));
       const credentials = decryptCredentials(channel.credentialsEnc); assert(Number(credentials.expiresAt) > Date.now());
-      assert.equal(credentials.accessToken, provider === 'x' ? 'x-access' : 'threads-long');
+      assert.equal(credentials.accessToken, provider === 'x' ? 'x-access' : provider === 'threads' ? 'threads-long' : 'linkedin-access');
       const before = requests.length; assert.match((await callback(provider, state)).headers.get('location')!, /connect_error=expired$/); assert.equal(requests.length, before);
       const restarted = new URL((await start(provider)).headers.get('location')!);
       const race = await Promise.all([callback(provider, restarted.searchParams.get('state')!), callback(provider, restarted.searchParams.get('state')!)]);
       assert(race.every(r => r.status === 303)); assert.equal(race.filter(r => r.headers.get('location')?.includes('connect_error=expired')).length, 1);
-      assert.equal((await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider as 'x' | 'threads')))).length, 1);
+      assert.equal((await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider)))).length, 1);
       const expired = new URL((await start(provider)).headers.get('location')!).searchParams.get('state')!;
       await db.update(oauthStates).set({ expiresAt: new Date(0) }).where(eq(oauthStates.state, expired));
       assert.match((await callback(provider, expired)).headers.get('location')!, /connect_error=expired$/);

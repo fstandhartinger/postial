@@ -95,7 +95,7 @@ export async function coreAction(
         const provider = availableProviders().find(
           (p) => p === str(form, "provider"),
         );
-        check(provider && provider !== "x" && provider !== "threads", "Choose an available provider. Use the OAuth button for X or Threads.");
+        check(provider && provider !== "x" && provider !== "threads" && provider !== "linkedin", "Choose an available provider. Use the OAuth button for X, Threads or LinkedIn.");
         const publisher = getPublisher(provider);
         const credentials: Record<string, string> = {};
         for (const field of publisher.credentialFields) {

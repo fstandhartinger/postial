@@ -28,6 +28,8 @@ registerPublisher(telegram);
 
 import { x } from './x';
 import { threads } from './threads';
+import { linkedin } from './linkedin';
 import { isOAuthProvider, oauthConfig } from './oauth-config';
 registerPublisher(x);
 registerPublisher(threads);
+registerPublisher(linkedin);

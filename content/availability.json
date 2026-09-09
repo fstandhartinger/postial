@@ -16,7 +16,6 @@
   "planned": [
     "X",
     "Threads",
-    "LinkedIn",
     "Instagram/Facebook"
   ],
   "pending": "n8n node (Agency): npm publication pending",
@@ -72,8 +71,8 @@
     {
       "id": "linkedin",
       "name": "LinkedIn",
-      "status": "planned",
-      "dependency": "Platform review required; no confirmed release date."
+      "status": "preparation",
+      "dependency": "LinkedIn personal profiles: connecting soon; company pages after LinkedIn's API review"
     },
     {
       "id": "instagram",
