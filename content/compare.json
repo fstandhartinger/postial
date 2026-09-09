@@ -7,7 +7,7 @@
     "Agency: €49/month including VAT; 15 brands, 5 users.",
     "Client approval links (Agency)",
     "Publishing status and retries",
-    "REST API and webhooks (Agency); n8n npm publication pending",
+    "REST API and webhooks (Agency); n8n-nodes-socialmint 0.1.0 available on npm; Postial-branded release coming",
     "See the availability matrix above.",
     "Hosted in Germany. Publishing still sends content to the selected social networks.",
     "14 days, no card needed. Cancel anytime."
@@ -41,8 +41,8 @@
       "slug": "hootsuite-alternative",
       "vendor": "Hootsuite",
       "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
+      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads and LinkedIn connect in Early access.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads and LinkedIn connect in Early access, subject to provider conditions.",
       "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
         {
@@ -94,7 +94,7 @@
           ]
         }
       ],
-      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. The n8n node awaits npm publication. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
       "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
         "integrations",
@@ -143,8 +143,8 @@
       "slug": "postiz-alternative",
       "vendor": "Postiz",
       "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X and Threads await approval.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X and Threads are next, subject to developer approvals.",
+      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads and LinkedIn connect in Early access.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads and LinkedIn connect in Early access, subject to provider conditions.",
       "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
       "vendorCells": [
         {
@@ -213,7 +213,7 @@
         },
         {
           "question": "Is API automation unique to Postial?",
-          "answer": "No. Postiz documents a public API and custom n8n node. Postial Agency includes REST API and webhooks today; the n8n node awaits npm publication."
+          "answer": "No. Postiz documents a public API and custom n8n node. Postial Agency includes REST API and webhooks today, and n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
         },
         {
           "question": "Can clients review Postial posts without signing up?",

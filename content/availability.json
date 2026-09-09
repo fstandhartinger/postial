@@ -14,12 +14,10 @@
     "Telegram"
   ],
   "planned": [
-    "X",
-    "Threads",
     "Instagram/Facebook"
   ],
-  "pending": "n8n node (Agency): npm publication pending",
-  "signIn": "Sign-in opens shortly",
+  "pending": "n8n node (Agency): available on npm as n8n-nodes-socialmint 0.1.0 — Postial-branded release coming",
+  "signIn": "Google sign-in and magic links are available",
   "starter": [
     "3 brands",
     "1 user",
@@ -60,19 +58,19 @@
       "id": "x",
       "name": "X",
       "status": "preparation",
-      "dependency": "Built; awaiting developer access and platform approval."
+      "dependency": "Connect available (Early access). Publishing is pay-per-use and requires approval of the spend after adding funds."
     },
     {
       "id": "threads",
       "name": "Threads",
       "status": "preparation",
-      "dependency": "Built; awaiting developer access and platform approval."
+      "dependency": "Connect available (Early access). Publishing is limited to approved testers while the app is in Development Mode, pending Meta review."
     },
     {
       "id": "linkedin",
       "name": "LinkedIn",
       "status": "preparation",
-      "dependency": "LinkedIn personal profiles: connecting soon; company pages after LinkedIn's API review"
+      "dependency": "Connect available (Early access) for personal profiles. Publishing is available for personal profiles; the Community Management API for company pages is under review."
     },
     {
       "id": "instagram",

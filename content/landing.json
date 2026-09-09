@@ -48,7 +48,7 @@
     },
     {
       "label": "Sub",
-      "text": "For agencies whose clients publish on Bluesky, Mastodon and Telegram — with X and Threads next, subject to platform approval. Get client approval without a login, follow publishing errors and retries, and pay one monthly price for your agency."
+      "text": "For agencies whose clients publish on Bluesky, Mastodon and Telegram — with X, Threads and LinkedIn available to connect in Early access, subject to provider conditions. Get client approval without a login, follow publishing errors and retries, and pay one monthly price for your agency."
     },
     {
       "label": "Primary CTA → /signup",
@@ -64,7 +64,7 @@
     },
     {
       "label": "Plan note",
-      "text": "Client approval links, API, and n8n are included with Agency. The n8n node awaits npm publication."
+      "text": "Client approval links, API, and n8n are included with Agency. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
     }
   ],
   "Social-proof alternative": [
@@ -162,7 +162,7 @@
     },
     {
       "label": "Body",
-      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. The n8n node awaits npm publication."
+      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
     }
   ],
   "How it works": [
@@ -228,7 +228,7 @@
     },
     {
       "label": "Roadmap body",
-      "text": "Platform approvals are pending. These integrations are not available yet, and we have no confirmed release dates."
+      "text": "X, Threads and LinkedIn can be connected in Early access, with publishing subject to provider conditions. Instagram and Facebook are planned and depend on platform review; no release date is confirmed."
     }
   ],
   "Pricing": [
@@ -382,7 +382,7 @@
     },
     {
       "label": "Body",
-      "text": "Agency includes API access and an n8n node for connecting your own automations. The n8n node awaits npm publication."
+      "text": "Agency includes API access and n8n-nodes-socialmint 0.1.0 on npm for connecting your own automations. The Postial-branded release is coming."
     },
     {
       "label": "Fair-comparison note",
@@ -424,7 +424,7 @@
     },
     {
       "label": "Answer 4",
-      "text": "Bluesky, Mastodon and Telegram are live. X and Threads are built and await developer approvals. LinkedIn, Instagram and Facebook are planned and depend on platform reviews. None of these upcoming networks has a confirmed release date. See /roadmap for current status."
+      "text": "Bluesky, Mastodon and Telegram are live. X, Threads and LinkedIn can be connected in Early access; publishing is subject to provider conditions. Instagram and Facebook are planned and depend on platform reviews, with no confirmed release date. See /roadmap for current status."
     },
     {
       "label": "Question 5",
@@ -448,7 +448,7 @@
     },
     {
       "label": "Answer 7",
-      "text": "Agency includes REST API and webhooks. The n8n node awaits npm publication. Automations use the same brand limits and connected-network permissions as your account."
+      "text": "Agency includes REST API and webhooks. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming. Automations use the same brand limits and connected-network permissions as your account."
     }
   ],
   "Final CTA": [
@@ -510,19 +510,19 @@
   "SEO": [
     {
       "label": "<title>",
-      "text": "Postial | Bluesky, Mastodon & Telegram for Agencies"
+      "text": "Postial | Social publishing for Agencies"
     },
     {
       "label": "Meta description",
-      "text": "Schedule Bluesky, Mastodon and Telegram posts for clients. Login-free approvals, visible errors and retries. Agency €49/month. X and Threads await approval."
+      "text": "Schedule social posts for clients. Login-free approvals, visible errors and retries. Agency €49/month. Bluesky, Mastodon and Telegram are live; X, Threads and LinkedIn connect in Early access."
     },
     {
       "label": "OG title",
-      "text": "Postial | Client approvals for Bluesky, Mastodon & Telegram"
+      "text": "Postial | Client approvals for social publishing"
     },
     {
       "label": "OG description",
-      "text": "Publish client posts on Bluesky, Mastodon and Telegram. Login-free approvals and visible retries, one agency price. X and Threads await developer approval."
+      "text": "Publish client posts on Bluesky, Mastodon and Telegram. Login-free approvals and visible retries, one agency price. X, Threads and LinkedIn connect in Early access, subject to provider conditions."
     }
   ]
 }

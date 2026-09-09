@@ -27,7 +27,7 @@
   {
     "date": "2026-09-09",
     "title": "API and webhooks",
-    "body": "Agency REST API and signed webhooks. The n8n node awaits npm publication."
+    "body": "Agency REST API and signed webhooks. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
   },
   {
     "date": "2026-09-09",
@@ -42,6 +42,6 @@
   {
     "date": "2026-09-08",
     "title": "Landing and billing",
-    "body": "Public pricing, interactive approval demo and Stripe trial checkout. Sign-in configuration remains pending."
+    "body": "Public pricing, interactive approval demo, Stripe trial checkout, Google sign-in and magic links."
   }
 ]
