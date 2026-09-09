@@ -88,9 +88,10 @@ async function main() {
       const tooBig=await fetch(process.env.C7_HTTP_URL+'/app/posts/bulk',{method:'POST',headers:{'next-action':'a'.repeat(40)},body:'x'.repeat(65*1024)});assert.equal(tooBig.status,413);
       const sessionToken=randomUUID();await db.insert(sessions).values({userId:user,sessionToken,expires:new Date(Date.now()+day)});
       const bulk=await fetch(process.env.C7_HTTP_URL+'/app/posts/bulk',{method:'POST',headers:{'next-action':action,origin:process.env.C7_HTTP_URL,'content-type':'text/plain;charset=UTF-8',cookie:'authjs.session-token='+sessionToken},body:JSON.stringify([brandId,[{text:'x'.repeat(66*1024),channelIds:[],scheduledAt:'',imageUrl:'',requiresApproval:false}],true])});
-      assert.equal(bulk.status,200);await bulk.arrayBuffer();
-      assert((await db.select().from(posts).where(eq(posts.brandId,brandId))).some(p=>p.body.length===66*1024));
-      console.log('Built HTTP: ordinary action 65 KiB rejected; identified bulk action saves a 66 KiB row');
+      assert.equal(bulk.status,200);const bulkResult=await bulk.text();
+      assert(!(await db.select().from(posts).where(eq(posts.brandId,brandId))).some(p=>p.body.length===66*1024));
+      assert.match(bulkResult,/validation|10.?000|limit/i);
+      console.log('Built HTTP: ordinary action 65 KiB rejected; identified bulk action accepts the request but rejects the overlong row');
 
     }
 

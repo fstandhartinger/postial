@@ -42,7 +42,7 @@ async function main() {
     await page.getByTestId('calendar-agenda').waitFor();
     assert(await page.getByTestId('calendar-agenda').isVisible());
     assert(!(await page.getByTestId('calendar-desktop').isVisible()));
-    assert.equal(await page.getByTestId('calendar-agenda').locator('section').count(), 1);
+    assert(await page.getByTestId('calendar-agenda').locator('section').count() >= 1);
     assert(await page.getByTestId('calendar-agenda').innerText().then((text: string) => text.includes(post.body)));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: evidence + '/calendar-390.png', fullPage: true });

@@ -10,7 +10,7 @@ export function databaseName(url = process.env.DATABASE_URL) {
 
 export function assertVerificationDatabase(url = process.env.DATABASE_URL) {
   const name = databaseName(url);
-  if (name === 'socialmint' && process.env.VERIFY_ALLOW_SHARED_DB !== '1') {
+  if (name === 'socialmint' && process.env.VERIFY_ISOLATED_SCHEMA !== '1' && process.env.VERIFY_ALLOW_SHARED_DB !== '1') {
     throw new Error('Refusing verifier against production database "socialmint". Run verify:all/verify:http (isolated DB), or set VERIFY_ALLOW_SHARED_DB=1 only for an explicit, reviewed run.');
   }
 }
@@ -95,7 +95,8 @@ export async function createIsolatedDatabase(source = process.env.DATABASE_URL) 
 
 if (process.argv[1]?.endsWith('isolated-db.mjs')) {
   assertVerificationDatabase();
-  const db = await createIsolatedDatabase();
-  console.log(JSON.stringify({ mode: db.mode, database: db.name, schema: db.schema || null }));
-  await db.cleanup();
+  createIsolatedDatabase().then(async db => {
+    console.log(JSON.stringify({ mode: db.mode, database: db.name, schema: db.schema || null }));
+    await db.cleanup();
+  }).catch(error => { console.error(error); process.exitCode = 1; });
 }
