@@ -1,0 +1,23 @@
+export type OAuthProvider = 'x' | 'threads';
+export function isOAuthProvider(value: string): value is OAuthProvider { return value === 'x' || value === 'threads'; }
+export function oauthConfig(provider: OAuthProvider) {
+  const id = process.env[provider === 'x' ? 'X_CLIENT_ID' : 'THREADS_APP_ID'];
+  const secret = process.env[provider === 'x' ? 'X_CLIENT_SECRET' : 'THREADS_APP_SECRET'];
+  return id && secret ? { id, secret } : null;
+}
+export function appOrigin() {
+  const url = new URL(process.env.APP_URL || process.env.AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+  if (url.username || url.password || (process.env.NODE_ENV === 'production' && url.protocol !== 'https:')) throw new Error('Invalid APP_URL');
+  return url.origin;
+}
+export function callbackUrl(provider: OAuthProvider) { return `${appOrigin()}/api/oauth/${provider}/callback`; }
+/** Literal loopback overrides are exclusively for the local HTTP verification harness. */
+export function oauthEndpoint(provider: OAuthProvider, path: string) {
+  const override = process.env[`${provider.toUpperCase()}_API_BASE_URL`];
+  if (process.env.NODE_ENV !== 'production' && override) {
+    const url = new URL(override);
+    if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password) throw new Error('Invalid test endpoint');
+    return `${url.origin}${path}`;
+  }
+  return `${provider === 'x' ? 'https://api.x.com' : 'https://graph.threads.net'}${path}`;
+}

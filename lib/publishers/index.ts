@@ -15,7 +15,7 @@ export function getPublisher(provider: Provider): Publisher {
 }
 
 export function availableProviders(): Provider[] {
-  return Object.keys(registry) as Provider[];
+  return (Object.keys(registry) as Provider[]).filter(p => !isOAuthProvider(p) || !!oauthConfig(p));
 }
 
 import { bluesky } from './bluesky';
@@ -25,3 +25,9 @@ import { telegram } from './telegram';
 registerPublisher(bluesky);
 registerPublisher(mastodon);
 registerPublisher(telegram);
+
+import { x } from './x';
+import { threads } from './threads';
+import { isOAuthProvider, oauthConfig } from './oauth-config';
+registerPublisher(x);
+registerPublisher(threads);

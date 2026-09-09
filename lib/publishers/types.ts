@@ -72,6 +72,8 @@ export interface Publisher {
   readonly credentialFields: ReadonlyArray<{ key: string; label: string; help?: string; secret: boolean; placeholder?: string }>;
   /** Verifies credentials against the provider and returns the account we would post as. Throws PublishError(AUTH_EXPIRED|NETWORK|...). */
   validate(credentials: Credentials): Promise<AccountInfo>;
+  /** Return renewed credentials before publishing; the worker persists them under a channel lock. */
+  refreshCredentials?(credentials: Credentials): Promise<Credentials | null>;
   /** Publishes one post. Throws PublishError. Must never throw anything else. */
   publish(credentials: Credentials, input: PublishInput): Promise<PublishResult>;
 }

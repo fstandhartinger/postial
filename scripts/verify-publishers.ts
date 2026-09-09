@@ -292,3 +292,65 @@ test('Mastodon repeats the same idempotency key and adopts the same remote statu
   assert.equal(statuses.size, 1);
   assert.equal(calls.filter(c => c.url.endsWith('/statuses')).length, 2);
 });
+
+for (const provider of ['x', 'threads'] as const) {
+  test(`${provider}: OAuth validate and 401, rate reset and provider outage`, async () => {
+    const adapter = getPublisher(provider), c = { accessToken: 'test-secret' };
+    mock(() => response(provider === 'x' ? { data: { id: '42', username: 'alice' } } : { id: '42', username: 'alice' }));
+    assert.equal((await adapter.validate(c)).externalId, '42');
+    mock(() => response({}, 401)); await assert.rejects(adapter.validate(c), errorCode('AUTH_EXPIRED', false));
+    mock(() => response({}, 429, { 'x-rate-limit-reset': String(Math.ceil(Date.now() / 1000) + 120) }));
+    await assert.rejects(adapter.validate(c), (e: unknown) => { assert(e instanceof PublishError); assert.equal(e.code, 'RATE_LIMITED'); assert(e.retryAfterSeconds! >= 120 && e.retryAfterSeconds! <= 121); return true; });
+    mock(() => response({}, 503)); await assert.rejects(adapter.validate(c), errorCode('PROVIDER_DOWN', true));
+  });
+}
+test('X publishes weighted URLs and four uploaded media IDs; rejects long content and duplicates', async () => {
+  const { countXText } = await import('../lib/text-limits');
+  assert.equal(countXText('a'.repeat(256) + ' https://example.com/' + 'b'.repeat(300)), 280);
+  assert.equal(countXText('界😀'), 4);
+  const calls = mock(url => url.includes('image.test') ? new Response('image', { headers: { 'content-type': 'image/png' } }) : response(url.endsWith('/media/upload') ? { data: { id: 'media1' } } : { data: { id: 'post1' } }));
+  const text = 'a'.repeat(256) + ' https://example.com/' + 'b'.repeat(300);
+  const result = await getPublisher('x').publish({ accessToken: 'test-secret' }, { text, mediaUrls: Array(4).fill('https://image.test/img.png'), idempotencyKey: 'one' });
+  assert.equal(result.remoteId, 'post1');
+  assert.deepEqual(JSON.parse(String(calls.at(-1)!.init.body)), { text, media: { media_ids: Array(4).fill('media1') } });
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)), { media: Buffer.from('image').toString('base64'), media_type: 'image/png', media_category: 'tweet_image' });
+  await assert.rejects(getPublisher('x').publish({ accessToken: 'test-secret' }, { text: 'a'.repeat(281), idempotencyKey: 'long' }), errorCode('CONTENT_REJECTED'));
+  mock(() => response({ detail: 'duplicate content' }, 403));
+  await assert.rejects(getPublisher('x').publish({ accessToken: 'test-secret' }, { text: 'hi', idempotencyKey: 'dup' }), errorCode('DUPLICATE', false));
+});
+test('X refresh rotates tokens, honors expiry, fails closed', async () => {
+  process.env.X_CLIENT_ID = 'test-client'; process.env.X_CLIENT_SECRET = 'test-secret';
+  try {
+    const calls = mock(() => response({ access_token: 'new-token', refresh_token: 'new-refresh', expires_in: 7200 }));
+    const adapter = getPublisher('x');
+    const c = { accessToken: 'test-secret', refreshToken: 'old-refresh', expiresAt: String(Date.now() + 1000) };
+    const fresh = await adapter.refreshCredentials!(c);
+    assert.equal(fresh?.refreshToken, 'new-refresh'); assert(Number(fresh?.expiresAt) > Date.now());
+    assert.equal(new URLSearchParams(String(calls[0].init.body)).get('grant_type'), 'refresh_token');
+    assert.equal(await adapter.refreshCredentials!(fresh!), null);
+    mock(() => response({ error: 'invalid_grant' }, 400));
+    await assert.rejects(adapter.refreshCredentials!(c), errorCode('AUTH_EXPIRED'));
+  } finally { delete process.env.X_CLIENT_ID; delete process.env.X_CLIENT_SECRET; }
+});
+test('Threads text, image and carousel containers publish only after processing', async () => {
+  for (const images of [[], ['https://image.test/1.png'], ['https://image.test/1.png', 'https://image.test/2.png']]) {
+    let sequence = 0;
+    const calls = mock(url => response(url.includes('fields=status') ? { status: 'FINISHED' } : { id: String(++sequence) }));
+    await getPublisher('threads').publish({ accessToken: 'test-secret' }, { text: 'hello', mediaUrls: images, idempotencyKey: 'threads' });
+    const writes = calls.filter(c => c.init.method === 'POST').map(c => ({ path: new URL(c.url).pathname, body: Object.fromEntries(new URLSearchParams(String(c.init.body))) }));
+    assert.equal(writes.at(-1)?.path, '/v1.0/me/threads_publish');
+    assert.deepEqual(writes.at(-1)?.body, { creation_id: String(images.length > 1 ? 3 : 1) });
+    const parent = writes.at(-2)!.body;
+    assert.equal(parent.text, 'hello'); assert.equal(parent.media_type, images.length > 1 ? 'CAROUSEL' : images.length ? 'IMAGE' : 'TEXT');
+    if (images.length > 1) { assert.equal(parent.children, '1,2'); assert.equal(writes[0].body.is_carousel_item, 'true'); }
+    if (images.length === 1) assert.equal(parent.image_url, images[0]);
+  }
+});
+test('Threads refresh extends long-lived tokens and refuses expired ones', async () => {
+  const calls = mock(() => response({ access_token: 'renewed', expires_in: 5184000 }));
+  const adapter = getPublisher('threads'), c = { accessToken: 'test-secret', expiresAt: String(Date.now() + 86400000), issuedAt: String(Date.now() - 2 * 86400000) };
+  const renewed = await adapter.refreshCredentials!(c);
+  assert.equal(renewed?.accessToken, 'renewed'); assert(calls[0].url.includes('/refresh_access_token?grant_type=th_refresh_token'));
+  assert.equal(await adapter.refreshCredentials!(renewed!), null);
+  await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
+});

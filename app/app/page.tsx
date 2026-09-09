@@ -318,7 +318,7 @@ export default async function Overview({
                   href={`/app/brands/${c.brandId}#connect`}
                   className="text-emerald-700 underline"
                 >
-                  Reconnect channel
+                  Reconnect {c.provider === 'x' ? 'X' : c.provider === 'threads' ? 'Threads' : 'channel'}
                 </Link>
               </li>
             ))}

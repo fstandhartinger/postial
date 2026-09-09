@@ -4,7 +4,7 @@ export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received th
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
-import { decryptCredentials } from "@/lib/crypto";
+import { decryptCredentials, encryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function derivePostStatus(tx: Tx, postId: string) {
@@ -152,8 +152,19 @@ export async function tick() {
             retryable: false,
             humanMessage: "Reconnect this channel before retrying.",
           });
-        result = await getPublisher(c.provider).publish(
-          decryptCredentials(c.credentialsEnc),
+        const publisher = getPublisher(c.provider);
+        let credentials = decryptCredentials(c.credentialsEnc);
+        if (publisher.refreshCredentials) credentials = await db.transaction(async tx => {
+          // Serialize rotating refresh tokens across processes and re-read after waiting.
+          const [current] = await tx.select().from(channels).where(eq(channels.id, c.id)).for('update');
+          if (!current || current.status !== 'active') throw new PublishError({ code: 'AUTH_EXPIRED', retryable: false, humanMessage: 'Reconnect this channel.' });
+          const stored = decryptCredentials(current.credentialsEnc);
+          const renewed = await publisher.refreshCredentials!(stored);
+          if (renewed) await tx.update(channels).set({ credentialsEnc: encryptCredentials(renewed), lastCheckedAt: new Date() }).where(eq(channels.id, c.id));
+          return renewed ?? stored;
+        });
+        result = await publisher.publish(
+          credentials,
           {
             text: p.body,
             mediaUrls: p.mediaUrls,

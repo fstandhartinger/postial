@@ -307,3 +307,13 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   pauseReason: text("pause_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [index("webhook_deliveries_due").on(t.status, t.nextAttemptAt)]);
+
+/** OAuth grants are session-bound, single-use and expire after ten minutes. Verifier is encrypted. */
+export const oauthStates = pgTable('oauth_states', {
+  state: text('state').primaryKey(),
+  codeVerifier: text('code_verifier').notNull(),
+  brandId: uuid('brand_id').notNull().references(() => brands.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});

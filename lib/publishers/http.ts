@@ -44,14 +44,17 @@ export function checkLength(provider: string, text: string, limit: number) {
 }
 
 function responseError(provider: string, status: number, body: Record<string, unknown>, headers: Headers) {
-  const description = `${body.error ?? ''} ${body.description ?? ''}`;
+  const description = JSON.stringify(body);
+  if (provider === 'X' && status === 403 && /duplicate/i.test(description)) return failure('DUPLICATE', 'X reports that this post already exists.');
+  if (provider === 'Threads' && (body.error as {code?: number})?.code === 190) return failure('AUTH_EXPIRED', 'Reconnect Threads.');
   if (status === 401 || status === 403 || /AuthenticationRequired|ExpiredToken|Unauthorized|bot was kicked|chat not found/i.test(description)) {
     return failure('AUTH_EXPIRED', provider === 'Bluesky' ? 'Bluesky rejected the app password. Reconnect the channel to continue posting.' : `${provider} rejected the credentials or channel access. Reconnect the channel to continue posting.`);
   }
-  if (status === 429) {
+  if (status === 429 || (provider === 'Threads' && [4, 17, 32, 613].includes(Number((body.error as {code?: number})?.code)))) {
     const parameters = body.parameters as { retry_after?: number } | undefined;
     const header = headers.get('retry-after');
-    const seconds = parameters?.retry_after ?? (header ? (/^\d+(\.\d+)?$/.test(header) ? Number(header) : Math.max(0, (Date.parse(header) - Date.now()) / 1000)) : undefined);
+    const reset = headers.get('x-rate-limit-reset');
+    const seconds = (reset && Number.isFinite(Number(reset)) ? Math.max(0, Number(reset) - Date.now() / 1000) : undefined) ?? parameters?.retry_after ?? (header ? (/^\d+(\.\d+)?$/.test(header) ? Number(header) : Math.max(0, (Date.parse(header) - Date.now()) / 1000)) : undefined);
     return failure('RATE_LIMITED', `${provider} is receiving too many requests. Please try again later.`, seconds !== undefined && Number.isFinite(seconds) ? Math.ceil(seconds) : undefined);
   }
   if (status >= 500) return failure('PROVIDER_DOWN', `${provider} is temporarily unavailable. Please try again.`);

@@ -88,10 +88,22 @@ export default async function BrandPage({
             </p>
           </details>
         </div>
+        {(["x", "threads"] as const).map(provider => (
+          <div key={provider} className="mb-4">
+            {writable && availableProviders().includes(provider) ? (
+              <form action={`/api/oauth/${provider}/start`} method="post">
+                <input type="hidden" name="brandId" value={brand.id} />
+                <button className="rounded border px-4 py-2" type="submit">Connect {provider === 'x' ? 'X' : 'Threads'}</button>
+              </form>
+            ) : !availableProviders().includes(provider) ? (
+              <p>{provider === 'x' ? 'X' : 'Threads'} — coming soon. The operator must configure the developer app before connections are available.</p>
+            ) : null}
+          </div>
+        ))}
         {writable && availableProviders().length ? (
           <ConnectForm
             brandId={brand.id}
-            options={availableProviders().map((provider) => ({
+            options={availableProviders().filter(p => p !== "x" && p !== "threads").map((provider) => ({
               provider,
               fields: getPublisher(provider).credentialFields,
             }))}

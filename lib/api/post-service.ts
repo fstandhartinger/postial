@@ -9,7 +9,7 @@ import { localDateTime } from "@/lib/timezone";
 import { derivePostStatus } from "@/lib/publishing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { validatePublicUrl } from "@/lib/publishers/safe-fetch";
-import { channelTextLimit, countText, postText } from "@/lib/text-limits";
+import { channelTextLimit, countChannelText, postText } from "@/lib/text-limits";
 export type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export type PostContext = { db: ReturnType<typeof getDb>; workspace: {id: string}; userId: string; access?: Awaited<ReturnType<typeof workspaceEntitlements>> };
 import { isUuid, str, InputError, check, https } from "./input";
@@ -59,7 +59,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
       for (const c of selected) {
         const max = channelTextLimit(c);
         check(
-          !max || countText(postText({ text: body, linkUrl })) <= max,
+          !max || countChannelText(postText({ text: body, linkUrl }), c.provider) <= max,
           `${c.displayName} supports ${max} characters.`,
         );
       }
