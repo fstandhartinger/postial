@@ -20,7 +20,7 @@ export default async function BillingPage() {
   const label = !subscription ? 'No plan yet' : expired ? 'Trial ended' : subscription.status === 'trialing' ? 'Free trial' : ({active:'Active subscription',past_due:'Payment overdue',canceled:'Canceled',unpaid:'Payment required',incomplete:'Payment setup incomplete'} as Record<string,string>)[subscription.status] ?? 'Subscription inactive';
   return <div className="space-y-6">
     <Link href="/app" className="text-emerald-700 underline">Back to workspace</Link>
-    <h1 className="text-3xl font-semibold">Billing</h1>
+    <h1 className="text-3xl font-semibold">Billing</h1><Link href="/docs/billing" target="_blank" rel="noopener noreferrer" aria-label="Billing help (opens in a new tab)" title="Billing help" className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm">?</Link>
     <p>{trialTerms}</p>
     <Card className="space-y-4">
       <h2 className="text-xl font-semibold">{subscription ? plans[subscription.plan].name : "No plan yet"}</h2>

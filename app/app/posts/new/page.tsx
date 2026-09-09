@@ -11,7 +11,7 @@ export default async function NewPost({
     q = await searchParams;
   return (
     <>
-      <h1 className="text-3xl font-semibold">Create a post</h1>
+      <h1 className="text-3xl font-semibold">Create a post</h1><Link href="/docs/first-post" target="_blank" rel="noopener noreferrer" aria-label="Composer help (opens in a new tab)" title="Composer help" className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm">?</Link>
       {data.brands.length ? (
         <Composer
         canPublish={data.canPublish} approvalLinks={data.approvalLinks}

@@ -16,7 +16,7 @@ export default async function ChannelsPage() {
     publishErrorAt:sql<string|null>`(select t.updated_at from post_targets t where t.channel_id = ${channels.id} and t.last_error_human is not null order by t.updated_at desc limit 1)`,
     publishError:sql<string|null>`(select t.last_error_human from post_targets t where t.channel_id = ${channels.id} and t.last_error_human is not null order by t.updated_at desc limit 1)`
   }).from(channels).innerJoin(brands,eq(brands.id,channels.brandId)).where(eq(brands.workspaceId,workspace.id)).orderBy(brands.name,channels.displayName);
-  return <><h1>Channels</h1><p className="text-zinc-600">Connection health across all brands. Automatic checks run daily. Manual checks are limited to once a minute.</p>
+  return <><h1>Channels</h1><Link href="/docs/channels" target="_blank" rel="noopener noreferrer" aria-label="Channels help (opens in a new tab)" title="Channels help" className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm">?</Link><p className="text-zinc-600">Connection health across all brands. Automatic checks run daily. Manual checks are limited to once a minute.</p>
     {!rows.length && <Card><h2>No channels yet</h2><p>Connect your first account from a brand.</p><Link className="underline" href="/app/brands">Choose a brand</Link></Card>}
     <div className="grid gap-4 lg:grid-cols-2">{rows.map(c=><Card key={c.id} className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2"><ProviderBadge provider={c.provider}/><ChannelStatusBadge status={c.status}/></div>

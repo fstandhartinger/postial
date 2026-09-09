@@ -25,7 +25,7 @@ export default async function EditPost({
       .where(eq(postTargets.postId, post.id));
   return (
     <>
-      <h1 className="text-3xl font-semibold">Edit post</h1>
+      <h1 className="text-3xl font-semibold">Edit post</h1><Link href="/docs/first-post" target="_blank" rel="noopener noreferrer" aria-label="Composer help (opens in a new tab)" title="Composer help" className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm">?</Link>
       {post.requiresApproval && <p role="status">Saving edits resets client approval. The revised post stays pending until the client approves again.</p>}
       <Composer
         canPublish={data.canPublish} approvalLinks={data.approvalLinks}
