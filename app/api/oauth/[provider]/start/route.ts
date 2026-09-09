@@ -1,3 +1,6 @@
+import { readForm } from '@/lib/http/body';
+import { ApiError, apiError } from '@/lib/api/errors';
+import { sessionActionBudget } from '@/lib/rate-limit';
 import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { createAuth } from '@/lib/publishers/oauth';
@@ -9,10 +12,11 @@ const handle = auth(async request => {
   const provider = new URL(request.url).pathname.split('/')[3];
   if (!isOAuthProvider(provider)) return Response.json({ error: 'Unknown provider.' }, { status: 404 });
   try {
-    const data = await request.formData();
+    await sessionActionBudget(request.auth.user.id);
+    const data = await readForm(request);
     const location = await createAuth(provider, String(data.get('brandId') ?? ''), request.auth.user.id);
     return new Response(null, { status: 303, headers: { Location: location, 'Cache-Control': 'no-store' } });
-  } catch { return Response.json({ error: 'Cannot connect this brand. Return to the brand and try again.' }, { status: 400 }); }
+  } catch (e) { if (e instanceof ApiError) return apiError(e); return Response.json({ error: 'Cannot connect this brand. Return to the brand and try again.' }, { status: 400 }); }
 });
 
 // Lazy Auth.js configuration currently returns a promise for its route wrapper.

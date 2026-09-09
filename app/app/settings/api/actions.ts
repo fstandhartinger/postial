@@ -1,4 +1,5 @@
 'use server';
+import { sessionActionBudget } from '@/lib/rate-limit';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { coreContext } from '@/lib/core';
@@ -12,6 +13,7 @@ export type SettingsState = {error?: string; secret?: string; message?: string};
 export async function settingsAction(_state: SettingsState, form: FormData): Promise<SettingsState> {
   const ctx = await coreContext();
   try {
+  await sessionActionBudget(ctx.userId);
     if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only the workspace owner can manage API settings.');
     const action = String(form.get('action')), id = String(form.get('id') ?? '');
     let result: SettingsState = {};

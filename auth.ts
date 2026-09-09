@@ -1,3 +1,4 @@
+import { identityOnlyAdapter } from '@/lib/auth-adapter';
 import NextAuth from "next-auth";
 import type { Adapter } from "next-auth/adapters";
 import { validateConfig } from "@/lib/config";
@@ -19,11 +20,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       'getSessionAndUser', 'updateSession', 'deleteSession',
       'createVerificationToken', 'useVerificationToken',
     ] satisfies (keyof Adapter)[]).map(method => [method, (...args: unknown[]) => {
-      const adapter = DrizzleAdapter(getDb(), { usersTable: users, accountsTable: accounts, sessionsTable: sessions, verificationTokensTable: verificationTokens });
+      const adapter = identityOnlyAdapter(DrizzleAdapter(getDb(), { usersTable: users, accountsTable: accounts, sessionsTable: sessions, verificationTokensTable: verificationTokens }));
       const operation = adapter[method] as (...values: unknown[]) => unknown;
       return operation(...args);
     }])) as Adapter,
-    session: { strategy: "database" }, trustHost: true,
+    session: { strategy: "database" }, trustHost: process.env.AUTH_TRUST_HOST === "true",
     pages: { signIn: "/login", error: "/login", verifyRequest: "/login?sent=1" },
     providers: [
       ...(enabled.google ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []),

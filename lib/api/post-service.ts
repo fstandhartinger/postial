@@ -1,3 +1,4 @@
+import { cleanText, linkInput } from '@/lib/text-input';
 import { mediaAssets } from '@/db/media-schema';
 import { ownMediaId, localMediaUrl, mediaUrl } from '@/lib/media/url';
 import { ApiError } from "./errors";
@@ -30,9 +31,9 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         );
       check(brand, "Brand not found.");
       check(access.activeBrandIds.includes(brandId), "This brand is read-only under your plan. Review Billing.");
-      const body = str(form, "body"),
-        mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean).map(url => { const id = ownMediaId(url); return id ? mediaUrl(id) : url; }),
-        linkUrl = str(form, "linkUrl");
+      const body = cleanText(str(form, "body")),
+        mediaUrls = str(form, "mediaUrls").split(/\s+/).filter(Boolean).map(linkInput).map(url => { const id = ownMediaId(url); return id ? mediaUrl(id) : url; }),
+        linkUrl = linkInput(str(form, "linkUrl"));
       check(
         body.length > 0 && body.length <= 100000,
         "Write your post (up to 100,000 characters).",
@@ -45,9 +46,8 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         try { if (!ownMediaId(url)) await validatePublicUrl(url); }
         catch { throw new InputError(`media_urls[${index}]: Use a reachable public HTTPS media URL. DNS may be temporarily unavailable; check the URL and try again.`); }
       }
-      check(!linkUrl || https(linkUrl), "Use an HTTPS link.");
       const ids = [...new Set(form.getAll("channelId").map(String))];
-      check(ids.every(isUuid), "Choose valid channels.");
+      check(ids.length <= 100 && ids.every(isUuid), "Choose valid channels.");
       const selected = (
         await db.select().from(channels).where(eq(channels.brandId, brandId))
       ).filter((c) => ids.includes(c.id));
@@ -67,7 +67,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         requestedApproval = form.get("requiresApproval") === "on";
       let requiresApproval = requestedApproval;
       let mediaAlt: Record<string, string> = {};
-      try { const parsed = JSON.parse(str(form, "mediaAlt") || "{}"); check(parsed && typeof parsed === "object" && !Array.isArray(parsed), "Invalid image descriptions."); mediaAlt = Object.fromEntries(mediaUrls.map(url => { const alt = parsed[url] ?? ""; check(typeof alt === "string" && alt.length <= 1000, "Image descriptions must be at most 1,000 characters."); return [url, alt]; })); } catch(e) { if (e instanceof InputError) throw e; throw new InputError("Invalid image descriptions."); }
+      try { const parsed = JSON.parse(str(form, "mediaAlt") || "{}"); check(parsed && typeof parsed === "object" && !Array.isArray(parsed), "Invalid image descriptions."); mediaAlt = Object.fromEntries(mediaUrls.map(url => { const alt = parsed[url] ?? ""; check(typeof alt === "string" && alt.length <= 1000, "Image descriptions must be at most 1,000 characters."); return [url, cleanText(alt)]; })); } catch(e) { if (e instanceof InputError) throw e; throw new InputError("Invalid image descriptions."); }
       check(!requiresApproval || access.approvalLinks, "requires_approval: Included with Agency — upgrade to use client approval links.");
       check(
         draft || selected.length > 0,

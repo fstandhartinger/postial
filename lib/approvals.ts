@@ -1,3 +1,4 @@
+import { visibleIdentifier, cleanText } from '@/lib/text-input';
 import { emit } from "@/lib/api/webhooks";
 import { createHmac, randomBytes } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -66,7 +67,10 @@ export async function decideApproval(token: string, input: unknown, ip: string):
     const targets = await tx.select().from(postTargets).where(eq(postTargets.postId, post.id)).for("update");
     if (!canReview(post.status) || targets.some((t) => t.status === "publishing" || t.status === "published" || t.attempts > 0))
       return { status: 409, error: "Publishing has started. This post is now read-only." };
-    const { reviewerName, comment, decision } = parsed.data;
+    let reviewerName: string;
+    try { reviewerName = visibleIdentifier(parsed.data.reviewerName,'Name'); }
+    catch { return {status:422,error:'Name must not contain invisible or bidirectional control characters.'}; }
+    const comment = cleanText(parsed.data.comment), decision = parsed.data.decision;
     const [savedDecision] = await tx.insert(approvalDecisions).values({ postId: post.id, decision, comment, reviewerName, reviewerIpHash: digest(ip), createdAt: sql`clock_timestamp()` }).returning({at: approvalDecisions.createdAt});
     await tx.update(posts).set({ status: decision, approvalNote: comment, updatedAt: new Date() }).where(eq(posts.id, post.id));
     // Matches agency scheduling and tick's held-target activation, without running

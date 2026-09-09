@@ -1,3 +1,5 @@
+import { readJson } from '@/lib/http/body';
+export { readJson } from '@/lib/http/body';
 import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { approvalDecisions, apiIdempotency, brands, channels, postEvents, posts, postStatus, postTargets } from '@/db/schema';
@@ -42,7 +44,7 @@ export async function getPost(_request: Request, ctx: ApiContext, id?: string) {
   const approvals = await ctx.db.select({decision: approvalDecisions.decision, reviewer_name: approvalDecisions.reviewerName,
     comment: approvalDecisions.comment, created_at: approvalDecisions.createdAt, decided_at: approvalDecisions.createdAt}).from(approvalDecisions)
     .where(eq(approvalDecisions.postId, post.id)).orderBy(asc(approvalDecisions.createdAt), asc(approvalDecisions.id));
-  return json({...postJson(post), targets, events, approvals, ...(post.requiresApproval ? {approval_url: post.approvalToken ? `${appUrl()}/r/${post.approvalToken}` : null} : {})});
+  return json({...postJson(post), targets, events, approvals, ...(post.requiresApproval && ctx.key.scopes.includes('posts:write') ? {approval_url: post.approvalToken ? `${appUrl()}/r/${post.approvalToken}` : null} : {})});
 }
 export async function listPosts(request: Request, ctx: ApiContext) {
   const q = new URL(request.url).searchParams;
@@ -55,17 +57,6 @@ export async function listPosts(request: Request, ctx: ApiContext) {
     .where(and(eq(brands.workspaceId, ctx.workspace.id), brand_id ? eq(posts.brandId, brand_id) : undefined,
       status ? eq(posts.status, status) : undefined, cursor ? gt(posts.id, cursor) : undefined)).orderBy(asc(posts.id)).limit(limit + 1);
   return json({data: rows.slice(0, limit).map(r => postJson(r.post)), next_cursor: rows.length > limit ? rows[limit - 1].post.id : null});
-}
-export async function readJson(request: Request) {
-  const reader = request.body?.getReader();
-  if (!reader) throw new ApiError(422, 'validation_error', 'JSON body required.');
-  let text = ''; const decoder = new TextDecoder(); let size = 0;
-  try {
-    while (true) { const {done, value} = await reader.read(); if (done) break; size += value.byteLength;
-      if (size > 512000) throw new ApiError(413, 'payload_too_large', 'Request exceeds 512 KB.'); text += decoder.decode(value, {stream: true}); }
-    text += decoder.decode();
-  } finally { await reader.cancel(); }
-  try { return JSON.parse(text); } catch { throw new ApiError(422, 'validation_error', 'Invalid JSON.'); }
 }
 export async function createPost(request: Request, ctx: ApiContext) {
   const parsed = postInput.safeParse(await readJson(request));

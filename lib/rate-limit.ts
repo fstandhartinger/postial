@@ -1,16 +1,33 @@
 import { getDb } from "@/db";
 import { apiRateLimits } from "@/db/schema";
 import { sql } from "drizzle-orm";
-// Shared Checkout/Portal budget per authenticated user, per server process.
-// Multiple replicas require a shared store before scaling out.
-const windows = new Map<string, { count: number; reset: number }>();
-export function billingRateLimit(userId: string, now = Date.now()): number {
-  for (const [key, window] of windows) if (window.reset <= now) windows.delete(key);
-  const window = windows.get(userId) ?? { count: 0, reset: now + 60_000 };
-  windows.set(userId, window);
-  if (window.count >= 5) return Math.max(1, Math.ceil((window.reset - now) / 1000));
-  window.count++;
-  return 0;
+import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
+import { ApiError } from '@/lib/api/errors';
+/** Atomic fixed windows in PostgreSQL, shared by every replica. Keys contain no raw IP. */
+export async function sharedRateLimit(key: string, limit: number, seconds: number): Promise<number> {
+  const [row] = await getDb().execute(sql`insert into request_rate_limits (key, attempts, expires_at)
+    values (${key}, 1, now() + ${seconds} * interval '1 second')
+    on conflict (key) do update set
+      attempts = case when request_rate_limits.expires_at <= now() then 1 else least(request_rate_limits.attempts + 1, ${limit + 1}) end,
+      expires_at = case when request_rate_limits.expires_at <= now() then now() + ${seconds} * interval '1 second' else request_rate_limits.expires_at end
+    returning attempts, greatest(1, ceil(extract(epoch from (expires_at - now())))) as retry`);
+  return Number(row.attempts) > limit ? Number(row.retry) : 0;
+}
+export const billingRateLimit = (userId: string) => sharedRateLimit('billing:' + userId, 5, 60);
+export async function sessionActionBudget(userId: string) {
+  const retry = await sharedRateLimit('session:' + userId, 120, 60);
+  if (retry) throw new ApiError(429,'rate_limited','Maximum 120 actions per minute. Please wait.',retry);
+}
+export async function anonymousLimit(headers: Headers, path: string, limit: number) {
+  const forwarded = process.env.APPROVAL_TRUST_PROXY === 'true' ? headers.get('x-real-ip') : null;
+  const ip = forwarded && isIP(forwarded) ? forwarded : 'untrusted-peer';
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) throw new Error('AUTH_SECRET is required');
+  const key = createHmac('sha256', secret).update(ip).digest('hex');
+  const retry = await sharedRateLimit('anonymous:' + path + ':' + key, limit, 60);
+  return retry ? Response.json({error:{code:'rate_limited',message:'Too many requests. Please wait.'}},
+    {status:429,headers:{'Retry-After':String(retry),'Cache-Control':'no-store'}}) : null;
 }
 
 // API budgets are atomic and shared across replicas, unlike the billing budget.

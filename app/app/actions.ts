@@ -1,4 +1,6 @@
 "use server";
+import { sessionActionBudget } from '@/lib/rate-limit';
+import { visibleIdentifier, linkInput } from '@/lib/text-input';
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -27,10 +29,11 @@ export async function coreAction(
   const { db, workspace, userId } = await coreContext();
   let destination = "/app";
   try {
+  await sessionActionBudget(userId);
     const action = str(form, "action");
     const access = await workspaceEntitlements(workspace);
     if (action === "brand") {
-      const name = str(form, "name"),
+      const name = visibleIdentifier(str(form, "name"), "Name"),
         color = str(form, "color"),
         timezone = str(form, "timezone");
       check(
@@ -97,6 +100,10 @@ export async function coreAction(
         const credentials: Record<string, string> = {};
         for (const field of publisher.credentialFields) {
           credentials[field.key] = str(form, "credential:" + field.key);
+          if (/handle|identifier|instance|url|chatId/i.test(field.key)) {
+            credentials[field.key] = visibleIdentifier(credentials[field.key], field.label);
+            if (/instance|url/i.test(field.key)) credentials[field.key] = linkInput(credentials[field.key]);
+          }
           check(
             credentials[field.key] && credentials[field.key].length <= 10000,
             `Enter ${field.label}.`,
@@ -107,7 +114,7 @@ export async function coreAction(
           brandId,
           provider,
           credentialsEnc: encryptCredentials(credentials),
-          displayName: account.displayName,
+          displayName: visibleIdentifier(account.displayName, "Channel name"),
           externalId: account.externalId,
           url: account.url && https(account.url) ? account.url : null,
           meta: account.meta ?? {},

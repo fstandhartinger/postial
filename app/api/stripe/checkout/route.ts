@@ -1,6 +1,8 @@
+import { readJson } from '@/lib/http/body';
+import { ApiError, apiError } from '@/lib/api/errors';
 import { checkoutTrial } from '@/lib/checkout-trial';
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { subscriptions, workspaces } from '@/db/schema';
 import { billingState } from '@/db/billing-schema';
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
   let release: (() => Promise<unknown>) | undefined;
   try {
     const { workspace, user } = await billingOwner(request);
-    const body: unknown = await request.json().catch(() => null);
+    const body: unknown = await readJson(request);
     const plan = body && typeof body === 'object' && 'plan' in body ? body.plan : null;
     if (!isPlan(plan)) throw new BillingHttpError(400, 'Invalid plan');
     const price = requiredEnv(plans[plan].priceEnv);
@@ -22,6 +24,8 @@ export async function POST(request: Request) {
     const lease = randomUUID();
     await db.transaction(async tx => {
       await lockWorkspace(tx, workspace.id);
+      const deleting = await tx.execute(sql`select 1 from workspace_deletions where workspace_id=${workspace.id}::uuid`);
+      if (deleting.length) throw new BillingHttpError(409,'Workspace deletion is in progress.');
       const [state] = await tx.select().from(billingState).where(eq(billingState.workspaceId, workspace.id));
       if (state?.checkoutLeaseUntil && state.checkoutLeaseUntil > new Date()) throw new BillingHttpError(409, 'Checkout is already opening; retry shortly', 5);
       const values = { checkoutLease: lease, checkoutLeaseUntil: new Date(Date.now() + 10 * 60_000) };
@@ -67,6 +71,6 @@ export async function POST(request: Request) {
     if (!checkout.url || checkout.status !== 'open') throw new BillingHttpError(409, 'Checkout expired; please retry');
     await db.update(billingState).set({ checkoutSessionId: checkout.id, checkoutPlan: plan }).where(eq(billingState.workspaceId, workspace.id));
     return Response.json({ url: checkout.url });
-  } catch (error) { return billingError(error); }
+  } catch (error) { return error instanceof ApiError ? apiError(error) : billingError(error); }
   finally { if (release) { try { await release(); } catch { console.error('Checkout lease cleanup failed; lease will expire'); } } }
 }

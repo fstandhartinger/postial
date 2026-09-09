@@ -5,7 +5,7 @@ import Link from "next/link";
 import { switchWorkspace } from "./workspace-actions";
 import { eq, and, countDistinct } from "drizzle-orm";
 import { postTargets, posts, brands, users, workspaces, workspaceMembers } from "@/db/schema";
-import { signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { coreContext } from "@/lib/core";
 import { BrandSwitcher } from "@/components/core/brand-switcher";
 import { Navigation, NewPostLink } from "@/components/app/navigation";
@@ -15,6 +15,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  if(session?.user?.id) {
+    const { getDb } = await import('@/db');
+    const memberships = await getDb().select({id:workspaceMembers.workspaceId}).from(workspaceMembers).where(eq(workspaceMembers.userId,session.user.id)).limit(1);
+    if(!memberships.length) return <main className="mx-auto max-w-3xl space-y-6 p-6"><Link href="/app">Create a workspace</Link><Link className="ml-4" href="/app/settings/account">Account settings</Link>{children}</main>;
+  }
   const { db, workspace, userId, role } = await coreContext();
   const [list, user] = await Promise.all([
     db
@@ -43,6 +49,8 @@ export default async function AppLayout({
           </p>
           <p className="truncate text-xs text-zinc-600">{workspace.name}</p>
           {switcher}
+          <Link href="/app/settings/account">Account settings</Link>
+          {role === "owner" && <Link href="/app/settings/workspace">Workspace settings</Link>}
           <form
             action={async () => {
               "use server";
@@ -64,6 +72,8 @@ export default async function AppLayout({
             <summary className="cursor-pointer p-2 text-sm">Account</summary>
             <div className="absolute right-0 z-30 w-48 space-y-3 rounded-2xl border bg-white p-4 shadow">
               {switcher}
+              <Link href="/app/settings/account">Account settings</Link>
+              {role === "owner" && <Link href="/app/settings/workspace">Workspace settings</Link>}
               <Link href="/app/billing" className="block">
                 Billing
               </Link>

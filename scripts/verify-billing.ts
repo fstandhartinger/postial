@@ -1,7 +1,7 @@
 // Creates only an uncompleted Checkout, Portal session and temporary customer.
 // Never follows the returned Stripe URLs or creates a subscription/payment.
 import assert from "node:assert/strict";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { users, sessions, subscriptions, workspaces } from "../db/schema";
 import { ensureWorkspace } from "../lib/workspaces";
@@ -19,9 +19,11 @@ async function main() {
   assert.equal(loginTarget('/app/billing', 'invalid'), '/app/billing');
   assert.equal(loginTarget('//evil', {}), '/app');
   const limitKey = crypto.randomUUID();
-  for (let i = 0; i < 5; i++) assert.equal(billingRateLimit(limitKey, 1000), 0);
-  assert.equal(billingRateLimit(limitKey, 1000), 60);
-  assert.equal(billingRateLimit(limitKey, 61000), 0);
+  for (let i = 0; i < 5; i++) assert.equal(await billingRateLimit(limitKey), 0);
+  assert.equal(await billingRateLimit(limitKey), 60);
+  await getDb().execute(sql`update request_rate_limits set expires_at=now()-interval '1 second' where key=${'billing:'+limitKey}`);
+  assert.equal(await billingRateLimit(limitKey), 0);
+  await getDb().execute(sql`delete from request_rate_limits where key=${'billing:'+limitKey}`);
   const db = getDb(), client = stripe();
   const base = "http://localhost:3992";
   const userId = crypto.randomUUID(), token = crypto.randomUUID();

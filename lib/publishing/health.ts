@@ -8,9 +8,10 @@ import { getPublisher, PublishError } from '@/lib/publishers';
 export const healthErrorMessage = (code: string) => code === 'AUTH_EXPIRED'
   ? 'Access expired. Reconnect this channel.' : code === 'RATE_LIMITED'
   ? 'The provider is rate limiting checks. Try again later.' : 'The provider could not be reached or validated. Try again later.';
-/** Row locks serialize validation with OAuth refresh and connection changes. */
+/** Claim in a short transaction; network work outside; compare-and-set fences reconnect/refresh. */
 export async function checkChannelHealth(id?: string, workspaceId?: string) {
-  return getDb().transaction(async tx => {
+  const claimedAt = new Date();
+  const rows = await getDb().transaction(async tx => {
     const rows = await tx.select({channel: channels, workspaceId: brands.workspaceId}).from(channels)
       .innerJoin(brands, eq(brands.id, channels.brandId))
       .where(and(sql`${channels.status} <> 'disconnected'`,
@@ -20,7 +21,11 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         id ? sql`(${channels.lastCheckedAt} is null or ${channels.lastCheckedAt} <= now() - interval '1 minute')` : undefined))
       .orderBy(sql`${channels.lastCheckedAt} asc nulls first`, channels.id)
       .limit(id ? 1 : 5).for('update', {of: channels, skipLocked: true});
+    for (const {channel: c} of rows) await tx.update(channels).set({lastCheckedAt:claimedAt}).where(eq(channels.id,c.id));
+    return rows;
+  });
     for (const {channel: c, workspaceId: ownerWorkspace} of rows) {
+      let refreshedEnc = c.credentialsEnc;
       let status = c.status, error: string | null = null;
       try {
         const publisher = getPublisher(c.provider);
@@ -29,7 +34,7 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
           const refreshed = await publisher.refreshCredentials(credentials);
           if (refreshed) {
             credentials = refreshed;
-            await tx.update(channels).set({credentialsEnc:encryptCredentials(refreshed)}).where(eq(channels.id,c.id));
+            refreshedEnc = encryptCredentials(refreshed);
           }
         }
         await publisher.validate(credentials);
@@ -40,9 +45,11 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         error = healthErrorMessage(code);
         console.warn('Channel health check failed', {provider: c.provider, code});
       }
-      if(status==='token_expired' && c.status!=='token_expired') await notifyWorkspace(tx,ownerWorkspace,'token_expired');
-      await tx.update(channels).set({status, lastCheckedAt: new Date(), lastHealthError: error}).where(eq(channels.id,c.id));
+      await getDb().transaction(async tx => {
+        const updated = await tx.update(channels).set({status,credentialsEnc:refreshedEnc,lastHealthError:error})
+          .where(and(eq(channels.id,c.id),eq(channels.lastCheckedAt,claimedAt),eq(channels.credentialsEnc,c.credentialsEnc),eq(channels.status,c.status))).returning({id:channels.id});
+        if(updated.length && status==='token_expired' && c.status!=='token_expired') await notifyWorkspace(tx,ownerWorkspace,'token_expired');
+      });
     }
     return {checked: rows.length};
-  });
 }

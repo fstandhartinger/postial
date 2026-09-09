@@ -17,6 +17,14 @@ export async function retainMedia(now = new Date()) {
       count += removed.length;
       bytes += removed.reduce((sum,r) => sum + Number(r.bytes),0);
     }
+    const ago = (days:number) => new Date(+now-days*86400000).toISOString();
+    await tx.execute(sql`delete from webhook_deliveries where created_at < ${ago(30)}::timestamptz`);
+    await tx.execute(sql`delete from notifications where created_at < ${ago(90)}::timestamptz`);
+    for (const table of ['request_rate_limits','approval_rate_limits','api_rate_limits'])
+      await tx.execute(sql`delete from ${sql.identifier(table)} where expires_at < ${ago(1)}::timestamptz`);
+    await tx.execute(sql`delete from workspace_invites where accepted_at < ${ago(30)}::timestamptz or revoked_at < ${ago(30)}::timestamptz or expires_at < ${ago(30)}::timestamptz`);
+    await tx.execute(sql`delete from oauth_states where expires_at < ${ago(1)}::timestamptz`);
+    await tx.execute(sql`delete from offboarding_events where created_at < ${ago(90)}::timestamptz`);
     await tx.update(maintenanceRuns).set({completedAt:now}).where(eq(maintenanceRuns.name,'media_retention'));
     console.info('Media retention complete', {count,bytes});
     return {ran:true,count,bytes};

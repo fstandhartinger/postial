@@ -1,6 +1,8 @@
+import { readBody, WEBHOOK_LIMIT } from '@/lib/http/body';
+import { apiError } from '@/lib/api/errors';
 import { randomUUID } from 'node:crypto';
 import type Stripe from 'stripe';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { subscriptions, workspaces } from '@/db/schema';
 import { billingState, stripeEvents, retiredSubscriptions } from '@/db/billing-schema';
@@ -56,6 +58,8 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
       const [seen] = await tx.select().from(stripeEvents).where(eq(stripeEvents.id, event.id));
       if (seen) return true;
       const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+      const deleting = await tx.execute(sql`select 1 from workspace_deletions where workspace_id=${workspaceId}::uuid`);
+      if (deleting.length) { await tx.insert(stripeEvents).values({id:event.id}).onConflictDoNothing(); return true; }
       if (!workspace) throw new Error('Workspace not found');
       const [local] = await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
       if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return false;
@@ -105,13 +109,15 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
   throw new Error("Concurrent billing update; retry event");
 }
 export async function POST(request: Request) {
+  let body: string;
+  try { body = (await readBody(request, WEBHOOK_LIMIT)).toString('utf8'); }
+  catch (e) { return apiError(e); }
   const signature = request.headers.get('stripe-signature');
   if (!signature) return Response.json({ error: 'Missing signature' }, { status: 400 });
   let event: Stripe.Event;
   let secret: string;
   try { secret = requiredEnv('STRIPE_WEBHOOK_SECRET'); stripe(); }
   catch { return Response.json({ error: 'Webhook not configured' }, { status: 500 }); }
-  const body = await request.text();
   try { event = stripe().webhooks.constructEvent(body, signature, secret); }
   catch { return Response.json({ error: 'Invalid signature' }, { status: 400 }); }
   try {

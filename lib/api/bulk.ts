@@ -88,7 +88,7 @@ export async function saveBulk(
   return results;
 }
 export async function createBulk(request: Request, ctx: ApiContext) {
-  const input = await readJson(request);
+  const input = await readJson(request, 2 * 1024 * 1024);
   assertBulk(input);
   const idem = request.headers.get("idempotency-key");
   if (idem !== null && !/^[\x21-\x7e]{1,200}$/.test(idem))

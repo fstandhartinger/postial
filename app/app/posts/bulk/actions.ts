@@ -1,4 +1,5 @@
 "use server";
+import { sessionActionBudget } from '@/lib/rate-limit';
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -20,6 +21,7 @@ export async function saveBulkAction(
   draft: boolean,
 ): Promise<BulkResult[]> {
   const ctx = await coreContext();
+  await sessionActionBudget(ctx.userId);
   assertBulk(rows);
   const [brand] = await ctx.db
     .select()

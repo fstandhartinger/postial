@@ -27,9 +27,11 @@ export async function billingOwner(request: Request) {
   const session = await auth();
   if (!session?.user?.id) throw new BillingHttpError(401, 'Login required');
   if (request.headers.get('origin') !== appUrl()) throw new BillingHttpError(403, 'Invalid origin');
-  const retryAfter = billingRateLimit(session.user.id);
+  const retryAfter = await billingRateLimit(session.user.id);
   if (retryAfter) throw new BillingHttpError(429, 'Too many billing requests', retryAfter);
   const ctx = await coreContext();
+  const deleting = await getDb().execute(sql`select 1 from workspace_deletions where workspace_id=${ctx.workspace.id}::uuid`);
+  if (deleting.length) throw new BillingHttpError(409,'Workspace deletion is in progress. Retry deletion in workspace settings.');
   if (ctx.role !== 'owner') throw new BillingHttpError(403, 'Only workspace owners can manage billing');
   return { workspace: ctx.workspace, user: session.user };
 }

@@ -1,16 +1,19 @@
+import { workerState } from './state';
 import { deliverWebhooksTick } from "@/lib/api/webhooks";
 import { tick } from "./index";
 const state = globalThis as typeof globalThis & {
   socialmintWorker?: ReturnType<typeof setInterval>;
 };
 export function startPublishingWorker() {
-  if (state.socialmintWorker || !process.env.DATABASE_URL) return;
+  if (state.socialmintWorker || !process.env.DATABASE_URL || process.env.WORKER_ENABLED === "false") return;
+  workerState.startedAt = Date.now();
   let running = false;
   state.socialmintWorker = setInterval(async () => {
     if (running) return;
     running = true;
     try {
       await tick();
+      workerState.lastTickAt = new Date().toISOString();
     } catch {
       console.error("Publishing tick failed");
     } finally {

@@ -1,10 +1,12 @@
 "use server";
+import { sessionActionBudget } from '@/lib/rate-limit';
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ownPost } from "@/lib/core";
 import { postEvents } from "@/db/schema";
 export async function recordApprovalCopy(postId: string) {
-  const { db, post } = await ownPost(postId);
+  const { db, post, userId } = await ownPost(postId);
+  await sessionActionBudget(userId);
   if (!post.requiresApproval || !post.approvalToken || post.status === "draft")
     return;
   await db.transaction(async (tx) => {

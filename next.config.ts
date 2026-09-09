@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [{source: '/api/v1/:path*', headers: [{key: 'Cache-Control', value: 'no-store'}]}, { source: '/:path*', headers: [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },

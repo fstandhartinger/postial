@@ -1,3 +1,5 @@
+import { readJson } from '@/lib/http/body';
+import { ApiError, apiError } from '@/lib/api/errors';
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 import ipaddr from 'ipaddr.js';
@@ -13,18 +15,9 @@ export async function POST(request: Request) {
   if (!request.headers.get('content-type')?.startsWith('application/json')) return Response.json({ error: 'JSON required' }, { status: 422 });
   let body: { network?: unknown; email?: unknown; source?: unknown };
   try {
-    const reader = request.body?.getReader();
-    if (!reader) throw new Error();
-    const chunks: Uint8Array[] = []; let size = 0;
-    while (true) {
-      const { value, done } = await reader.read(); if (done) break;
-      size += value.length;
-      if (size > 4096) { await reader.cancel(); return Response.json({ error: 'Request too large' }, { status: 413 }); }
-      chunks.push(value);
-    }
-    body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    body = await readJson(request,4096) as typeof body;
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();
-  } catch { return Response.json({ error: 'Invalid JSON' }, { status: 422 }); }
+  } catch(e) { if(e instanceof ApiError) return apiError(e); return Response.json({ error: 'Invalid JSON' }, { status: 422 }); }
   const network = typeof body.network === 'string' ? body.network.trim().toLowerCase() : '';
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const source = body.source ?? 'roadmap';

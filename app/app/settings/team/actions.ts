@@ -1,4 +1,5 @@
 'use server';
+import { sessionActionBudget } from '@/lib/rate-limit';
 import { coreContext } from '@/lib/core';
 import { manageTeam, TeamError } from '@/lib/team';
 import { revalidatePath } from 'next/cache';
@@ -6,6 +7,7 @@ export type TeamState = { error?: string; link?: string; message?: string };
 export async function teamAction(_state: TeamState, form: FormData): Promise<TeamState> {
   const ctx = await coreContext();
   try {
+  await sessionActionBudget(ctx.userId);
     const token = await manageTeam(ctx.workspace.id, ctx.userId, String(form.get('action')), String(form.get('target') ?? ''), String(form.get('role') ?? 'editor'));
     revalidatePath('/app', 'layout');
     if (token) {

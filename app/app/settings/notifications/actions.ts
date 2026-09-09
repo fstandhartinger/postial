@@ -1,4 +1,5 @@
 "use server";
+import { sessionActionBudget } from '@/lib/rate-limit';
 import { revalidatePath } from 'next/cache';
 import { and,eq,isNull,inArray } from 'drizzle-orm';
 import { coreContext,isUuid } from '@/lib/core';
@@ -8,6 +9,7 @@ import { ApiError } from '@/lib/api/errors';
 export async function notificationAction(_state:{message:string},form:FormData) {
   const {db,workspace,userId}=await coreContext();
   try {
+  await sessionActionBudget(userId);
     const action=String(form.get('action')),id=String(form.get('id')??'');
     if(action==='create') await createAlertDestination(workspace.id,userId,String(form.get('kind')),String(form.get('url')??'').trim(),form.getAll('event').map(String));
     else {

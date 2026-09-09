@@ -1,3 +1,5 @@
+import { linkInput } from '@/lib/text-input';
+import { sharedRateLimit } from '@/lib/rate-limit';
 import { notifyWorkspace } from '@/lib/notifications';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, lt, lte, sql, inArray, isNull } from 'drizzle-orm';
@@ -17,6 +19,7 @@ function loopback(value: string) {
   return url.protocol === 'http:' && url.hostname === '127.0.0.1' && !url.username && !url.password;
 }
 export async function validateWebhookUrl(value: string) {
+  linkInput(value);
   if (value.length > 2048) throw new ApiError(422, 'validation_error', 'URL is too long.');
   try { if (!loopback(value)) await validatePublicUrl(value); }
   catch { throw new ApiError(422, 'validation_error', 'Use a public HTTPS webhook URL.'); }
@@ -24,6 +27,7 @@ export async function validateWebhookUrl(value: string) {
 export async function createWebhook(workspaceId: string, url: string, events: string[]) {
   await requireAgency(workspaceId);
   if (!events.length || events.some(e => !webhookEvents.includes(e as WebhookEvent))) throw new ApiError(422, 'validation_error', 'Choose valid webhook events.');
+  url = linkInput(url);
   await validateWebhookUrl(url);
   const secret = 'whsec_' + randomBytes(32).toString('base64url');
   return getDb().transaction(async tx => {
@@ -62,6 +66,8 @@ export async function emitPublishing(tx: Tx, postId: string, previousStatus: str
 }
 export async function sendTestEvent(workspaceId: string, endpointId: string) {
   await requireAgency(workspaceId);
+  const retry = await sharedRateLimit('webhook-test:' + workspaceId, 10, 3600);
+  if (retry) throw new ApiError(429,'rate_limited','Maximum 10 webhook tests per hour per workspace.',retry);
   return getDb().transaction(async tx => {
     const [endpoint] = await tx.select({id: webhookEndpoints.id}).from(webhookEndpoints).where(and(eq(webhookEndpoints.id, endpointId), eq(webhookEndpoints.workspaceId, workspaceId), eq(webhookEndpoints.active, true), isNull(webhookEndpoints.deletedAt))).for('share');
     if (!endpoint) throw new ApiError(404, 'not_found', 'Active endpoint not found.');

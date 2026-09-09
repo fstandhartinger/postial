@@ -1,3 +1,4 @@
+import { visibleIdentifier } from '@/lib/text-input';
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
@@ -16,11 +17,18 @@ export async function requireAgency(workspaceId: string) {
 }
 export async function createApiKey(workspaceId: string, userId: string, name: string, selected: string[]) {
   await requireAgency(workspaceId);
+  name = visibleIdentifier(name, 'Key name');
   if (!name.trim() || name.trim().length > 80 || !selected.length || selected.some(s => !scopes.includes(s as Scope)))
     throw new ApiError(422, 'validation_error', 'Enter a name (1–80 characters) and valid scopes.');
   const token = 'sm_live_' + randomBytes(32).toString('base64url');
-  const [key] = await getDb().insert(apiKeys).values({workspaceId, createdByUserId: userId, name: name.trim(),
-    keyPrefix: token.slice(8, 16), keyHash: hash(token), scopes: [...new Set(selected)]}).returning({id: apiKeys.id});
+  const key = await getDb().transaction(async tx => {
+    await tx.select({id:workspaces.id}).from(workspaces).where(eq(workspaces.id,workspaceId)).for('update');
+    const active = await tx.select({id:apiKeys.id}).from(apiKeys).where(and(eq(apiKeys.workspaceId,workspaceId),isNull(apiKeys.revokedAt)));
+    if (active.length >= 20) throw new ApiError(422,'key_limit','Maximum 20 active API keys per workspace. Revoke a key first.');
+    const [key] = await tx.insert(apiKeys).values({workspaceId, createdByUserId:userId, name:name.trim(),
+      keyPrefix:token.slice(8,16),keyHash:hash(token),scopes:[...new Set(selected)]}).returning({id:apiKeys.id});
+    return key;
+  });
   return {id: key.id, token};
 }
 export async function authenticate(request: Request, scope?: Scope) {
