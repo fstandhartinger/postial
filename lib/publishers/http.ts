@@ -1,3 +1,4 @@
+import { localMediaUrl } from '@/lib/media/url';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { safeFetch } from './safe-fetch';
 import { countText } from '../text-limits';
@@ -93,7 +94,7 @@ export function jsonBody(body: unknown): RequestInit {
 
 /** Stream with a hard bound, including responses without Content-Length. */
 export async function downloadImage(provider: string, url: string, maxBytes: number): Promise<Blob> {
-  httpsOrigin(url);
+  if (!localMediaUrl(url)) httpsOrigin(url);
   return request(provider, url, {}, async response => {
     const type = response.headers.get('content-type')?.split(';')[0] ?? '';
     if (!type.startsWith('image/')) throw failure('CONTENT_REJECTED', `${provider} requires an image URL with an image content type.`);
@@ -113,5 +114,5 @@ export async function downloadImage(provider: string, url: string, maxBytes: num
       }
     } finally { await reader.cancel(); }
     return new Blob(chunks, { type });
-  }, Math.min(maxBytes, 1_000_000));
+  }, Math.min(maxBytes, 5 * 1024 * 1024));
 }

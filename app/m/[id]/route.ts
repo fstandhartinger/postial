@@ -1,0 +1,14 @@
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db';
+import { mediaAssets } from '@/db/media-schema';
+export const runtime = 'nodejs';
+export async function GET(request: Request, {params}: {params: Promise<{id:string}>}) {
+  const {id} = await params;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(id)) return new Response(null,{status:404});
+  const [asset] = await getDb().select().from(mediaAssets).where(eq(mediaAssets.id,id));
+  if (!asset) return new Response(null,{status:404});
+  const etag = `"${asset.sha256}"`;
+  const headers = {'Content-Type':asset.mime,'Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff',ETag:etag};
+  if (request.headers.get('if-none-match')?.split(',').some(v => v.trim().replace(/^W\//,'') === etag || v.trim() === '*')) return new Response(null,{status:304,headers});
+  return new Response(new Uint8Array(asset.data),{headers:{...headers,'Content-Length':String(asset.bytes)}});
+}

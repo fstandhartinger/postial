@@ -323,3 +323,37 @@ changed-file secret scan and `verify-api.ts` passed both in the route harness an
 against the built Next.js server. Local receiver registration/delivery uses the
 non-production harness; the production server explicitly rejects loopback URLs.
 All temporary database fixtures were removed by the verifier.
+
+## Image uploads
+
+The composer accepts drag-and-drop and file selection with progress, thumbnails and
+removal, alongside external HTTPS URLs. Uploads are public capability URLs; anyone
+with the URL can view the image. Removing a thumbnail only detaches it from the
+post. Unused uploads remain until explicitly deleted; automatic retention is future work.
+
+`POST /api/media` accepts a session-authenticated multipart `file` and optional
+`brand_id`. `POST /api/v1/media` requires Agency API scope `posts:write` and accepts
+the same multipart body or JSON `{ "data": "<standard Base64>", "brand_id": "<optional UUID>" }`.
+Both return 201 `{id,url,width,height,bytes}`. Pass returned absolute URLs in
+`media_urls` when creating posts. Magic bytes and image headers determine type and
+dimensions without re-encoding: JPEG, PNG, WebP and GIF, maximum 5 MiB each and four
+images per post. Workspace storage: Starter 200 MiB; active Agency 2 GiB. Oversize
+returns 413, invalid images/exhausted storage return 422. Uploads have a 30/minute
+per-user/workspace process budget (use shared storage before multiple replicas);
+API keys additionally retain their persistent API budget.
+
+Postgres `media_assets` stores the original bytes (`bytea`). Set
+`NEXT_PUBLIC_APP_URL` to the public HTTPS origin. `GET /m/{id}` is unauthenticated,
+with 256-bit random IDs, immutable one-year caching, ETag and nosniff. Never reuse
+IDs. `DELETE /api/media/{id}` requires a session in the owning workspace and
+rejects assets referenced by any post (422); other workspaces receive 404.
+Post creation and deletion serialize asset checks to prevent dangling references.
+Provider downloads retain DNS validation and connection pinning, including our
+own public host. `MEDIA_ALLOW_LOOPBACK=1` permits only canonical
+`http://127.0.0.1:<port>/m/{id}` during non-production verification; it cannot enable
+private addresses in production. Provider-specific limits still apply (Bluesky
+currently limits its download to 1 MB); no image resizing is performed.
+
+Verification: `npx tsx scripts/verify-media.ts`; optional `MEDIA_HTTP_URL` points to
+a running development app for session/API/Playwright checks at 390 and 1280 pixels.
+Screenshots are saved under `work/media-evidence/`.

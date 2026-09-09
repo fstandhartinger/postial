@@ -5,8 +5,8 @@ export const PLANS = {
 } as const;
 
 export const plans = {
-  starter: { name: 'Starter', brands: 3, seats: 1, approvalLinks: false, monthlyEuro: 19, lookupKey: 'socialmint_starter_monthly', priceEnv: 'STRIPE_PRICE_STARTER' },
-  agency: { name: 'Agency', brands: 15, seats: 5, approvalLinks: true, monthlyEuro: 49, lookupKey: 'socialmint_agency_monthly', priceEnv: 'STRIPE_PRICE_AGENCY' },
+  starter: { name: 'Starter', mediaBytes: 200 * 1024 * 1024, brands: 3, seats: 1, approvalLinks: false, monthlyEuro: 19, lookupKey: 'socialmint_starter_monthly', priceEnv: 'STRIPE_PRICE_STARTER' },
+  agency: { name: 'Agency', mediaBytes: 2 * 1024 * 1024 * 1024, brands: 15, seats: 5, approvalLinks: true, monthlyEuro: 49, lookupKey: 'socialmint_agency_monthly', priceEnv: 'STRIPE_PRICE_AGENCY' },
 } as const;
 export type Plan = keyof typeof plans;
 export function isPlan(value: unknown): value is Plan { return value === 'starter' || value === 'agency'; }

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { countText, postText } from "@/lib/text-limits";
 /* eslint-disable @next/next/no-img-element -- User-provided previews intentionally bypass the server image proxy. */
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { coreAction } from "@/app/app/actions";
 import { Input, Select, Textarea, Checkbox } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -41,6 +41,34 @@ export function Composer({
   const [selected, setSelected] = useState(initial.channelIds ?? []);
   const [body, setBody] = useState(initial.body ?? "");
   const [media, setMedia] = useState(initial.mediaUrls?.join("\n") ?? "");
+  const uploadingRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
+  async function upload(files: FileList | File[]) {
+    if (uploadingRef.current || readOnly) return;
+    const list = Array.from(files);
+    if (list.length + media.split(/\s+/).filter(Boolean).length > 4) { setUploadError('Use up to four images per post.'); return; }
+    if (list.some(f => f.size > 5 * 1024 * 1024)) { setUploadError('Each image must be at most 5 MB.'); return; }
+    uploadingRef.current = true; setUploading(true); setUploadError('');
+    try {
+      for (const file of list) {
+        setProgress(0);
+        const url = await new Promise<string>((resolve,reject) => {
+          const xhr = new XMLHttpRequest(); xhr.open('POST','/api/media'); xhr.timeout = 60000;
+          xhr.upload.onprogress = e => { if (e.lengthComputable) setProgress(Math.round(e.loaded/e.total*100)); };
+          xhr.onerror = xhr.ontimeout = () => reject(new Error('Upload failed. Please try again.'));
+          xhr.onload = () => {
+            try { const result = JSON.parse(xhr.responseText); if (xhr.status !== 201) reject(new Error(result.error?.message ?? 'Upload failed.')); else resolve(result.url); }
+            catch { reject(new Error('Upload failed. Please try again.')); }
+          };
+          const form = new FormData(); form.set('file',file); form.set('brand_id',brand); xhr.send(form);
+        });
+        setMedia(old => [...old.split(/\s+/).filter(Boolean),url].join('\n'));
+      }
+    } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed.'); }
+    finally { uploadingRef.current = false; setUploading(false); }
+  }
   const [link, setLink] = useState(initial.linkUrl ?? "");
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const readOnly = brands.find((b) => b.id === brand)?.readOnly;
@@ -120,11 +148,29 @@ export function Composer({
             </Link>
           )}
         </fieldset>
+        <div className="space-y-3 rounded-xl border-2 border-dashed border-zinc-300 p-4"
+          onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void upload(e.dataTransfer.files); }}>
+          <label className="block font-medium">Upload images
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple
+              disabled={uploading || readOnly} className="mt-2 block w-full text-sm"
+              onChange={e => { if(e.target.files) void upload(e.target.files); e.target.value = ''; }} />
+          </label>
+          <p className="text-sm text-zinc-600">Drop images here or choose files. JPEG, PNG, WebP or GIF; up to 5 MB each, four per post.</p>
+          {uploading && <div role="status">Uploading… {progress}%<progress className="block w-full" max={100} value={progress} /></div>}
+          {uploadError && <p role="alert" className="text-red-700">{uploadError}</p>}
+          <div className="grid grid-cols-2 gap-2">{media.split(/\s+/).filter(Boolean).slice(0,4).map((url,i) => (
+            <div key={i} className="min-w-0">
+              <img src={url} alt={`Uploaded image ${i+1}`} className="aspect-square w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
+              <button type="button" disabled={uploading} className="mt-1 text-sm text-red-700 underline" onClick={() => setMedia(media.split(/\s+/).filter(Boolean).filter((_,index) => index !== i).join('\n'))}>Remove image {i+1}</button>
+            </div>
+          ))}</div>
+        </div>
         <label className="block">
           Media URLs (up to four HTTPS images)
           <Textarea
             className="block w-full rounded border p-3"
             name="mediaUrls"
+            readOnly={uploading}
             value={media}
             onChange={(e) => setMedia(e.target.value)}
             placeholder="One URL per line"
@@ -199,14 +245,14 @@ export function Composer({
             variant="secondary"
             name="intent"
             value="draft"
-            disabled={pending || readOnly}
+            disabled={uploading || pending || readOnly}
           >
             Save draft
           </Button>
           <Button
             name="intent"
             value="schedule"
-            disabled={pending || !canPublish || readOnly || !channels.some(c => c.brandId === brand && selected.includes(c.id))}
+            disabled={uploading || pending || !canPublish || readOnly || !channels.some(c => c.brandId === brand && selected.includes(c.id))}
           >
             {pending ? "Saving…" : when === "now" ? "Publish now" : "Schedule"}
           </Button>
@@ -248,7 +294,7 @@ export function Composer({
           <div className="grid grid-cols-2 gap-2">
             {media
               .split(/\s+/)
-              .filter((u) => u.startsWith("https://"))
+              .filter((u) => u.startsWith("https://") || /^http:\/\/127\.0\.0\.1:\d+\/m\//.test(u))
               .slice(0, 4)
               .map((u, i) => (
                 <img

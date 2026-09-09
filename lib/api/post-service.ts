@@ -1,7 +1,9 @@
+import { mediaAssets } from '@/db/media-schema';
+import { ownMediaId, localMediaUrl } from '@/lib/media/url';
 import { ApiError } from "./errors";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
+import { brands, channels, posts, postTargets, postEvents, workspaces } from "@/db/schema";
 import { newApprovalToken } from "@/lib/approvals";
 import { localDateTime } from "@/lib/timezone";
 import { derivePostStatus } from "@/lib/publishing";
@@ -36,7 +38,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         "Write your post (up to 100,000 characters).",
       );
       check(
-        mediaUrls.length <= 4 && mediaUrls.every(https),
+        mediaUrls.length <= 4 && mediaUrls.every(u => https(u) || localMediaUrl(u)),
         "Use up to four HTTPS media URLs.",
       );
       for (const [index, url] of mediaUrls.entries()) {
@@ -90,6 +92,13 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           ? "pending_approval"
           : "scheduled";
       const save = async (tx: Tx) => {
+        await tx.select({id:workspaces.id}).from(workspaces).where(eq(workspaces.id,workspace.id)).for('update');
+        for (const url of mediaUrls) {
+          const assetId = ownMediaId(url);
+          if (!assetId) continue;
+          const [asset] = await tx.select({id:mediaAssets.id}).from(mediaAssets).where(and(eq(mediaAssets.id,assetId),eq(mediaAssets.workspaceId,workspace.id)));
+          check(asset, 'Uploaded image not found in this workspace.');
+        }
         if (id) {
           check(isUuid(id), "Post not found.");
           const [old] = await tx

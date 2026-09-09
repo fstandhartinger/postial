@@ -1623,6 +1623,78 @@
           }
         }
       }
+    },
+    "/api/v1/media": {
+      "post": {
+        "summary": "Upload an image",
+        "description": "Requires posts:write. JPEG/PNG/WebP/GIF; 5 MiB per image. Agency storage 2 GiB. 30 uploads/minute per user/workspace (per process), plus API key budget. Returned URL is public; use it in post media_urls.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "brand_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  },
+                  "brand_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Uploaded: {id,url,width,height,bytes}"
+          },
+          "401": {
+            "description": "API key required"
+          },
+          "403": {
+            "description": "Agency and posts:write required"
+          },
+          "413": {
+            "description": "Image exceeds 5 MiB"
+          },
+          "422": {
+            "description": "Invalid image, brand or exhausted workspace storage"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
     }
   },
   "components": {

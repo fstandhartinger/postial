@@ -1,3 +1,4 @@
+import { localMediaUrl } from '@/lib/media/url';
 import dns from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { Agent } from 'undici';
@@ -16,6 +17,7 @@ export function publicAddress(address: string): boolean {
 export async function validatePublicUrl(value: string) {
   let url: URL;
   try { url = new URL(value); } catch { throw rejected(); }
+  if (localMediaUrl(value)) return {url, host: '127.0.0.1', addresses: [{address:'127.0.0.1', family:4}]};
   if (url.protocol !== 'https:' || url.username || url.password) throw rejected();
   const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (host === 'localhost' || host.endsWith('.localhost')) throw rejected();
@@ -66,8 +68,8 @@ export async function safeFetch(value: string, init: RequestInit = {}, maxBytes 
           next = new URL(location, url).href;
           continue;
         }
-        const limit = response.ok ? Math.min(maxBytes, 1_000_000) : 64 * 1024;
-        const tooLarge = () => new PublishError({ code: 'CONTENT_REJECTED', retryable: false, humanMessage: 'The response exceeds the download limit (1 MB images, 64 KB JSON).' });
+        const limit = response.ok ? Math.min(maxBytes, 5 * 1024 * 1024) : 64 * 1024;
+        const tooLarge = () => new PublishError({ code: 'CONTENT_REJECTED', retryable: false, humanMessage: 'The response exceeds the download limit (5 MB images, 64 KB JSON).' });
         if (Number(response.headers.get('content-length')) > limit) { await response.body?.cancel(); throw tooLarge(); }
         const reader = response.body?.getReader();
         const chunks: Uint8Array<ArrayBuffer>[] = [];
