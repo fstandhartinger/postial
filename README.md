@@ -309,7 +309,7 @@ the same SSRF checks as the UI apply. Ten non-deleted endpoints per workspace
 (including disabled) are allowed; concurrent registrations respect this limit (422).
 
 - `GET /api/v1/webhooks`: `{data: [...]}` without secrets.
-- `POST /api/v1/webhooks/{id}/test`: 202, queues a signed `ping` (`data.test=true`).
+- `POST /api/v1/webhooks/{id}/test`: 202, queues a signed sample of the first subscribed event with top-level `test=true` (or `ping` when no events are subscribed) and `X-Postial-Test: 1`.
 - `GET /api/v1/webhooks/{id}/deliveries?limit=20`: latest logs, limit 1–100;
   logs remain accessible after endpoint deletion.
 - `DELETE /api/v1/webhooks/{id}`: 204, cancels open deliveries and destroys credentials.
@@ -320,7 +320,7 @@ true and the key also has `posts:write`, `approval_url` contains the link, or nu
 The docs include registration, every event payload and Node signature verification.
 n8n community node: n8n-nodes-postial (coming to npm).
 
-The API verifier additionally checks management scopes, signed ping, safe lists,
+The API verifier additionally checks management scopes, signed test events, safe lists,
 tenancy, SSRF rejection, concurrent endpoint limits and cancellation through HTTP.
 The optional workspace events polling endpoint is not included.
 

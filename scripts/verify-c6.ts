@@ -96,7 +96,7 @@ async function main(){
     process.env.WEBHOOK_ALLOW_LOOPBACK='0';await assert.rejects(validateWebhookUrl(url));process.env.WEBHOOK_ALLOW_LOOPBACK='1';
     await assert.rejects(acceptDpa(workspace.id,foreignId));await acceptDpa(workspace.id,userId);await acceptDpa(workspace.id,userId);
     const accepted=await db.select().from(dpaAcceptances).where(eq(dpaAcceptances.workspaceId,workspace.id));assert.equal(accepted.length,1);assert.equal(accepted[0].userId,userId);assert.equal(accepted[0].version,dpaVersion);assert.equal(accepted[0].documentHash,dpaHash);assert(accepted[0].acceptedAt);
-    assert.deepEqual(availability.channels,['Bluesky','Mastodon','Telegram']);assert(!availability.starter.some(s=>/\b(X|Threads|LinkedIn)\b/.test(s)));assert(availability.pending.includes('pending'));
+    assert.deepEqual(availability.channels,['Bluesky','Mastodon','Telegram']);assert(!availability.starter.some(s=>/\b(X|Threads|LinkedIn)\b/.test(s)));assert(availability.pending.includes('n8n'));
     for(const file of ['components/billing/AccessStatus.tsx','components/marketing/Plans.tsx','components/marketing/FAQ.tsx','app/page.tsx','app/compare/[slug]/page.tsx'])assert(readFileSync(file,'utf8').match(/availability|NetworkAvailability/));
     assert(readFileSync('app/pricing/page.tsx','utf8').includes('AccessStatus'));
     // Stripe reads are mocked; no payment objects or customer accounts are created here.

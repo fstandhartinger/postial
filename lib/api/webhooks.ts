@@ -69,10 +69,21 @@ export async function sendTestEvent(workspaceId: string, endpointId: string) {
   const retry = await sharedRateLimit('webhook-test:' + workspaceId, 10, 3600);
   if (retry) throw new ApiError(429,'rate_limited','Maximum 10 webhook tests per hour per workspace.',retry);
   return getDb().transaction(async tx => {
-    const [endpoint] = await tx.select({id: webhookEndpoints.id}).from(webhookEndpoints).where(and(eq(webhookEndpoints.id, endpointId), eq(webhookEndpoints.workspaceId, workspaceId), eq(webhookEndpoints.active, true), isNull(webhookEndpoints.deletedAt))).for('share');
+    const [endpoint] = await tx.select({id: webhookEndpoints.id, events: webhookEndpoints.events}).from(webhookEndpoints).where(and(eq(webhookEndpoints.id, endpointId), eq(webhookEndpoints.workspaceId, workspaceId), eq(webhookEndpoints.active, true), isNull(webhookEndpoints.deletedAt))).for('share');
     if (!endpoint) throw new ApiError(404, 'not_found', 'Active endpoint not found.');
-    const event = 'ping';
-    const [delivery] = await tx.insert(webhookDeliveries).values({endpointId, event, payload: {id: randomUUID(), event, created_at: new Date().toISOString(), data: {test: true}}}).returning({id: webhookDeliveries.id});
+    const event = endpoint.events[0] ?? 'ping';
+    const createdAt = new Date().toISOString();
+    const postId = randomUUID();
+    const data = event === 'approval.decided'
+      ? {post_id: postId, brand_id: randomUUID(), decision: 'approved', decided_at: createdAt, has_comment: false, post_url: `${appUrl()}/app/posts/${postId}`}
+      : event === 'post.published'
+        ? {post_id: postId, status: 'published'}
+        : event === 'post.failed'
+          ? {post_id: postId, status: 'failed'}
+          : event === 'post.needs_review'
+            ? {post_id: postId, target_id: randomUUID()}
+            : {test: true};
+    const [delivery] = await tx.insert(webhookDeliveries).values({endpointId, event, payload: {id: randomUUID(), event, created_at: createdAt, test: true, data}}).returning({id: webhookDeliveries.id});
     return {id: delivery.id, event, status: 'pending'};
   });
 }
@@ -150,6 +161,7 @@ export async function deliverWebhooks() {
         const body = JSON.stringify(delivery.payload), timestamp = String(Math.floor(Date.now() / 1000));
         const init: RequestInit = {method: 'POST', body, headers: {'Content-Type': 'application/json',
           'X-Postial-Delivery': delivery.id,
+          ...(delivery.payload.test === true ? {'X-Postial-Test': '1'} : {}),
           'X-SocialMint-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body),
           'X-Postial-Signature': signature(decryptCredentials(endpoint.secretEnc).secret, timestamp, body)},
           signal: AbortSignal.any([budgetSignal, AbortSignal.timeout(5000)])};

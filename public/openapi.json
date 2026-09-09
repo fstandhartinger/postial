@@ -3,7 +3,7 @@
   "info": {
     "title": "Postial API",
     "version": "1.0.0",
-    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts. Register endpoints using webhooks:manage. Existing keys retain their scopes. POST /webhooks/{id}/test emits ping.",
+    "description": "Agency REST API. Bearer keys are managed at /app/settings/api. 60 requests per key per minute. Access expires at trial_end or current_period_end + 3 days, with past_due additionally limited to 7 days. Routing errors use JSON and no-store. Webhooks run separately from publishing (10 s budget, concurrency 4, 5 s timeout); disable pauses, enable resumes, delete cancels open deliveries. Entitlement pauses do not consume attempts. Register endpoints using webhooks:manage. Existing keys retain their scopes. POST /webhooks/{id}/test emits a sample of the first subscribed event so filtered triggers receive it, or ping when none are subscribed.",
     "license": {
       "name": "Proprietary",
       "identifier": "LicenseRef-Proprietary"
@@ -1428,8 +1428,8 @@
     "/webhooks/{id}/test": {
       "post": {
         "operationId": "testWebhook",
-        "summary": "Queue a signed ping event",
-        "description": "Required scope: webhooks:manage. Active endpoint required. Queues asynchronously; ping is not a subscription event.",
+        "summary": "Queue a signed test event",
+        "description": "Required scope: webhooks:manage. Active endpoint required. Queues asynchronously; the event is the first subscribed event, with a realistic sample payload and test=true. The X-Postial-Test: 1 header identifies the test delivery. Endpoints without subscriptions use ping.",
         "tags": [
           "API v1"
         ],
@@ -1457,7 +1457,6 @@
                       "format": "uuid"
                     },
                     "event": {
-                      "const": "ping",
                       "type": "string"
                     },
                     "status": {

@@ -27,7 +27,7 @@ The native package is named n8n-nodes-postial and awaits npm publication. It is 
 1. Add Postial Trigger and choose one or more events, for example Approval Decided.
 2. In Automatic mode, select the API credential and activate the workflow. Its public HTTPS endpoint is registered automatically; deactivation deletes that registration.
 3. Alternatively, choose Manual (Paste Secret), register the production URL yourself in Postial and paste its signing secret. Disable or delete that endpoint yourself on deactivation.
-4. Test visible workflow output with an approval change request. The native trigger acknowledges Postial’s ping test but intentionally emits no workflow item for it.
+4. Test visible workflow output with Postial’s test event. The test sends a sample of the first subscribed event, so event-filtered triggers emit a workflow item.
 5. Deduplicate event IDs in downstream work. The trigger verifies raw-byte signatures with a five-minute tolerance; keep host clocks synchronized.
 
 Native trigger signing secrets live in workflow static data or a masked node parameter, not encrypted n8n credentials. Restrict workflow exports and database access and remove secrets before sharing workflows.
