@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
+async function main() {
 const base = process.env.WAITLIST_BASE_URL ?? 'http://127.0.0.1:3987';
 const url = new URL(base);
 if (!['127.0.0.1', 'localhost'].includes(url.hostname)) throw new Error('Local test server required');
@@ -27,3 +28,6 @@ try {
   assert.ok(rows.every(r => r.source === 'pricing' && /^[a-f0-9]{64}$/.test(r.ip_hash) && !r.ip_hash.includes(ip)));
   console.log('PASS: 201, normalized duplicate 200, invalid 422, eleventh registration 429, proxy spoof resistance, persisted rows');
 } finally { await db`delete from network_waitlist where email like ${run+'-%'}`; await db.end(); }
+
+}
+main().catch(() => { console.error("Waitlist verification failed"); process.exitCode = 1; });

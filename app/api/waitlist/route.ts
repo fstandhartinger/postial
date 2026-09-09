@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
+import ipaddr from 'ipaddr.js';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { networkWaitlist } from '@/db/schema';
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   // Trust only the rightmost hop appended by the ingress. Do not expose the
   // app port publicly; ingress must append/overwrite X-Forwarded-For.
   const forwarded = request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? '';
-  const ip = isIP(forwarded) ? forwarded : 'unknown';
+  const ip = isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'unknown';
   const secret = process.env.APP_ENCRYPTION_KEY || process.env.AUTH_SECRET;
   if (!secret) return Response.json({ error: 'Waitlist temporarily unavailable' }, { status: 503 });
   const ipHash = createHmac('sha256', secret).update(`waitlist:${ip}`).digest('hex');
