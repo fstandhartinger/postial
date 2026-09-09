@@ -154,7 +154,7 @@
     },
     {
       "label": "H3",
-      "text": "API + n8n node"
+      "text": "REST API and webhooks"
     },
     {
       "label": "Badge",
@@ -162,7 +162,7 @@
     },
     {
       "label": "Body",
-      "text": "Connect your workflows to SocialMint through its API and n8n node. Bring automated post preparation into the same review and publishing process. The n8n node awaits npm publication."
+      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. The n8n node awaits npm publication."
     }
   ],
   "How it works": [
