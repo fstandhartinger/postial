@@ -170,6 +170,23 @@ test('LinkedIn: validate, text-only publish headers/body and warnings', async ()
   const result = await adapter.publish(credentials.linkedin, { text: 'hello', mediaUrls: ['https://image.test/x'], idempotencyKey: 'k' });
   assert.equal(result.remoteId, 'urn:li:share:1'); assert.equal(result.warnings?.length, 1); assert.equal(calls.length, 2);
 });
+test('LinkedIn: uses x-restli-id from an empty 201 response and builds permalink', async () => {
+  mock(url => url.endsWith('/v2/userinfo') ? response({ sub: 'person-1' }) : new Response(null, { status: 201, headers: { 'x-restli-id': 'urn:li:ugcPost:123/unsafe' } }));
+  const result = await getPublisher('linkedin').publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'urn:li:ugcPost:123/unsafe');
+  assert.equal(result.url, undefined);
+  mock(() => new Response(null, { status: 201, headers: { 'x-restli-id': 'urn:li:share:123' } }));
+  const safe = await getPublisher('linkedin').publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' });
+  assert.equal(safe.url, 'https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A123');
+});
+test('LinkedIn: common mock error mapping covers forbidden, duplicate and rejected content', async () => {
+  mock(() => response({ error: 'forbidden' }, 403));
+  await assert.rejects(getPublisher('linkedin').publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
+  mock(() => response({ message: 'already exists' }, 422));
+  await assert.rejects(getPublisher('linkedin').publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' }), errorCode('DUPLICATE', false));
+  mock(() => response({ message: 'invalid content' }, 422));
+  await assert.rejects(getPublisher('linkedin').publish(credentials.linkedin, { text: 'hello', idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+});
 test('LinkedIn: 401, 429 Retry-After and 5xx mappings', async () => {
   const adapter = getPublisher('linkedin');
   mock(url => url.endsWith('/v2/userinfo') ? response({ error: 'no' }, 401) : response({ error: 'busy' }, 429, { 'Retry-After': '17' }));

@@ -671,6 +671,9 @@ points, with the optional HTTP branches enabled. Verifiers execute sequentially:
 worker/retention fixtures can touch shared maintenance state, so use a disposable
 migrated database and do not run other verification against the same DB concurrently.
 They create synthetic database sessions; no provider login or payment is performed.
+The C8 verifier is included in `verify:http` because its database fixtures are
+validated through the managed standalone browser session; the DB suite remains
+server-independent.
 The runner strips provider/SMTP credentials, uses mocked Stripe values, random auth
 and cron secrets and disables the background worker. Existing encryption read keys
 are preserved when supplied. `verify-c7` requires the legacy read key for its explicit

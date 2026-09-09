@@ -43,7 +43,7 @@ export function checkLength(provider: string, text: string, limit: number) {
   if (length > limit) throw failure('CONTENT_REJECTED', `${provider} allows ${limit} characters; this post has ${length}.`);
 }
 
-function responseError(provider: string, status: number, body: Record<string, unknown>, headers: Headers) {
+export function responseError(provider: string, status: number, body: Record<string, unknown>, headers: Headers) {
   const description = JSON.stringify(body);
   if (provider === 'X' && status === 403 && /duplicate/i.test(description)) return failure('DUPLICATE', 'X reports that this post already exists.');
   if (provider === 'Threads' && (body.error as {code?: number})?.code === 190) return failure('AUTH_EXPIRED', 'Reconnect Threads.');
@@ -86,10 +86,13 @@ async function request<T>(provider: string, url: string, init: RequestInit, cons
   });
 }
 export async function json<T>(provider: string, url: string, init: RequestInit = {}, allowMissing = false): Promise<T> {
+  return (await jsonResponse<T>(provider, url, init, allowMissing)).body;
+}
+export async function jsonResponse<T>(provider: string, url: string, init: RequestInit = {}, allowMissing = false): Promise<{ body: T; response: Response }> {
   return request(provider, url, init, async response => {
-    const body = response.status === 206 ? {} : await response.json();
+    const body = response.status === 206 ? {} : await response.text().then(text => text ? JSON.parse(text) : {});
     if (body?.ok === false) throw responseError(provider, body.error_code ?? 400, body, response.headers);
-    return body as T;
+    return { body: body as T, response };
   }, 64 * 1024, allowMissing);
 }
 export function jsonBody(body: unknown): RequestInit {

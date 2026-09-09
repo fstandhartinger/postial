@@ -1,4 +1,4 @@
-import { notifyWorkspace } from '@/lib/notifications';
+import { notifyLinkedInExpiring, notifyWorkspace } from '@/lib/notifications';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { brands, channels } from '@/db/schema';
@@ -46,7 +46,11 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         console.warn('Channel health check failed', {provider: c.provider, code});
       }
       await getDb().transaction(async tx => {
-        const updated = await tx.update(channels).set({status,credentialsEnc:refreshedEnc,lastHealthError:error})
+        const warningCredentials = c.provider === 'linkedin' ? decryptCredentials(refreshedEnc) : null;
+        const expiresAt = Number(warningCredentials?.expiresAt);
+        const expiring = c.provider === 'linkedin' && status === 'active' && Number.isFinite(expiresAt) && expiresAt > Date.now() && expiresAt < Date.now() + 7 * 24 * 60 * 60 * 1000;
+        const warning = expiring ? await notifyLinkedInExpiring(tx, ownerWorkspace, c.id, new Date(expiresAt)) : null;
+        const updated = await tx.update(channels).set({status,credentialsEnc:refreshedEnc,lastHealthError:warning || error})
           .where(and(eq(channels.id,c.id),eq(channels.lastCheckedAt,claimedAt),eq(channels.credentialsEnc,c.credentialsEnc),eq(channels.status,c.status))).returning({id:channels.id});
         if(updated.length && status==='token_expired' && c.status!=='token_expired') await notifyWorkspace(tx,ownerWorkspace,'token_expired');
       });

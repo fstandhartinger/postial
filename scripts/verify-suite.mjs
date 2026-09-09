@@ -23,6 +23,8 @@ Object.assign(env, {
 });
 if (!env.APP_ENCRYPTION_KEY && !env.APP_ENCRYPTION_KEYS) env.APP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
 mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
+// DB/unit verifiers run without an app server. Browser verifiers (including C8,
+// which also creates DB fixtures) belong to the managed standalone HTTP suite.
 const db = ['entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'fixer3-migration'];
   const http = ['http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',

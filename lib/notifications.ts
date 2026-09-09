@@ -8,9 +8,9 @@ import { validateWebhookUrl } from '@/lib/api/webhooks';
 import { hash } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import type { Tx } from '@/lib/api/post-service';
-export const alertEvents = ['failed','needs_review','held','approval.decided','token_expired'] as const;
+export const alertEvents = ['failed','needs_review','held','approval.decided','token_expired','linkedin_expiring'] as const;
 export type AlertEvent = typeof alertEvents[number];
-const messages: Record<AlertEvent,string> = {failed:'Publishing failed. Review the post and retry.',needs_review:'Publishing result is uncertain. Check the channel before retrying.',held:'Scheduled posts paused — subscription inactive or brand exceeds plan limit.', 'approval.decided':'A client has submitted an approval decision.',token_expired:'Channel access expired. Reconnect the channel.'};
+const messages: Record<AlertEvent,string> = {failed:'Publishing failed. Review the post and retry.',needs_review:'Publishing result is uncertain. Check the channel before retrying.',held:'Scheduled posts paused — subscription inactive or brand exceeds plan limit.', 'approval.decided':'A client has submitted an approval decision.',token_expired:'Channel access expired. Reconnect the channel.',linkedin_expiring:'LinkedIn access expires soon. Reconnect the channel.'};
 export async function notifyWorkspace(tx:Tx,workspaceId:string,type:AlertEvent,postId:string|null=null) {
   const message=messages[type];
   await tx.insert(notifications).values({workspaceId,type,postId,message});
@@ -19,6 +19,14 @@ export async function notifyWorkspace(tx:Tx,workspaceId:string,type:AlertEvent,p
     const text=`SocialMint: ${message} ${appUrl()}${postId?`/app/posts/${postId}`:'/app/channels'}`;
     await tx.insert(webhookDeliveries).values({endpointId:endpoint.id,event:`alert.${type}`,payload:{id:randomUUID(),...(endpoint.kind==='discord'?{content:text}:{text})}});
   }
+}
+export async function notifyLinkedInExpiring(tx: Tx, workspaceId: string, channelId: string, expiresAt: Date) {
+  const date = expiresAt.toISOString().slice(0, 10);
+  const message = `Reconnect LinkedIn before ${date}`;
+  const [existing] = await tx.select({id: notifications.id}).from(notifications)
+    .where(and(eq(notifications.workspaceId, workspaceId), eq(notifications.type, `linkedin_expiring:${channelId}`)));
+  if (!existing) await tx.insert(notifications).values({workspaceId, type: `linkedin_expiring:${channelId}`, message});
+  return message;
 }
 export async function unreadNotifications(workspaceId:string,userId:string) {
   return getDb().select().from(notifications).where(and(eq(notifications.workspaceId,workspaceId),or(isNull(notifications.userId),eq(notifications.userId,userId)),isNull(notifications.readAt))).orderBy(desc(notifications.createdAt)).limit(50);

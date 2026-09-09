@@ -1,17 +1,20 @@
-import { failure, guarded, json } from './http';
+import { failure, guarded, jsonResponse, responseError } from './http';
 import { oauthConfig, oauthEndpoint, type OAuthProvider } from './oauth-config';
 import type { Credentials } from './types';
 export async function oauthJson<T>(provider: OAuthProvider, path: string, init: RequestInit = {}): Promise<T> {
+  return (await oauthJsonResponse<T>(provider, path, init)).body;
+}
+export async function oauthJsonResponse<T>(provider: OAuthProvider, path: string, init: RequestInit = {}) {
   const url = oauthEndpoint(provider, path);
-  if (process.env.NODE_ENV !== 'production' && url.startsWith('http://127.0.0.1:')) {
-    return guarded(provider, async () => {
-      const r = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(20000) });
-      if (!r.ok) throw failure(r.status === 429 ? 'RATE_LIMITED' : r.status >= 500 ? 'PROVIDER_DOWN' : 'AUTH_EXPIRED', `Reconnect ${provider === 'x' ? 'X' : 'Threads'}.`);
-      if (r.status === 400 || r.status === 422) throw failure('CONTENT_REJECTED', `The ${provider} request was rejected.`);
-      return await r.json() as T;
-    });
-  }
-  return json<T>(provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : 'LinkedIn', url, init);
+  const display = provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : 'LinkedIn';
+  if (process.env.NODE_ENV !== 'production' && url.startsWith('http://127.0.0.1:')) return guarded(provider, async () => {
+    const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(20000) });
+    const body = await response.text().then(text => text ? JSON.parse(text) : {});
+    if (!response.ok) throw responseError(display, response.status, body ?? {}, response.headers);
+    if (body?.ok === false) throw responseError(display, body.error_code ?? 400, body, response.headers);
+    return { body: body as T, response };
+  });
+  return jsonResponse<T>(display, url, init);
 }
 export function bearer(c: Credentials) {
   if (!c.accessToken) throw failure('AUTH_EXPIRED', 'Reconnect this channel.');
