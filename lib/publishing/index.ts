@@ -1,5 +1,7 @@
 import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
+function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads'].includes(provider); }
+function reviewMessage(provider: string) { return provider === 'telegram' ? TELEGRAM_REVIEW : `We couldn't confirm whether ${provider === 'x' ? 'X' : 'Threads'} received this post. Check the account, then retry or skip.`; }
 export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -58,8 +60,8 @@ export async function tick() {
       .limit(10);
     for (const { target: t } of abandoned) {
       const [channel] = await tx.select().from(channels).where(eq(channels.id, t.channelId));
-      const status = t.attempts >= 5 ? "failed" : channel.provider === "telegram" ? "needs_review" : "queued";
-      const message = channel.provider === "telegram" ? TELEGRAM_REVIEW : status === "failed" ? "Attempt limit reached. Check the remote account before retrying." : "Recovering interrupted attempt using provider idempotency";
+      const status = t.attempts >= 5 ? "failed" : uncertainProvider(channel.provider) ? "needs_review" : "queued";
+      const message = uncertainProvider(channel.provider) ? reviewMessage(channel.provider) : status === "failed" ? "Attempt limit reached. Check the remote account before retrying." : "Recovering interrupted attempt using provider idempotency";
       await tx
         .update(postTargets)
         .set({
@@ -226,7 +228,7 @@ export async function tick() {
             message: `Published to ${c.displayName}${result.warnings?.length ? ` with a warning: ${result.warnings.join(" ")}` : ""}`,
           });
         } else if (error) {
-          const uncertain = c.provider === "telegram" && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code);
+          const uncertain = uncertainProvider(c.provider) && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code);
           const retry = !uncertain &&
             error.retryable &&
             !["AUTH_EXPIRED", "CONTENT_REJECTED"].includes(error.code) &&
@@ -240,7 +242,7 @@ export async function tick() {
             .set({
               status: uncertain ? "needs_review" : retry ? "queued" : "failed",
               lastErrorCode: error.code,
-              lastErrorHuman: uncertain ? TELEGRAM_REVIEW : error.humanMessage,
+              lastErrorHuman: uncertain ? reviewMessage(c.provider) : error.humanMessage,
               nextAttemptAt: retry
                 ? new Date(Date.now() + seconds * 1000)
                 : null,
@@ -256,11 +258,11 @@ export async function tick() {
             postId: p.id,
             targetId: t.id,
             type: uncertain ? "needs_review" : retry ? "retry_scheduled" : "failed",
-            message: uncertain ? TELEGRAM_REVIEW : `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
+            message: uncertain ? reviewMessage(c.provider) : `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
           });
         }
         // needs_review is per target and may leave the aggregate status unchanged.
-        if (error && c.provider === "telegram" && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code))
+        if (error && uncertainProvider(c.provider) && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code))
           await emit(tx, p.id, "post.needs_review", {target_id: t.id});
         await derivePostStatus(tx, p.id);
       });

@@ -5,10 +5,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb } from '../db';
-import { brands, channels, oauthStates, sessions, users, workspaceMembers, workspaces } from '../db/schema';
-import { decryptCredentials } from '../lib/crypto';
+import { brands, channels, oauthStates, posts, postTargets, subscriptions, sessions, users, workspaceMembers, workspaces } from '../db/schema';
+import { decryptCredentials, encryptCredentials } from '../lib/crypto';
+import { tick } from '../lib/publishing';
 import { oauthEndpoint } from '../lib/publishers/oauth-config';
-import { availableProviders } from '../lib/publishers';
+import { availableProviders, getPublisher, registerPublisher } from '../lib/publishers';
 async function listen(server: Server) { await new Promise<void>(r => server.listen(0, '127.0.0.1', r)); return `http://127.0.0.1:${(server.address() as { port: number }).port}`; }
 async function close(server: Server) { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
 async function main() {
@@ -45,7 +46,7 @@ async function main() {
       const response = await handler(request, { params: Promise.resolve({ provider: req.url!.split('/')[3] }) });
       assert(response);
       res.writeHead(response.status, Object.fromEntries(response.headers)); res.end(await response.text());
-    } catch { res.writeHead(500).end('Harness failed'); }
+    } catch (e) { console.error(e); res.writeHead(500).end('Harness failed'); }
   });
   let workspaceId: string | undefined;
   try {
@@ -90,6 +91,30 @@ async function main() {
     }
     assert.equal(requests.find(r => r.path === '/2/oauth2/token')?.body.get('grant_type'), 'authorization_code');
     assert.equal(requests.find(r => r.path === '/oauth/access_token')?.body.get('client_id'), 'local-threads');
+    // Worker integration: two targets sharing one channel must rotate only once.
+    await db.insert(subscriptions).values({ workspaceId: workspace.id, status: 'active', currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: `fixture-${userId}` });
+    const [xChannel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, 'x')));
+    await db.update(channels).set({ credentialsEnc: encryptCredentials({ accessToken: 'old', refreshToken: 'rotate', expiresAt: String(Date.now() + 1000) }) }).where(eq(channels.id, xChannel.id));
+    const original = getPublisher('x'); let publishCalls = 0;
+    registerPublisher({ ...original, async publish(c) { assert.equal(c.accessToken, 'x-access'); publishCalls++; return { remoteId: `mock-${publishCalls}` }; } });
+    const makeTarget = async () => {
+      const [p] = await db.insert(posts).values({ brandId: brand.id, authorUserId: userId, body: 'OAuth worker test', status: 'scheduled', scheduledAt: new Date(Date.now() - 1000) }).returning();
+      const [target] = await db.insert(postTargets).values({ postId: p.id, channelId: xChannel.id, status: 'queued', nextAttemptAt: new Date(Date.now() - 1000) }).returning(); return target;
+    };
+    try {
+      await makeTarget(); await makeTarget();
+      const before = requests.filter(r => r.body.get('grant_type') === 'refresh_token').length;
+      await tick(); assert.equal(publishCalls, 2);
+      assert.equal(requests.filter(r => r.body.get('grant_type') === 'refresh_token').length - before, 1);
+      const [updated] = await db.select().from(channels).where(eq(channels.id, xChannel.id));
+      assert.equal(decryptCredentials(updated.credentialsEnc).refreshToken, 'x-refresh');
+      await db.update(channels).set({ credentialsEnc: encryptCredentials({ accessToken: 'old', expiresAt: '1' }) }).where(eq(channels.id, xChannel.id));
+      const failed = await makeTarget(); await tick();
+      const [expiredChannel] = await db.select().from(channels).where(eq(channels.id, xChannel.id));
+      assert.equal(expiredChannel.status, 'token_expired'); assert.equal(publishCalls, 2);
+      const [failedTarget] = await db.select().from(postTargets).where(eq(postTargets.id, failed.id));
+      assert.equal(failedTarget.lastErrorCode, 'AUTH_EXPIRED');
+    } finally { registerPublisher(original); }
     delete process.env.X_CLIENT_SECRET; assert(!availableProviders().includes('x')); assert.equal((await start('x')).status, 400);
     const env = process.env as Record<string, string | undefined>; const prior = env.NODE_ENV; env.NODE_ENV = 'production';
     assert.equal(oauthEndpoint('x', '/2/users/me'), 'https://api.x.com/2/users/me'); env.NODE_ENV = prior;
@@ -100,4 +125,4 @@ async function main() {
     await close(server); await close(endpoint);
   }
 }
-main().catch(() => { console.error('OAuth verification failed'); process.exitCode = 1; });
+main().catch((error: unknown) => { console.error('OAuth verification failed', error); process.exitCode = 1; });
