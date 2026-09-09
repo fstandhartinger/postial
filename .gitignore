@@ -9,4 +9,5 @@ coverage/
 next-env.d.ts
 .DS_Store
 *.log
+# Local verification evidence belongs in the venture sibling work directory.
 work/

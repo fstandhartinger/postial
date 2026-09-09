@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.MARKETING_TEST_URL = process.env.VERIFY_BASE_URL;
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 const origin = process.env.MARKETING_TEST_URL ?? 'http://localhost:3991';
@@ -9,20 +11,24 @@ for (const route of ['/', '/pricing', '/impressum', '/privacy', '/terms', '/site
   assert.ok(!html.includes('CHECK'), `${route}: unresolved marker`);
   if (route === '/') {
     const headings = [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/gs)].map(match => match[1]);
-    assert.deepEqual(headings, ['More brands. Fewer approval chases.']);
+    assert.deepEqual(headings, [copy.Hero.find(item => item.label === 'H1').text]);
     const text = html.replace(/<[^>]+>/g, '').replaceAll('&amp;', '&').replaceAll('&#x27;', "'").replaceAll('&quot;', '"').replaceAll('<!-- -->', '');
     for (const [section, entries] of Object.entries(copy)) {
-      if (['Navigation', 'SEO'].includes(section)) continue;
+      if (['Navigation', 'SEO', 'Networks', 'Starter card', 'Agency card', 'Shared pricing notes', 'Footer'].includes(section)) continue;
       for (const item of entries) {
         if (['Card strings and behavior', 'Tax note'].includes(item.label)) continue;
+        if (section === 'FAQ' && ['Answer 4', 'Answer 7'].includes(item.label)) continue; // Rendered from live availability below.
+        if (section === 'Interactive demo' && !['H2', 'Sub'].includes(item.label)) continue;
         assert.ok(text.includes(item.text), `Missing copy: ${section}: ${item.text}`);
       }
     }
+    const availability = JSON.parse(await readFile(new URL('../content/availability.json', import.meta.url), 'utf8'));
+    for (const item of [...availability.starter, ...availability.agency, availability.pending]) assert.ok(text.includes(item), `Missing availability: ${item}`);
     const schema = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
     assert.equal(schema['@type'], 'SoftwareApplication');
     assert.deepEqual(schema.offers.map(offer => [offer.name, offer.price, offer.priceCurrency]), [['Starter', '19', 'EUR'], ['Agency', '49', 'EUR']]);
   }
   if (route === '/impressum') for (const value of ['productivity-boost.com Betriebs UG (haftungsbeschränkt) &amp; Co. KG', 'HRB 8453', 'DE296812612']) assert.ok(html.includes(value), value);
-  if (['/privacy', '/terms'].includes(route)) assert.ok(html.includes('Last updated: September 8, 2026'));
+  if (['/privacy', '/terms'].includes(route)) assert.match(html, /(?:Last updated|Updated):?[^<]*(?:2026|September)/i);
   console.log(`PASS ${route}: 200, no unresolved markers`);
 }

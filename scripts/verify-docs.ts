@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.DOCS_HTTP_URL = process.env.VERIFY_BASE_URL;
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import React from 'react';

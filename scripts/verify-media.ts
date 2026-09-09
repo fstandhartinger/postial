@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.MEDIA_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
@@ -165,9 +167,9 @@ async function main() {
     for (const size of [0,8,20,30]) await assert.rejects(imageInfo(png.subarray(0,size)));
     console.log('PASS standalone session/API 201; truncated GIF, PNG without IDAT, 30 MP, appended payloads 422; GIF limits; EXIF/orientation; editor tenancy, key persistence/creator UI, cookie fallback/clearing; quota; 304 without bytea query; origin 422 and sanitized 500 log; production SSRF guard');
     const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-    const browser = await chromium.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
+    const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
     try {
-      await mkdir('work/fixer5-evidence',{recursive:true});
+      await mkdir((process.env.VERIFY_EVIDENCE_DIR || '../work') + '/fixer5-evidence',{recursive:true});
       await db.insert(workspaceMembers).values({workspaceId:workspace.id,userId:foreignId,role:'editor'});
       for (const width of [390,1280]) {
         const context = await browser.newContext({viewport:{width,height:1000}});
@@ -187,7 +189,7 @@ async function main() {
         await page.getByAltText('Uploaded image 1',{exact:true}).waitFor();
         await page.waitForFunction(() => {const image = document.querySelector('img[alt="Uploaded image 1"]') as HTMLImageElement; return image?.complete && image.naturalWidth === 320;});
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
-        await page.screenshot({path:`work/fixer5-evidence/composer-${width}.png`,fullPage:true});
+        await page.screenshot({path:`${process.env.VERIFY_EVIDENCE_DIR || '../work'}/fixer5-evidence/composer-${width}.png`,fullPage:true});
         await page.getByRole('button',{name:'Remove image 1',exact:true}).click();
         assert.equal(await page.getByAltText('Uploaded image 1',{exact:true}).count(),0);
         assert.equal((await context.request.delete(base+'/api/media/'+teamAsset.id)).status(),204);
@@ -196,7 +198,7 @@ async function main() {
         for (const code of ['denied','provider_error']) {
           await page.goto(base+'/app/brands/'+brand.id+'?connect_error='+code);
           await page.locator('p[role=alert]').waitFor();
-          await page.screenshot({path:`work/fixer5-evidence/oauth-${code}-${width}.png`,fullPage:true});
+          await page.screenshot({path:`${process.env.VERIFY_EVIDENCE_DIR || '../work'}/fixer5-evidence/oauth-${code}-${width}.png`,fullPage:true});
         }
         assert.deepEqual(errors,[]); await context.close();
       }

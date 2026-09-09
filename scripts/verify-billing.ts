@@ -29,7 +29,7 @@ async function main() {
   await getDb().execute(sql`delete from request_rate_limits where key=${'billing:'+limitKey}`);
   const restoreFetch = await installBillingMock();
   const db = getDb(), client = stripe();
-  const base = "http://localhost:3992";
+  const base = process.env.VERIFY_BASE_URL || process.env.BILLING_HTTP_URL || "http://localhost:3992";
   const userId = crypto.randomUUID(), token = crypto.randomUUID();
   let customerId: string | null = null, workspaceId: string | undefined;
   let stage = "setup";

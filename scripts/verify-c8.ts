@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.C8_HTTP_URL = process.env.VERIFY_BASE_URL;
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { eq, inArray } from 'drizzle-orm';
@@ -11,10 +13,10 @@ import { calendarWindow } from '../lib/calendar-window';
 
 async function main() {
   const base = process.env.C8_HTTP_URL || 'http://localhost:4098';
-  const out = process.env.C8_EVIDENCE || '/home/flori/ventures2/socialmint/work/fixer8-evidence';
+  const out = process.env.C8_EVIDENCE || (process.env.VERIFY_EVIDENCE_DIR || "../work") + "/fixer8-evidence";
   mkdirSync(out, {recursive:true});
   const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser = await chromium.launch({executablePath:'/usr/bin/google-chrome', headless:true, args:['--no-sandbox']});
+  const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome', headless:true, args:['--no-sandbox']});
   const db = getDb(), ids = [crypto.randomUUID(), crypto.randomUUID()], token = crypto.randomUUID();
   const result: Record<string, unknown> = {};
   try {
@@ -104,7 +106,7 @@ async function main() {
     const axeResults=[];
     for(const width of [390,1280]) for(const path of ['/','/pricing','/app','/app/posts','/app/calendar','/app/posts/new?brand='+brand.id,'/app/posts/bulk?brand='+brand.id,'/app/settings/team','/app/settings/notifications','/app/billing','/r/'+approvalToken]) {
       await p.setViewportSize({width,height:900});await goto(base+path);await p.waitForLoadState('networkidle');
-      await p.addScriptTag({path:'/home/flori/ventures2/socialmint/work/critic8-evidence/node_modules/axe-core/axe.min.js'});
+      await p.addScriptTag({path:process.env.AXE_PATH || 'node_modules/axe-core/axe.min.js'});
       const scan=await p.evaluate(async()=>{
         const axe=(window as unknown as {axe:{run(d:Document,o:object):Promise<{violations:{id:string}[];incomplete:{id:string}[]}>}}).axe;
         const r=await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}});

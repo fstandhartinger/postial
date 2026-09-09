@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.FIXER2_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -7,13 +9,13 @@ import { users, sessions, brands, channels, posts, postTargets, subscriptions } 
 import { ensureWorkspace } from '../lib/workspaces';
 import { encryptCredentials } from '../lib/crypto';
 async function main() {
-  const modulePath = process.env.PLAYWRIGHT_MODULE || '/home/flori/n8n-local/node_modules/playwright/index.mjs';
+  const modulePath = process.env.PLAYWRIGHT_MODULE || 'playwright';
   const { chromium } = await import(modulePath);
   const db = getDb(), uid = crypto.randomUUID(), token = crypto.randomUUID();
   const base = process.env.FIXER2_URL || 'http://localhost:3997';
-  const evidence = process.env.FIXER2_EVIDENCE || '/home/flori/ventures2/socialmint/work/fixer2-evidence';
+  const evidence = process.env.FIXER2_EVIDENCE || (process.env.VERIFY_EVIDENCE_DIR || "../work") + "/fixer2-evidence";
   mkdirSync(evidence, { recursive: true });
-  const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] });
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] });
   try {
     for (const path of ['/app/billing?from=post', '/app/calendar?brand=example', '/app/posts/new?date=2026-10-01', '/app/posts/00000000-0000-0000-0000-000000000001/edit?q=x', '/app/continue?next=/pricing&plan=agency']) {
       const response = await fetch(base + path, { redirect: 'manual' });
@@ -28,7 +30,7 @@ async function main() {
     await db.insert(sessions).values({ sessionToken: token, userId: uid, expires: new Date(Date.now() + 3600000) });
     await db.insert(subscriptions).values({ workspaceId: workspace.id, status: 'active', currentPeriodEnd: new Date(Date.now() + 86400000), stripeSubscriptionId: 'fixture-' + uid });
     const [brand] = await db.insert(brands).values({ workspaceId: workspace.id, name: 'Mint Studio', slug: 'fixer2', timezone: 'Europe/Berlin' }).returning();
-    const [channel] = await db.insert(channels).values({ brandId: brand.id, provider: 'mastodon', displayName: 'Studio channel', externalId: 'fixture', credentialsEnc: encryptCredentials({ accessToken: 'synthetic-fixer2', instanceUrl: 'https://fixture.invalid' }), meta: { maxTextLength: 1000 } }).returning();
+    const [channel] = await db.insert(channels).values({ brandId: brand.id, provider: 'mastodon', displayName: 'Studio channel', externalId: 'fixture', credentialsEnc: encryptCredentials({ accessToken: crypto.randomUUID(), instanceUrl: 'https://fixture.invalid' }), meta: { maxTextLength: 1000 } }).returning();
     const [post] = await db.insert(posts).values({ brandId: brand.id, authorUserId: uid, body: 'A little inspiration for your next creative project.', status: 'published', scheduledAt: new Date() }).returning();
     const [target] = await db.insert(postTargets).values({ postId: post.id, channelId: channel.id, status: 'published', warnings: ['One image was omitted. Add it manually.'] }).returning();
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });

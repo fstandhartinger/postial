@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.C7_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { stripe } from '../lib/stripe';
 import { actionBodyLimit } from '../lib/http/action-limit';
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -123,9 +125,9 @@ async function main() {
     console.log('S04 owner-only export has no credentials, last-owner and typed deletion confirmation enforced');
     if(process.env.C7_HTTP_URL && process.env.PLAYWRIGHT_MODULE) {
       const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
-      const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
+      const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
       const sessionToken=randomUUID();await db.insert(sessions).values({userId:user,sessionToken,expires:new Date(Date.now()+day)});
-      const evidence='/home/flori/ventures2/socialmint/work/fixer7-evidence/offboarding';mkdirSync(evidence,{recursive:true});
+      const evidence=(process.env.VERIFY_EVIDENCE_DIR || "../work") + "/fixer7-evidence/offboarding";mkdirSync(evidence,{recursive:true});
       try {
         for(const width of [390,1280]) {
           const context=await browser.newContext({viewport:{width,height:900}});

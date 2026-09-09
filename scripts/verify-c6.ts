@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.C6_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
@@ -110,9 +112,9 @@ async function main(){
     } finally {client.subscriptions.retrieve=oldSub;client.customers.retrieve=oldCustomer;client.invoices.createPreview=oldPreview;}
     console.log('PASS C6 services: trial boundaries, reschedule/targets/tenancy, PATCH validation, edit approval reset, notifications/read, alert payload/signature/retries, expired-plan alerts, DPA acceptance and availability');
     if(process.env.C6_HTTP_URL){
-      const base=process.env.C6_HTTP_URL,evidence='/home/flori/ventures2/socialmint/work/fixer6-evidence';mkdirSync(evidence,{recursive:true});
-      const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'/home/flori/n8n-local/node_modules/playwright/index.mjs');
-      const running=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});browser=running;
+      const base=process.env.C6_HTTP_URL,evidence=(process.env.VERIFY_EVIDENCE_DIR || "../work") + "/fixer6-evidence";mkdirSync(evidence,{recursive:true});
+      const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
+      const running=await chromium.launch({executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});browser=running;
       const token=crypto.randomUUID();await db.insert(sessions).values({sessionToken:token,userId,expires:new Date(now+3600000)});
       await db.update(subscriptions).set({trialEnd:new Date(now+2*86400000)}).where(eq(subscriptions.workspaceId,workspace.id));
       const context=await running.newContext({timezoneId:'Europe/Berlin'});await context.addCookies([{name:'authjs.session-token',value:token,url:base}]);

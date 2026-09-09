@@ -26,8 +26,9 @@ UI, each row has its own transaction. Successful UI rows are excluded from retry
   media and cycle 6 suites.
 - Redocly OpenAPI lint; changed-file secret scan.
 
-Screenshots: `work/bulk-evidence/editor-{390,1280}.png` and
-`work/bulk-evidence/csv-{390,1280}.png` (local, intentionally gitignored).
+Historical screenshots were moved to the venture sibling `../work/bulk-evidence/`.
+New runs use `VERIFY_EVIDENCE_DIR/bulk-evidence/` (or `../work/bulk-evidence/`
+for direct execution), outside the repository.
 
 CSV/image preview does not fetch external images. The normal save service checks
 public HTTPS/DNS and uploaded-asset ownership before saving, as in the composer.

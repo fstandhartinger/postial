@@ -1,15 +1,18 @@
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
 (async()=>{
- const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
+ try {
  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://localhost:3991');await page.waitForLoadState('networkidle');
+ await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991'));await page.waitForLoadState('networkidle');
  await page.screenshot({path:'/tmp/socialmint-desktop.png',fullPage:true});
  await page.getByRole('link',{name:'Try the interactive demo'}).click();
  assert.equal(await page.locator(':focus').getAttribute('id'),'demo-heading');
  const button=name=>page.getByRole('button',{name,exact:true});
  const status=async name=>{await page.locator('.demo-status h3').filter({hasText:name}).waitFor();assert.equal(await page.locator(':focus').innerText(),name);};
+ // The demo is lazy-loaded; begin the no-network assertion after its code arrives.
+ await button('Approve').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
  const requests=[];page.on('request',r=>!r.url().includes('/icon.svg') && requests.push(r.url()));
  await button('Approve').focus();await page.keyboard.press('Enter');await status('Approved');
  await button('Schedule post').click();await status('Scheduled');
@@ -34,19 +37,21 @@ import assert from 'node:assert/strict';
  await button('Reset demo').click();assert.equal(await page.locator('.feedback').count(),0);assert.match(await page.locator('.post-text').innerText(),/Friday\./);
  assert.equal(requests.length,0,JSON.stringify(requests));
  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);assert.equal((await page.context().cookies()).length,0);
- console.log('PASS demo: direct + revision, keyboard, focus, validation, escaped feedback, cancel, repeat changes, retained failures, replay/reset; zero demo requests/storage/cookies (browser favicon excluded)');
+ console.log('PASS demo: direct + revision, keyboard, focus, validation, escaped feedback, cancel, repeat changes, retained failures, replay/reset; zero interaction requests/storage/cookies after lazy-load (browser favicon excluded)');
  for (const width of [320,1440]) {
   await page.setViewportSize({width,height:1000});
   for(const route of ['/','/pricing','/impressum','/privacy','/terms']){
-   await page.goto('http://localhost:3991'+route);
+   await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991')+route);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${route} overflow at ${width}`);
   }
  }
- await page.goto('http://localhost:3991');await page.setViewportSize({width:320,height:800});
+ await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991'));await page.setViewportSize({width:320,height:800});
  await button('Open navigation').click();assert.equal(await button('Close navigation').getAttribute('aria-expanded'),'true');await page.keyboard.press('Escape');assert.equal(await button('Open navigation').getAttribute('aria-expanded'),'false');
  await page.screenshot({path:'/tmp/socialmint-mobile.png',fullPage:true});
  await page.locator('summary').first().focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').first().getAttribute('open'),'');
+ // 200% of a 640px viewport exercises the supported 320 CSS-pixel layout.
+ await page.setViewportSize({width:640,height:1000});
  await page.evaluate(()=>{document.body.style.zoom='2'});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'zoom overflow');
  assert.deepEqual(errors,[]);console.log('PASS 320/1440 all pages, mobile menu + Escape, FAQ keyboard, 200% zoom, no browser errors');
- await browser.close();
+ } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exit(1)});

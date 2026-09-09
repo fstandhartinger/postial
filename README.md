@@ -2,7 +2,7 @@
 
 Approve and publish social posts across brands, with recoverable failures. API + n8n node.
 
-Milestone 1A foundation: Next.js 16 (App Router, standalone), strict TypeScript,
+**Version 0.2.0.** Stack: Next.js 16 (App Router, standalone), strict TypeScript,
 Tailwind CSS v4, locally bundled Inter, small UI primitives, Drizzle + PostgreSQL,
 and Auth.js v5 beta with the Drizzle adapter and database sessions.
 
@@ -191,9 +191,8 @@ only creates uncompleted Checkout sessions and deletes the temporary customers.
 ### Browser regression tests
 
 - `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/verify-fixer-browser.mjs`:
-  run the production app on 3992 plus a second instance without DATABASE_URL on
-  3995. Checks public pages/security headers at 320/1440, anonymous Agency CTA,
-  missing-DB redirects and (with DATABASE_URL) temporary database-session UI
+  run a built app at `VERIFY_BASE_URL` (legacy default 3992). Checks public pages/security headers at 320/1440, anonymous Agency CTA,
+  protected redirects and (with DATABASE_URL) temporary database-session UI
   fixtures for automatic checkout continuation, retry and expired Portal login.
   Checkout is intercepted in this UI test; no provider login or payment occurs.
 
@@ -519,7 +518,7 @@ rows. An optional Idempotency-Key serializes concurrent requests and persists
 the complete response for 24 hours; changed payloads return 409. The existing
 Agency API access and posts:write scope apply. No schema migration is needed.
 Run `npx tsx scripts/verify-bulk.ts`; set BULK_BROWSER_URL to a local built app
-for Playwright checks and screenshots in `work/bulk-evidence/`.
+for Playwright checks and screenshots in the external verification evidence directory.
 
 
 ## Runtime safeguards (cycle 7)
@@ -641,5 +640,129 @@ previews stack into cards below 768px. Public approvals render saved image alt t
 `C8_HTTP_URL=http://localhost:4098 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs
 npx tsx scripts/verify-c8.ts` checks pagination, timezone boundaries, weekly counters,
 keyboard focus, mobile cards, alt escaping/fallback and axe with temporary DB fixtures.
-It needs the local test database, a built app with `WORKER_ENABLED=false`, and the
-axe-core path in the script (installed in the cycle-8 evidence folder).
+It needs the local test database and a built app with `WORKER_ENABLED=false`.
+Playwright and axe-core are installed development dependencies; `AXE_PATH` can override the axe bundle.
+
+
+## Release verification and repository hygiene
+
+See [architecture](docs/architecture.md), [incident runbooks](docs/runbooks.md) and
+[changelog](CHANGELOG.md). The complete commented runtime/test configuration is
+[.env.example](.env.example); it also documents canonical-origin equality, optional
+provider pairs, proxy trust, worker control and historical verifier URL aliases.
+There is no global credential environment variable for individual social channels,
+no separate media bucket, and no Stripe publishable key requirement.
+
+```sh
+npm ci
+npm run lint
+npx tsc --noEmit
+npm run build                 # no DATABASE_URL or secrets needed
+# Export DATABASE_URL for a migrated disposable test DB; never production.
+npm run db:migrate
+npm run verify:all            # all DB/unit/harness verifiers, no existing app server
+npm run verify:http           # starts built standalone on a free local port; always stops it
+```
+
+`verify:all` includes 13 verifier entry points (including signed-webhook, OAuth
+and API self-hosted mock harnesses). `verify:http` includes 20 HTTP/browser entry
+points, with the optional HTTP branches enabled. Verifiers execute sequentially:
+worker/retention fixtures can touch shared maintenance state, so use a disposable
+migrated database and do not run other verification against the same DB concurrently.
+They create synthetic database sessions; no provider login or payment is performed.
+The runner strips provider/SMTP credentials, uses mocked Stripe values, random auth
+and cron secrets and disables the background worker. Existing encryption read keys
+are preserved when supplied. `verify-c7` requires the legacy read key for its explicit
+legacy-ciphertext regression; supply `APP_ENCRYPTION_KEY` to that suite.
+
+Install Chrome or set `CHROME_PATH` to an existing Chromium executable. Playwright,
+axe-core and tsx are locked development dependencies. An individual HTTP verifier
+uses `VERIFY_BASE_URL` first, then its old variable/default. The managed HTTP suite
+always selects its own free port and configures all canonical origins accordingly;
+no pre-existing server is reused. It stops its child on success, failure or signals,
+waits for database/migration readiness and imposes a five-minute per-verifier timeout.
+Evidence defaults to `../work/verification` outside the checkout, configurable via
+`VERIFY_EVIDENCE_DIR`; standalone logs are created with mode 0600. Never publish raw
+fixture logs or screenshots without checking for personal data.
+
+GitHub Actions runs install, lint, TypeScript and a secret-free build on every push
+and PR with Node 22 and read-only repository permissions. `npm audit --audit-level=high`
+is deliberately non-blocking; its full result appears in the job summary. Database
+and browser verification run locally, not against production or CI secrets.
+
+Historical `work/` evidence was committed in earlier cycles (confirmed with
+`git log --all -- work/`). It is now removed from the index and ignored; existing
+files were merged into `/home/flori/ventures2/socialmint/work/` without overwrites
+(`-repo` suffix on collisions). Git history was not rewritten. Older fixer scripts
+remain because they assert security, tenancy, approval and browser regressions.
+The obsolete second no-DB server check was removed: configuration now fails before
+startup, and `verify-c7` tests that contract. No product scheduler jobs were changed.
+
+## Operations reference
+
+Deploy through Sandy to https://socialmint.app.mintapis.com using the checked-in
+Dockerfile, runtime secrets and port 3000. Take a predeploy dump, retain the prior
+image digest/migration tip, serialize startup migrations and verify `/healthz` after
+rollout. The build copies standalone static/public assets; startup migrations fail
+closed. Follow [migration/rollback rules](docs/migrations.md), the Key rotation
+section above, and [incident runbooks](docs/runbooks.md).
+
+The venture sibling `../ops/` (absolute path
+`/home/flori/ventures2/socialmint/ops/`) contains `RELEASE.md`, `predeploy-dump.sh`,
+`BACKUP-STATUS.md` and `RESTORE.md`, plus monitor/restore evidence. These host-specific
+files are intentionally outside this source repo. Database dumps include media
+bytes; encryption read keys require separate protected backups. The current root
+backup job runs at 03:00 UTC and retains two dumps per database. An offsite copy
+and full-host disaster recovery are not verified. Do not infer them from a healthy
+application or a successful isolated table-count restore.
+
+## Script inventory
+
+Run TypeScript scripts with `npx tsx scripts/<name>`, JavaScript with `node`, and
+Python with `python3`. “Server” means an already-running app for individual use;
+self-hosted local mock harnesses count as “No”. The managed HTTP suite supplies it.
+DB means `DATABASE_URL` for a migrated disposable database. Browser scripts also
+accept `PLAYWRIGHT_MODULE`, `CHROME_PATH` and `VERIFY_EVIDENCE_DIR`; HTTP scripts all
+accept `VERIFY_BASE_URL`. Runtime auth/encryption/Stripe fixture configuration is
+supplied automatically by the suite; direct execution must provide required values.
+
+| Name | Purpose | Server | Env / prerequisites |
+| --- | --- | --- | --- |
+| `billing-mock.ts` | In-process Stripe SDK and route fixture helper | No | `STRIPE_PORTAL_CONFIG`, `STRIPE_PRICE_AGENCY`, `STRIPE_PRICE_STARTER` |
+| `fixture-cleanup.ts` | Safe synthetic-user/workspace cleanup helper | No | `DB` |
+| `generate-help-index.ts` | Regenerate bundled help search index | No | — |
+| `migrate.mjs` | Apply checked-in ordered Drizzle migrations | No | `DB`, `DATABASE_URL` |
+| `prepare-standalone.mjs` | Copy public/static/runtime migration files after build | No | .next build output |
+| `reencrypt.ts` | Transactional versioned credential re-encryption | No | `DB` |
+| `subset-inter.py` | Regenerate licensed Latin Inter WOFF2 subsets | No | fonttools[woff] |
+| `test-runtime.ts` | Install AsyncLocalStorage for handler harnesses | No | — |
+| `verify-api.ts` | API scopes, tenancy, idempotency, outbox and retries | Optional | `DB`, `API_HTTP_URL`, `APP_ENCRYPTION_KEY`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_ALLOW_LOOPBACK` |
+| `verify-approvals.ts` | Capability approval, revocation, privacy and editing | Yes | `DB`, `APPROVAL_HTTP_URL`, `APPROVAL_SCREENSHOT` |
+| `verify-appshell.ts` | Authenticated navigation, workspace shell and mobile states | Yes | `DB`, `APPSHELL_HTTP_URL` |
+| `verify-billing.ts` | Mocked Checkout/Portal, limits, redirects and paid restart | Yes | `DB`, `BILLING_HTTP_URL` |
+| `verify-bulk.ts` | Bulk/CSV validation, entitlement and idempotency regressions | Optional | `DB`, `BULK_BROWSER_URL` |
+| `verify-c6.ts` | Editing, notifications, DPA, billing and alert delivery | Optional | `DB`, `AUTH_URL`, `C6_HTTP_URL`, `NEXT_PUBLIC_APP_URL`, `WEBHOOK_ALLOW_LOOPBACK` |
+| `verify-c7.ts` | Startup, bounded requests, key rotation, retention and offboarding | Optional | `DB`, `APPROVAL_TRUST_PROXY`, `APP_ENCRYPTION_KEY`, `APP_ENCRYPTION_KEYS`, `C7_HTTP_URL`, `CRON_SECRET`, `WORKER_ENABLED` |
+| `verify-c8.ts` | Pagination, timezone windows, keyboard focus and axe scans | Yes | `DB`, `AXE_PATH`, `C8_EVIDENCE`, `C8_HTTP_URL` |
+| `verify-core-http.ts` | Protected product pages and internal tick authorization | Yes | `DB`, `CORE_HTTP_URL` |
+| `verify-core.ts` | Encryption, scheduling, claims, fencing, retries and plan holds | Optional | `DB`, `CORE_HTTP_URL` |
+| `verify-docs-browser.mjs` | Help search, links, mobile layout and navigation | Yes | `DOCS_HTTP_URL` |
+| `verify-docs.ts` | Help index, safe markdown, links, sitemap and legal routes | Yes | `DOCS_HTTP_URL` |
+| `verify-entitlements.ts` | Exact trial/subscription/grace boundary cases | No | — |
+| `verify-fixer-browser.mjs` | Headers, responsive pages, checkout continuation and expired session | Yes | `DB`, `BROWSER_BASE_URL`, `DATABASE_URL` |
+| `verify-fixer2-browser.ts` | Return paths, warning persistence, channel errors and expiry | Yes | `DB`, `FIXER2_EVIDENCE`, `FIXER2_URL` |
+| `verify-fixer3-browser.ts` | No-channel/Starter composer guards, provider counters and delivery-log layout | Yes | `DB`, `FIXER3_EVIDENCE`, `FIXER3_HTTP_URL` |
+| `verify-fixer3-migration.ts` | Historical approval privacy migration on temporary tables | No | `DB` |
+| `verify-http.mjs` | Public/auth redirects and health response shape | Yes | — |
+| `verify-marketing-browser.mjs` | Interactive demo keyboard flow and responsive marketing | Yes | `MARKETING_TEST_URL` |
+| `verify-marketing.mjs` | Public copy, schema, pricing and legal metadata | Yes | `MARKETING_TEST_URL` |
+| `verify-media.ts` | Upload decoding, limits, tenancy, API, cache and SSRF regressions | Yes | `DB`, `MEDIA_ALLOW_LOOPBACK`, `MEDIA_HTTP_URL`, `NEXT_PUBLIC_APP_URL` |
+| `verify-oauth.ts` | Local OAuth mocks, state/cookies, refresh locking and callback errors | No | `DB`, `APP_ENCRYPTION_KEY`, `APP_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `THREADS_API_BASE_URL`, `THREADS_APP_ID`, `THREADS_APP_SECRET`, `X_API_BASE_URL`, `X_CLIENT_ID`, `X_CLIENT_SECRET` |
+| `verify-pilot.ts` | Channel health, approval groups, duplication and retention | No | `DB` |
+| `verify-publishers.ts` | Mock adapter errors, SSRF, deadlines and provider semantics | No | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
+| `verify-retention.ts` | Media retention fixture and maintenance state cleanup | No | `DB` |
+| `verify-suite.mjs` | Managed sequential DB or standalone HTTP suite | Managed | `DATABASE_URL` |
+| `verify-team.ts` | Invites, roles, expiry, revocation and workspace switching | Yes | `DB`, `TEAM_HTTP_URL` |
+| `verify-waitlist.ts` | Normalization, persistence, shared limits and spoof resistance | Yes | `DB`, `DATABASE_URL`, `WAITLIST_BASE_URL` |
+| `verify-webhook.ts` | Signed raw webhook, deduplication and reconciliation harness | No | `DB` |
+| `verify-workspace.ts` | Concurrent onboarding, owner membership and sessions | No | `DB` |

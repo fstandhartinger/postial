@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-const origin = process.argv[2] || "http://localhost:3987";
+const origin = process.env.VERIFY_BASE_URL || process.argv[2] || "http://localhost:3987";
 for (const path of ["/healthz", "/login", "/app", "/", "/pricing", "/impressum", "/privacy", "/terms"]) {
   const response = await fetch(origin + path, { redirect: "manual" });
   assert.equal(response.status, path === "/app" ? 307 : 200, path);

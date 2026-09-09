@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.CORE_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";

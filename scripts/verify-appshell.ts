@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.APPSHELL_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -18,13 +20,13 @@ import { inZone } from "../lib/timezone";
 async function main() {
   const modulePath =
     process.env.PLAYWRIGHT_MODULE ||
-    "/home/flori/n8n-local/node_modules/playwright/index.mjs";
+    "playwright";
   const { chromium } = await import(modulePath);
   const db = getDb(),
     uid = crypto.randomUUID(),
     token = crypto.randomUUID();
   const base = process.env.APPSHELL_HTTP_URL || "http://localhost:3997",
-    evidence = "work/appshell-evidence";
+    evidence = (process.env.VERIFY_EVIDENCE_DIR || "../work") + "/appshell-evidence";
   mkdirSync(evidence, { recursive: true });
   const browser = await chromium.launch({
     executablePath: "/usr/bin/google-chrome",

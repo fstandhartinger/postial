@@ -1,6 +1,6 @@
 {
   "name": "socialmint",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,9 @@
     "postbuild": "node scripts/prepare-standalone.mjs",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "verify:all": "node scripts/verify-suite.mjs db",
+    "verify:http": "node scripts/verify-suite.mjs http"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
@@ -34,10 +36,16 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/twitter-text": "^3.1.10",
+    "axe-core": "^4.13.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

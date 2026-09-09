@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.TEAM_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
@@ -22,22 +24,22 @@ async function main() {
     await db.insert(sessions).values([{ sessionToken: ownerSession, userId: owner, expires: new Date(Date.now() + 3600000) }, { sessionToken: editorSession, userId: editor, expires: new Date(Date.now() + 3600000) }]);
     const token = (await manageTeam(ws.id, owner, 'create'))!;
     const publicResponse = await fetch(`${base}/join/${token}`); assert.equal(publicResponse.status, 200); assert.match(await publicResponse.text(), /Sign in to join/);
-    const mod = process.env.PLAYWRIGHT_MODULE ?? '/home/flori/n8n-local/node_modules/playwright/index.mjs';
+    const mod = process.env.PLAYWRIGHT_MODULE ?? 'playwright';
     const { chromium } = await import(mod);
-    const b = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] }); browser = b;
+    const b = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox'] }); browser = b;
     const ownerContext = await b.newContext();
     await ownerContext.addCookies([{ name: 'authjs.session-token', value: ownerSession, url: base }]);
     const page = await ownerContext.newPage();
     const editorContext = await b.newContext();
     await editorContext.addCookies([{ name: 'authjs.session-token', value: editorSession, url: base }]);
     const join = await editorContext.newPage();
-    await mkdir('work/team-evidence', { recursive: true });
+    await mkdir((process.env.VERIFY_EVIDENCE_DIR || '../work') + '/team-evidence', { recursive: true });
     for (const width of [390, 1280]) {
       await page.setViewportSize({ width, height: 900 }); await page.goto(`${base}/app/settings/team`); await page.getByRole('heading', { name: 'Team', exact: true }).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      await page.screenshot({ path: `work/team-evidence/team-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/team-evidence/team-${width}.png`, fullPage: true });
       await join.setViewportSize({ width, height: 900 }); await join.goto(`${base}/join/${token}`); await join.getByRole('button', { name: 'Join workspace' }).waitFor();
-      await join.screenshot({ path: `work/team-evidence/join-${width}.png`, fullPage: true });
+      await join.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/team-evidence/join-${width}.png`, fullPage: true });
     }
     await page.getByRole('button', { name: 'Create invite link' }).click();
     const linkInput = page.getByRole('textbox', { name: 'Invite link' });

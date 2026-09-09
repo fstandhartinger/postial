@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - name: Build without database or credentials
+        run: npm run build
+      - name: Dependency audit (advisory)
+        if: always()
+        shell: bash
+        run: |
+          npm audit --audit-level=high > audit.txt 2>&1 || true
+          {
+            echo '### Dependency audit (non-blocking)'
+            echo 'Known dependency constraints and mitigations are recorded in README.md.'
+            echo '```text'
+            cat audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.BULK_BROWSER_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
@@ -251,7 +253,7 @@ async function main() {
     if (process.env.BULK_BROWSER_URL) {
       const modulePath =
         process.env.PLAYWRIGHT_MODULE ||
-        "/home/flori/n8n-local/node_modules/playwright/index.mjs";
+        "playwright";
       const { chromium } = await import(modulePath);
       const browser = await chromium.launch({
         executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome",
@@ -268,7 +270,7 @@ async function main() {
             userId,
             expires: new Date(Date.now() + 600000),
           });
-        mkdirSync("work/bulk-evidence", { recursive: true });
+        mkdirSync((process.env.VERIFY_EVIDENCE_DIR || "../work") + "/bulk-evidence", { recursive: true });
         for (const width of [390, 1280]) {
           const context = await browser.newContext({
             viewport: { width, height: 900 },
@@ -306,7 +308,7 @@ async function main() {
             "Bulk page must fit viewport",
           );
           await page.screenshot({
-            path: `work/bulk-evidence/editor-${width}.png`,
+            path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/bulk-evidence/editor-${width}.png`,
             fullPage: true,
           });
           await page
@@ -336,7 +338,7 @@ async function main() {
             "Bulk page must fit viewport",
           );
           await page.screenshot({
-            path: `work/bulk-evidence/csv-${width}.png`,
+            path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/bulk-evidence/csv-${width}.png`,
             fullPage: true,
           });
           await page

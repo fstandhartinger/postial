@@ -1,3 +1,5 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.FIXER3_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
@@ -6,13 +8,13 @@ import { getDb } from '../db';
 import { users, sessions, subscriptions, brands, channels, webhookEndpoints, webhookDeliveries } from '../db/schema';
 import { ensureWorkspace } from '../lib/workspaces';
 async function main() {
-  const modulePath = process.env.PLAYWRIGHT_MODULE || '/home/flori/n8n-local/node_modules/playwright/index.mjs';
+  const modulePath = process.env.PLAYWRIGHT_MODULE || 'playwright';
   const {chromium} = await import(modulePath);
   const db = getDb(), uid = crypto.randomUUID(), token = crypto.randomUUID();
   const base = process.env.FIXER3_HTTP_URL || 'http://localhost:3999';
-  const evidence = process.env.FIXER3_EVIDENCE || '/home/flori/ventures2/socialmint/work/fixer3-evidence';
+  const evidence = process.env.FIXER3_EVIDENCE || (process.env.VERIFY_EVIDENCE_DIR || "../work") + "/fixer3-evidence";
   mkdirSync(evidence, {recursive: true});
-  const browser = await chromium.launch({executablePath: '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox']});
+  const browser = await chromium.launch({executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox']});
   try {
     await db.insert(users).values({id: uid, name: 'Fixer3 browser fixture'});
     const workspace = await ensureWorkspace(uid);

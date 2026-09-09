@@ -1,11 +1,13 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.DOCS_HTTP_URL = process.env.VERIFY_BASE_URL;
 import assert from 'node:assert/strict';
 import { readFileSync, mkdirSync } from 'node:fs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const index = JSON.parse(readFileSync('content/help/index.json', 'utf8'));
 const base = process.env.DOCS_HTTP_URL || 'http://localhost:4018';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
-mkdirSync('work/help-evidence', { recursive: true });
-const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+mkdirSync((process.env.VERIFY_EVIDENCE_DIR || '../work') + '/help-evidence', { recursive: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 try {
   const page = await browser.newPage();
   const errors = [];
@@ -19,7 +21,7 @@ try {
       await page.waitForLoadState('networkidle');
       assert.equal(await page.locator('h1').count(), 1, route);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
-      await page.screenshot({ path: `work/help-evidence/${route.slice(1).replaceAll('/', '-')}-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/help-evidence/${route.slice(1).replaceAll('/', '-')}-${width}.png`, fullPage: true });
     }
     await page.goto(base + '/docs');
     const search = page.getByRole('searchbox', { name: 'Search help articles' });
@@ -30,7 +32,7 @@ try {
     await page.getByText('No articles found. Try a shorter phrase or browse the categories.').waitFor();
     await search.fill('needs review');
     await page.locator('#help-results').getByRole('link', { name: 'Understand publishing status and retries' }).waitFor();
-    await page.screenshot({ path: `work/help-evidence/search-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/help-evidence/search-${width}.png`, fullPage: true });
     await search.fill('');
     await page.getByRole('navigation', { name: 'Help categories' }).getByRole('link', { name: 'Plans, trial and cancellation' }).click();
     await page.waitForURL('**/docs/billing');

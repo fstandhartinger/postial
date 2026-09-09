@@ -50,14 +50,15 @@ async function main() {
   try {
     await db.insert(users).values({ id: userId, name: "Webhook verification fixture" });
     await db.insert(workspaces).values({ id: workspaceId, ownerUserId: userId, name: "Webhook fixture", slug: `fixture-${workspaceId}` });
-    server.listen(3992, "127.0.0.1"); await once(server, "listening");
+    server.listen(0, "127.0.0.1"); await once(server, "listening");
+    const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     const payload = JSON.stringify({ id: eventId, object: "event", type: "customer.subscription.updated", created: now, data: { object: fixture } });
     async function post(body: string, signedBody = body) {
       const signature = client.webhooks.generateTestHeaderString({ payload: signedBody, secret: requiredEnv("STRIPE_WEBHOOK_SECRET") });
-      return fetch("http://127.0.0.1:3992/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": signature }, body });
+      return fetch(base + "/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": signature }, body });
     }
     assert.equal((await post(payload + " ", payload)).status, 400);
-    assert.equal((await fetch("http://127.0.0.1:3992/api/stripe/webhook", { method: "POST", body: payload })).status, 400);
+    assert.equal((await fetch(base + "/api/stripe/webhook", { method: "POST", body: payload })).status, 400);
     assert.equal((await post(JSON.stringify({ id: "evt_unknown_fixture", type: "unknown.event", data: { object: {} } }))).status, 200);
     const results = await Promise.all([post(payload), post(payload)]);
     assert.deepEqual(results.map(r => r.status), [200, 200]);

@@ -1,9 +1,11 @@
+// Shared origin takes precedence; historical per-script variables remain supported.
+if (process.env.VERIFY_BASE_URL) process.env.BROWSER_BASE_URL = process.env.VERIFY_BASE_URL;
 import postgres from 'postgres';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.BROWSER_BASE_URL || 'http://localhost:3992';
-const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 try {
   const page = await browser.newPage();
   const errors = [];
@@ -25,7 +27,7 @@ try {
       assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
       if (route === '/' || route === '/pricing') assert.ok(await page.getByText('Early access', { exact: true }).count());
-      if (route === '/pricing') assert.ok(await page.getByText(/Available now: brand workspaces/).count());
+      if (route === '/pricing') assert.ok(await page.getByText(/Available today:/).count());
       if (route === '/pricing' && width === 1440) await page.screenshot({ path: '/tmp/socialmint-fixer-pricing.png', fullPage: true });
       if (route === '/' && width === 320) await page.screenshot({ path: '/tmp/socialmint-fixer-mobile.png', fullPage: true });
     }
@@ -36,15 +38,7 @@ try {
   assert.equal(new URL(page.url()).search, '?next=/pricing&plan=agency');
   assert.deepEqual(errors, []);
   console.log('PASS browser: six routes at 320/1440, all security headers, no overflow, no console/page/HTTP errors, Agency CTA preserves plan without 401');
-  for (const route of ['/app', '/app/billing', '/app/continue?next=/pricing&plan=agency']) {
-    const response = await fetch('http://localhost:3995' + route, { redirect: 'manual' });
-    assert.equal(response.status, 307);
-    const target = new URL(response.headers.get('location'), 'http://localhost:3995');
-    assert.equal(target.pathname, '/login'); assert.ok(target.searchParams.get('next'));
-  }
-  const noDbHealth = await fetch('http://localhost:3995/healthz');
-  assert.equal(noDbHealth.status, 503);
-  console.log('PASS missing DB: protected routes redirect with next before DB access; healthz intentionally 503');
+  // Missing runtime configuration now fails at startup (covered by verify-c7).
   // Local DB session fixtures exercise authenticated UI without any provider login.
   if (process.env.DATABASE_URL) {
     const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
@@ -72,14 +66,16 @@ try {
       await member.getByRole('alert').filter({ hasText: 'Fixture: checkout resumed' }).waitFor();
       assert.equal(calls, 2);
       await member.goto(base + '/app/billing');
+      await member.getByRole('button', { name: 'Restart plan', exact: true }).first().waitFor();
       assert.equal(await member.getByRole('button', { name: 'Restart plan' }).count(), 2);
       await sql`update sessions set expires = ${new Date(0)} where session_token = ${token}`;
-      await member.getByRole('button', { name: 'Manage billing' }).click();
+      await member.getByRole('button', { name: 'Manage payment method, plan and cancellation' }).click();
       await member.waitForURL('**/login?next=/app/billing');
       assert.deepEqual(pageErrors, []);
       await context.close();
       console.log('PASS authenticated UI: continuation automatically posts Agency once, retry works, paid Restart plan buttons, expired Portal session returns to login with next. No provider login or Stripe request.');
     } finally {
+      await sql`delete from workspaces where id = ${workspaceId}`;
       await sql`delete from users where id = ${userId}`;
       assert.equal((await sql`select id from workspaces where id = ${workspaceId}`).length, 0);
       await sql.end();
