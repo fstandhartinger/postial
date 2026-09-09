@@ -1,3 +1,4 @@
+import { emit } from "@/lib/api/webhooks";
 import { createHmac, randomBytes } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -74,6 +75,8 @@ export async function decideApproval(token: string, input: unknown, ip: string):
       .where(and(eq(postTargets.postId, post.id), eq(postTargets.status, "queued")));
     await tx.insert(postEvents).values({ postId: post.id, type: decision,
       message: `Client ${reviewerName} ${decision === "approved" ? "approved" : "requested changes"}${comment ? `: ${comment}` : ""}` });
+    // API outbox commits atomically with the customer decision and post history.
+    await emit(tx, post.id, "approval.decided", {decision, comment, reviewer_name: reviewerName});
     return { status: 200, decision };
   });
 }

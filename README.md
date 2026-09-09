@@ -81,7 +81,7 @@ included explicitly alongside the standalone Next.js output.
 Foundation: workspace ownership, auth and billing are implemented.
 Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
 Product: brands, channel connections, composer, calendar and publishing worker are
-implemented, including public customer approval links. Public API and n8n remain upcoming work.
+implemented, including public customer approval links. Public API v1 is implemented; the native n8n node remains upcoming work.
 The owner must verify company registration details and provide the DPA on request. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 Network integrations and production deployment are separate work.
@@ -243,3 +243,40 @@ it publishes no real content and deletes fixtures. Run `npx tsx scripts/verify-c
 (or set `CORE_HTTP_URL`) to check session-protected routes and cron authentication.
 Keep the worker fixture run separate from a running worker, which would otherwise
 try to process synthetic channels.
+
+## API
+
+Public REST API v1 is available on `/api/v1`. Agency owners (including active
+Agency trials) manage scoped API keys and signed webhooks at `/app/settings/api`.
+Keys and webhook signing secrets are shown once. Keys are SHA-256 hashed; webhook
+secrets are encrypted with `APP_ENCRYPTION_KEY`. Revoked keys return 401; a downgrade
+or inactive Agency entitlement returns 403. Never put keys in query strings.
+
+See [API documentation](/docs/api) and [OpenAPI 3.1](public/openapi.json) for
+endpoints, examples, signature verification and n8n HTTP Request setup. Use
+`Authorization: Bearer $SOCIALMINT_API_KEY`. All responses use snake_case,
+errors use `{error:{code,message}}`, and reads never expose channel credentials.
+
+Post creation and target retries reuse the UI server service in
+`lib/api/post-service.ts`. Requests are limited to 60/minute/key in PostgreSQL;
+429 includes Retry-After. POST /posts supports a transactionally serialized
+Idempotency-Key for 24 hours, with a persisted exact response and 409 on changed
+input. Omit scheduled_at for drafts. API deletion rejects posts with started
+publishing attempts, even if the aggregate status is scheduled.
+
+Webhook events commit to an outbox alongside publishing status and customer
+approval transactions. The existing tick invokes deliverWebhooks, claims batches
+with row locks and fenced leases, and retries at 1/5/30/30 minutes (five attempts).
+Outbound production requests use the existing DNS-pinned SSRF-safe fetcher and
+never follow POST redirects. Receivers must verify the raw bytes, enforce a
+five-minute timestamp tolerance, and deduplicate payload.id. Logs retain safe
+HTTP status only. API settings show the latest 20 deliveries. Expired idempotency
+records are removed by the tick; provision retention for long-term delivery logs.
+
+Validation: `npx tsx scripts/verify-api.ts` uses isolated database fixtures and a
+local HTTP receiver, checks route handlers over HTTP, auth, scopes, tenancy,
+idempotency, validation, deletion, rate limits, webhook signatures and backoff,
+and removes fixtures in finally. Set DATABASE_URL to the test database. Only
+non-production tests may set WEBHOOK_ALLOW_LOOPBACK=1; it permits literal
+http://127.0.0.1 receivers and has no effect in production. No provider publishing,
+login, billing purchase or live customer data is required. Run migrations first.

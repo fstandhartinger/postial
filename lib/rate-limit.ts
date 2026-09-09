@@ -9,3 +9,14 @@ export function billingRateLimit(userId: string, now = Date.now()): number {
   window.count++;
   return 0;
 }
+
+// API budgets are atomic and shared across replicas, unlike the billing budget.
+export async function apiRateLimit(keyId: string): Promise<number> {
+  const [{getDb}, {apiRateLimits}, {sql}] = await Promise.all([import('@/db'), import('@/db/schema'), import('drizzle-orm')]);
+  const [row] = await getDb().insert(apiRateLimits).values({keyId, expiresAt: new Date(Date.now() + 60000)})
+    .onConflictDoUpdate({target: apiRateLimits.keyId, set: {
+      attempts: sql`case when ${apiRateLimits.expiresAt} <= now() then 1 else least(${apiRateLimits.attempts} + 1, 61) end`,
+      expiresAt: sql`case when ${apiRateLimits.expiresAt} <= now() then now() + interval '1 minute' else ${apiRateLimits.expiresAt} end`,
+    }}).returning();
+  return row.attempts > 60 ? Math.max(1, Math.ceil((row.expiresAt.getTime() - Date.now()) / 1000)) : 0;
+}

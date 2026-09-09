@@ -1,3 +1,4 @@
+import { deliverWebhooks, emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
 export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";
@@ -7,8 +8,8 @@ import { decryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function derivePostStatus(tx: Tx, postId: string) {
-  await tx
-    .select({ id: posts.id })
+  const [previous] = await tx
+    .select({ id: posts.id, status: posts.status })
     .from(posts)
     .where(eq(posts.id, postId))
     .for("no key update");
@@ -31,6 +32,8 @@ export async function derivePostStatus(tx: Tx, postId: string) {
     .update(posts)
     .set({ status, updatedAt: new Date() })
     .where(eq(posts.id, postId));
+  // API outbox shares the status/history transaction; delivery happens in the worker.
+  if (previous) await emitPublishing(tx, postId, previous.status, status);
 }
 export async function tick() {
   const db = getDb();
@@ -73,6 +76,7 @@ export async function tick() {
         type: "recovered",
         message,
       });
+      if (status === "needs_review") await emit(tx, t.postId, "post.needs_review", {target_id: t.id});
       await derivePostStatus(tx, t.postId);
     }
   });
@@ -244,9 +248,13 @@ export async function tick() {
             message: uncertain ? TELEGRAM_REVIEW : `Attempt ${attempt} failed: ${error.humanMessage}${retry ? ` Retrying in ${Math.ceil(seconds / 60)} min.` : ""}`,
           });
         }
+        // needs_review is per target and may leave the aggregate status unchanged.
+        if (error && c.provider === "telegram" && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code))
+          await emit(tx, p.id, "post.needs_review", {target_id: t.id});
         await derivePostStatus(tx, p.id);
       });
     }),
   );
+  await deliverWebhooks();
   return { claimed: claimed.length };
 }

@@ -259,3 +259,49 @@ export const approvalRateLimits = pgTable("approval_rate_limits", {
   attempts: integer("attempts").notNull().default(1),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
+
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  scopes: text("scopes").array().notNull(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const apiRateLimits = pgTable("api_rate_limits", {
+  keyId: uuid("key_id").primaryKey().references(() => apiKeys.id, { onDelete: "cascade" }),
+  attempts: integer("attempts").notNull().default(1),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+export const apiIdempotency = pgTable("api_idempotency", {
+  keyId: uuid("key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  requestHash: text("request_hash").notNull(),
+  response: jsonb("response").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, t => [primaryKey({columns: [t.keyId, t.key]}), index("api_idempotency_expiry").on(t.expiresAt)]);
+export const webhookEndpoints = pgTable("webhook_endpoints", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  secretHash: text("secret_hash").notNull(),
+  secretEnc: text("secret_enc").notNull(),
+  events: text("events").array().notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  endpointId: uuid("endpoint_id").notNull().references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  status: text("status").$type<"pending" | "delivered" | "failed">().notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow(),
+  responseStatus: integer("response_status"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [index("webhook_deliveries_due").on(t.status, t.nextAttemptAt)]);
