@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { redactErrorValue, recordError, recentErrorCount } from '../lib/error-visibility';
-import { errorEvents, errorEventHourly } from '../db/schema';
+import { errorEvents } from '../db/schema';
 import { getDb } from '../db';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 async function verify() {
   const db = getDb();
@@ -10,10 +10,11 @@ async function verify() {
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('alice@example.com'));
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('sm_live_abc'));
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('private post'));
-  await recordError(new Error('route fixture@example.com token=sm_live_secret content=private post'), {route:`/api/${marker}`, status:500, authenticated:true});
-  await recordError(new Error('worker fixture@example.com token=sm_live_secret content=private post'), {route:`worker:${marker}`});
+  const personal = 'Alice Example lives at alice@example.com and wrote: Please publish this private post about the garden.';
+  await recordError(new Error(`route ${personal}`), {route:`/api/${marker}`, status:500, authenticated:true});
+  await recordError(new Error(`worker ${personal}`), {route:`worker:${marker}`});
   const rows = await db.select().from(errorEvents).where(sql`${errorEvents.route} like ${`%${marker}%`}`);
-  assert.equal(rows.length, 2); assert(rows.every(row => !JSON.stringify(row).includes('fixture@example.com') && !JSON.stringify(row).includes('sm_live_secret') && !JSON.stringify(row).includes('private post')));
+  assert.equal(rows.length, 2); assert(rows.every(row => !JSON.stringify(row).includes('alice@example.com') && !JSON.stringify(row).includes('Alice Example') && !JSON.stringify(row).includes('private post') && row.message === '[message omitted]'));
   const original = process.env.ERROR_VISIBILITY_TEST_CAP;
   process.env.ERROR_VISIBILITY_TEST_CAP = '2';
   const capStart = new Date(Date.now() + 3600000);
@@ -22,8 +23,6 @@ async function verify() {
   const capped = await db.select().from(errorEvents).where(sql`${errorEvents.route} like ${`%${marker}%`}`);
   assert.equal(capped.length, 4);
   await db.delete(errorEvents).where(sql`${errorEvents.route} like ${`%${marker}%`}`);
-  await db.delete(errorEventHourly).where(eq(errorEventHourly.hour, new Date(Math.floor(Date.now()/3600000)*3600000)));
-  await db.delete(errorEventHourly).where(eq(errorEventHourly.hour, new Date(Math.floor(capStart.getTime()/3600000)*3600000)));
   console.log('error visibility: API+worker, redaction, best-effort path, cap PASS');
 }
 verify().catch(error => { console.error(error instanceof Error ? error.message : 'verification failed'); process.exit(1); });
