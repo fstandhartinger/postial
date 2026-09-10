@@ -11,6 +11,7 @@ import { stripe, appUrl, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans } from '@/lib/plans';
 import { recordFunnelEvent } from '@/lib/funnel';
 import { recordError } from '@/lib/error-visibility';
+import { trialEligibility } from '@/lib/trial-eligibility';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   let release: (() => Promise<unknown>) | undefined;
@@ -52,7 +53,15 @@ export async function POST(request: Request) {
       throw new BillingHttpError(409, 'Subscription already exists; use the billing portal');
     }
     const [fresh] = await db.select().from(workspaces).where(eq(workspaces.id, workspace.id));
-    const trial = !fresh.trialUsedAt && !existing.data.length && !local?.stripeSubscriptionId;
+    const eligibility = await trialEligibility({
+      trialUsedAt: fresh.trialUsedAt,
+      localStripeSubscriptionId: local?.stripeSubscriptionId,
+      stripeCustomerId: customerId,
+      workspaceId: workspace.id,
+      client,
+    });
+    if (eligibility === 'unknown') throw new Error('Unable to determine trial eligibility');
+    const trial = eligibility === 'eligible';
     if (!trial && !fresh.trialUsedAt) await db.update(workspaces).set({ trialUsedAt: new Date() }).where(eq(workspaces.id, workspace.id));
     const open = await client.checkout.sessions.list({ customer: customerId, status: 'open', limit: 100 });
     const reusable = open.data.find(s => s.mode === 'subscription' && s.metadata?.app === 'socialmint' && s.metadata?.plan === plan && s.metadata?.trial === String(trial) && s.client_reference_id === workspace.id);
