@@ -123,6 +123,7 @@ export async function coreAction(
           lastHealthError: null,
           status: "active" as const,
         };
+        let channelCreated = false;
         await db.transaction(async (tx) => {
           await tx
             .select()
@@ -144,8 +145,9 @@ export async function coreAction(
               .update(channels)
               .set(values)
               .where(eq(channels.id, existing.id));
-          else await tx.insert(channels).values(values);
+          else { await tx.insert(channels).values(values); channelCreated = true; }
         });
+        if (channelCreated) await recordFunnelEvent('channel_connected', { workspaceId: workspace.id });
       } else {
         const id = str(form, "channelId");
         check(isUuid(id), "Choose a channel.");

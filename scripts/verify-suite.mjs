@@ -40,7 +40,7 @@ try {
   });
   mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
   const db = ['funnel', 'entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'signin-ratelimit', 'fixer3-migration', 'worker-drain', 'trial-end'];
-  const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
+  const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media', 'funnel-browser',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'first-run-browser', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
     'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];
   async function run(name) {
