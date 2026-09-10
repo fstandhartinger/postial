@@ -4,10 +4,11 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../db';
-import { users, workspaces, subscriptions, sessions, brands, channels, posts, postTargets, approvalDecisions } from '../db/schema';
+import { users, workspaces, subscriptions, sessions, brands, channels, posts, postTargets, approvalDecisions, postEvents } from '../db/schema';
 import { ensureWorkspace } from '../lib/workspaces';
 import { encryptCredentials } from '../lib/crypto';
 import { tick } from '../lib/publishing';
+import { savePost } from '../lib/api/post-service';
 
 const base = process.env.VERIFY_BASE_URL!;
 const evidence = process.env.VERIFY_EVIDENCE_DIR! + '/approval-evidence';
@@ -40,17 +41,22 @@ async function main() {
     await cp.getByLabel('Name (required)').fill('Anna Client'); await cp.getByLabel('Comment (required when requesting changes)').fill('Please shorten the opening.'); await cp.getByRole('button', { name: 'Request changes' }).click();
     await cp.getByText('Thank you. Your decision has been saved.').waitFor();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status, 'changes_requested');
-    await ap.reload(); await ap.getByText('Changes requested').waitFor(); await ap.getByText('Please shorten the opening.').waitFor();
-    await ap.getByRole('link', {name:'Edit post'}).click(); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.'); await ap.getByRole('button', {name:'Schedule'}).click(); await ap.waitForURL(/\/app\/posts\//);
-    const revised = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(revised.status,'pending_approval'); const fresh = `${base}/r/${revised.approvalToken}`;
+    await ap.reload(); await ap.getByRole('status').filter({hasText:'Changes requested'}).first().waitFor(); await ap.getByText('Please shorten the opening.').first().waitFor();
+    await ap.getByRole('link', {name:'Edit post'}).click(); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.'); await ap.getByRole('button', {name:'Schedule'}).click(); await ap.waitForURL(/\/app\/posts\//); await ap.getByRole('status').filter({hasText:'Post saved for client approval'}).waitFor();
+    const revised = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(revised.status,'pending_approval'); assert.equal(revised.approvalToken, token); const fresh = `${base}/r/${token}`;
+    const events = await db.select().from(postEvents).where(eq(postEvents.postId,post.id)); assert(events.some(e => e.message === 'Client Anna Client requested changes: Please shorten the opening.')); assert(events.some(e => e.message === 'Edited content resubmitted for client approval'));
+    await ap.goto(`${base}/app/approvals`); await ap.getByRole('region', {name:/Awaiting/}).getByText(/Maple Studio/).waitFor(); assert.equal(await ap.getByRole('region', {name:/Changes requested/}).getByText(/Maple Studio/).count(), 0);
+    const before = await fetch(fresh); assert.equal(before.status,200); const beforeHtml = await before.text(); assert.match(beforeHtml, /Awaiting your review after resubmission/); assert(!beforeHtml.includes('Changes requested by'));
     const client2 = await browser.newContext({ viewport: {width:390,height:844} }); const cp2 = await client2.newPage(); await cp2.goto(fresh); await cp2.getByLabel('Name (required)').fill('Anna Client'); await cp2.getByRole('button',{name:'Approve'}).click(); await cp2.getByText('Thank you. Your decision has been saved.').waitFor();
     const approved = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(approved.status,'approved'); await ap.reload(); await ap.getByText('Approved').first().waitFor();
-    await db.update(posts).set({ scheduledAt: new Date(Date.now()-1000) }).where(eq(posts.id,post.id)); await tick();
+    await db.update(posts).set({ scheduledAt: new Date(Date.now()-1000) }).where(eq(posts.id,post.id)); await db.update(postTargets).set({ nextAttemptAt: new Date(Date.now()-1000) }).where(eq(postTargets.postId,post.id)); await tick();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status,'published');
     assert.equal((await (await fetch(`${base}/r/${fresh}`)).status),200); assert.equal((await fetch(`${base}/r/${fresh}`, {method:'POST',headers:{Origin:base,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({reviewerName:'Double',decision:'approved',comment:''})})).status,409);
     assert.equal((await fetch(`${base}/r/${token}`)).status,404); assert.equal((await fetch(`${base}/r/${token.slice(0,-1)+'x'}`)).status,404);
     const [a,b] = await Promise.all([fetch(`${base}/r/${fresh}`), fetch(`${base}/r/${fresh}`)]); assert.equal(a.status,200); assert.equal(b.status,200);
     assert.equal((await db.select().from(approvalDecisions).where(eq(approvalDecisions.postId,post.id))).length,2);
+    const draftForm = new FormData(); draftForm.set('brandId', brand.id); draftForm.set('body', 'Maple Studio draft after resubmit coverage.'); draftForm.set('intent', 'draft'); draftForm.append('channelId', channel.id); draftForm.set('requiresApproval', 'on');
+    const draftId = await savePost({ db, workspace: ws, userId: uid }, draftForm, true); const draft = (await db.select().from(posts).where(eq(posts.id, draftId)))[0]; assert.equal(draft.status, 'draft');
     console.log('PASS approval E2E: anonymous review, revision, approval, publish, replay/tamper/forward/double-open checks');
   } finally { await browser.close(); await db.delete(workspaces).where(eq(workspaces.id,ws.id)); await db.delete(users).where(eq(users.id,uid)); await db.$client.end(); }
 }

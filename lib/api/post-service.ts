@@ -105,6 +105,8 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           check(asset, 'Uploaded image not found in this workspace.');
         }
         let approvalReset = false;
+        let approvalResubmitted = false;
+        let approvalToken = requiresApproval && !draft ? newApprovalToken() : null;
         if (id) {
           check(isUuid(id), "Post not found.");
           const [old] = await tx
@@ -130,6 +132,15 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
             status = draft ? 'draft' : 'pending_approval';
             approvalReset = true;
           }
+          if (old.post.status === 'changes_requested' && !draft) {
+            check(access.approvalLinks, "Client approval requires Agency.");
+            requiresApproval = true;
+            status = 'pending_approval';
+            // Keep the link the reviewer already received. Explicit link
+            // regeneration remains a separate, intentional action.
+            approvalToken = old.post.approvalToken;
+            approvalResubmitted = true;
+          }
           await tx.delete(postTargets).where(eq(postTargets.postId, id));
         }
         const values = {
@@ -142,8 +153,7 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           scheduledAt,
           status,
           requiresApproval,
-          approvalToken:
-            requiresApproval && !draft ? newApprovalToken() : null,
+          approvalToken,
           approvalNote: null,
           updatedAt: new Date(),
         } as const;
@@ -169,7 +179,9 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           .values({
             postId: post.id,
             type: status,
-            message: approvalReset ? "Approval reset — edited content requires client approval again" : draft
+            message: approvalReset ? "Approval reset — edited content requires client approval again" : approvalResubmitted
+              ? "Edited content resubmitted for client approval"
+              : draft
               ? "Draft saved"
               : requiresApproval
                 ? "Awaiting client approval"

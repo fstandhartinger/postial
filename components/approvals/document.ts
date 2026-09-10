@@ -19,7 +19,7 @@ export function approvalDocument(post: PublicApproval | null, options: { error?:
     <p class="muted">${post.targets.map((t) => `${providers[t.provider]} · ${escape(t.name)}`).join("<br>")}</p></article>
     <section aria-label="Review decision">
     ${options.confirmed ? '<p class="status" role="status">Thank you. Your decision has been saved.</p>' : ""}
-    ${last ? `<p class="status">${last.decision === "approved" && post.status !== "pending_approval" ? "Approved by" : last.decision === "changes_requested" ? "Changes requested by" : "Previously approved by"} ${escape(last.name)} on ${date(last.at)} (${escape(post.timezone)})</p>${last.comment ? `<p>${escape(last.comment)}</p>` : ""}` : "<h2>Your feedback</h2>"}
+    ${last ? `<p class="status">${post.status === "pending_approval" ? "Awaiting your review after resubmission" : last.decision === "approved" ? "Approved by" : last.decision === "changes_requested" ? "Changes requested by" : "Previously approved by"} ${escape(last.name)} on ${date(last.at)} (${escape(post.timezone)})</p>${last.comment ? `<p>${escape(last.comment)}</p>` : ""}` : "<h2>Your feedback</h2>"}
     ${options.error ? `<p id="review-error" class="error" role="alert">${escape(options.error)}</p>` : ""}
     ${post.reviewable ? `<p>You can update your decision until publishing starts.</p>
     <form method="post"${options.error ? ' aria-describedby="review-error"' : ""}>
