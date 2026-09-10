@@ -16,7 +16,7 @@
   "planned": [
     "Instagram/Facebook"
   ],
-  "pending": "n8n node (Agency): available on npm as n8n-nodes-socialmint 0.1.0 — Postial-branded release coming",
+  "pending": "n8n node (Agency): the native Postial package is not published yet — use n8n HTTP Request and Webhook nodes with the Agency API meanwhile",
   "signIn": "Google sign-in and magic links are available",
   "starter": [
     "3 brands",
