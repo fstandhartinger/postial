@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Plan } from '@/lib/plans';
-export function CheckoutButton({ plan, children = 'Start 14-day free trial' }: { plan: Plan; children?: React.ReactNode }) {
+export function CheckoutButton({ plan, children = 'Start 14-day free trial', className }: { plan: Plan; children?: React.ReactNode; className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,5 +19,5 @@ export function CheckoutButton({ plan, children = 'Start 14-day free trial' }: {
       window.location.assign(data.url);
     } catch (error) { setError(error instanceof Error ? error.message : 'We couldn’t start checkout. Try again. If it still fails, contact support.'); setBusy(false); }
   }
-  return <><button type="button" disabled={busy} onClick={checkout}>{busy ? 'Opening checkout…' : children}</button>{error && <p role="alert">{error}</p>}</>;
+  return <><button className={className} type="button" disabled={busy} onClick={checkout}>{busy ? 'Opening checkout…' : children}</button>{error && <p role="alert">{error}</p>}</>;
 }
