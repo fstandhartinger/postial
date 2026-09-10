@@ -42,7 +42,7 @@ try {
   const db = ['funnel', 'entitlements', 'workspace', 'webhook', 'publishers', 'ssrf-boundary', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'deletion-sweep', 'signin-ratelimit', 'fixer3-migration', 'worker-drain', 'trial-end', 'error-visibility'];
   const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media', 'funnel-browser',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'first-run-browser', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
-    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];
+    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'approval-e2e'];
   async function run(name) {
     controller.signal.throwIfAborted();
     const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
