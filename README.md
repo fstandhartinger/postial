@@ -212,22 +212,22 @@ only creates uncompleted Checkout sessions and deletes the temporary customers.
 
 ### Isolated verification and fixture cleanup
 
-`npm run verify:all` and `npm run verify:http` create a temporary PostgreSQL
-database named `postial_verify_<timestamp>_<random>`, run migrations there,
-and remove it in `finally` (including SIGINT). The source `DATABASE_URL` is
-used only for creating the temporary database; verifier children receive only
-the isolated URL. The database role must have `CREATEDB`. If it does not, the
-runner creates a temporary schema with an isolated `search_path` instead and
-removes that schema in `finally`. A verifier refuses `dbname=socialmint` unless
-`VERIFY_ALLOW_SHARED_DB=1` is explicitly set.
+`npm run verify:all` and `npm run verify:http` require `VERIFY_ADMIN_DATABASE_URL`
+for a **dedicated disposable PostgreSQL server**, with bootstrap database and role
+`postial_verify_admin`. They create a unique database plus a restricted matching
+login, validate the actual session/search path/database permissions, migrate and
+run fixtures there, then remove both database and role. Setup failure and signals
+are covered before the first migration. No production URL/role, port rewriting,
+shared-schema fallback, `VERIFY_ISOLATED_SCHEMA`, or `VERIFY_ALLOW_SHARED_DB`
+fixture bypass is supported. Bootstrap databases must deny PUBLIC CONNECT.
+See [verification safety and commands](scripts/VERIFICATION-SAFETY.md).
 
-Fixtures use `@fixture.postial.invalid` and `fixture:` workspace names. Every
-fixture-producing verifier cleans up in `finally`; the isolated database is a
-second safety boundary. To inspect old leftovers without changing data, run
-`npm run fixture-sweep -- --dry-run`; use `--apply` only against the intended
-database. The sweep recognizes legacy `@example.invalid`, `C7 fixture`, and
-`sub_fixture_*` rows. No cron entry is installed; schedule this command only
-through an separately approved operations scheduler.
+Fixtures use `@fixture.postial.invalid` and `fixture:` workspace names. Fixture
+cleanup and the isolated database lifecycle are separate safety boundaries.
+`fixture-sweep` is a separate legacy operations tool, **not** an isolated verifier;
+its name-based production guard does not establish target safety. Do not run it
+as part of verification. Any production cleanup needs a separately reviewed exact
+target and explicit approval; this fixture suite neither requires nor authorizes it.
 
 ## Product core
 
