@@ -15,9 +15,9 @@ export function CheckoutButton({ plan, children = 'Start 14-day free trial' }: {
       const response = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
       if (response.status === 401) { router.push(`/login?next=/pricing&plan=${plan}`); return; }
       const data: { url?: string; error?: string } = await response.json();
-      if (!response.ok || !data.url) throw new Error(data.error ?? 'Unable to start checkout');
+      if (!response.ok || !data.url) throw new Error(data.error ?? 'We couldn’t start checkout. Try again. If it still fails, contact support.');
       window.location.assign(data.url);
-    } catch (error) { setError(error instanceof Error ? error.message : 'Unable to start checkout'); setBusy(false); }
+    } catch (error) { setError(error instanceof Error ? error.message : 'We couldn’t start checkout. Try again. If it still fails, contact support.'); setBusy(false); }
   }
   return <><button type="button" disabled={busy} onClick={checkout}>{busy ? 'Opening checkout…' : children}</button>{error && <p role="alert">{error}</p>}</>;
 }

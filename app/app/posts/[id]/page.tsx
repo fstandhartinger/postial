@@ -53,6 +53,8 @@ export default async function PostPage({
             ? `Post scheduled for ${post.scheduledAt.toLocaleString("en-US", { timeZone: brand.timezone, dateStyle: "medium", timeStyle: "short" })} (${brand.timezone}).`
             : post.status === "pending_approval"
               ? "Post saved for client approval. Copy the link below to share it."
+            : post.status === "failed" || post.status === "partially_failed"
+              ? "Publishing did not finish for one or more channels. Review the channel messages below and retry when you are ready."
               : `${statusLabel(post.status)}.`}
       </p>
       <Card>

@@ -185,7 +185,7 @@ export async function coreAction(
           ? e.message
           : e instanceof PublishError
             ? e.humanMessage
-            : "Unable to save right now. Please try again.",
+            : "We couldn’t complete that action. We do not know why yet. Please try again. If it still fails, contact info@productivity-boost.com.",
     };
   }
   revalidatePath("/app", "layout");
