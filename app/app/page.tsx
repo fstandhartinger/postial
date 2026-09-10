@@ -28,14 +28,14 @@ export default async function Overview({
     db.select({post: posts, brand: brands}).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
       .where(and(scope, eq(posts.status, 'pending_approval'))).orderBy(asc(posts.createdAt), asc(posts.id)).limit(10),
     db.select({id: channels.id, brandId: channels.brandId, provider: channels.provider, name: channels.displayName, status: channels.status, brand: brands.name})
-      .from(channels).innerJoin(brands, eq(channels.brandId, brands.id)).where(eq(brands.workspaceId, workspace.id)),
+      .from(channels).innerJoin(brands, eq(channels.brandId, brands.id)).where(scope),
     db.select({
       scheduled: sql<number>`count(*) filter (where ${posts.status} in ('scheduled', 'approved') and ${week(posts.scheduledAt)})`.mapWith(Number),
       published: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'published' and ${week(postTargets.publishedAt)}))`.mapWith(Number),
       failed: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'failed' and ${week(postTargets.updatedAt)}))`.mapWith(Number),
     }).from(posts).innerJoin(brands, eq(posts.brandId, brands.id)).where(scope),
     db.select({ id: posts.id }).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
-      .where(eq(brands.workspaceId, workspace.id)).limit(1),
+      .where(scope).limit(1),
   ]);
   const targetQuery = () => db.select({target: postTargets, postId: posts.id, brandId: brands.id, brand: brands.name, channel: channels.displayName, provider: channels.provider})
     .from(postTargets).innerJoin(posts, eq(postTargets.postId, posts.id)).innerJoin(brands, eq(posts.brandId, brands.id)).innerJoin(channels, eq(postTargets.channelId, channels.id));
@@ -57,7 +57,7 @@ export default async function Overview({
     {
       title: "Connect a channel",
       benefit: "A connected channel is where a brand’s posts can be published.",
-      done: cs.some((c) => c.status === "active"),
+      done: cs.length > 0,
       href: brandUrl,
       action: "Connect channel",
     },

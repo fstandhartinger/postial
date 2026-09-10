@@ -21,6 +21,9 @@ type ApprovalVersionInput = {
   mediaAlt: Record<string, string>;
   linkUrl: string | null;
   scheduledAt: Date | null;
+  name: string;
+  color: string;
+  timezone: string;
   targets: { provider: string; name: string }[];
 };
 export function approvalVersion(value: ApprovalVersionInput): string {
@@ -30,6 +33,9 @@ export function approvalVersion(value: ApprovalVersionInput): string {
     mediaAlt: Object.fromEntries(Object.entries(value.mediaAlt).sort(([a], [b]) => a.localeCompare(b))),
     linkUrl: value.linkUrl,
     scheduledAt: value.scheduledAt?.toISOString() ?? null,
+    name: value.name,
+    color: value.color,
+    timezone: value.timezone,
     targets: [...value.targets].sort((a, b) => `${a.provider}\0${a.name}`.localeCompare(`${b.provider}\0${b.name}`)),
   })).digest("hex");
 }
@@ -70,12 +76,15 @@ export async function decideApproval(token: string, input: unknown, ip: string):
   if (!secret) return { status: 503, error: "Please try again later." };
   const digest = (value: string) => createHmac("sha256", secret).update(value).digest("hex");
   return getDb().transaction(async (tx) => {
-    const [post] = await tx.select().from(posts)
-      .where(and(eq(posts.approvalToken, token), eq(posts.requiresApproval, true))).for("update");
-    if (!post) return { status: 404 };
+    const [row] = await tx.select({ post: posts, name: brands.name, color: brands.color, timezone: brands.timezone })
+      .from(posts).innerJoin(brands, eq(brands.id, posts.brandId))
+      .where(and(eq(posts.approvalToken, token), eq(posts.requiresApproval, true))).for("update", { of: posts });
+    if (!row) return { status: 404 };
+    const post = row.post;
     const currentTargets = await tx.select({ provider: channels.provider, name: channels.displayName, status: postTargets.status, attempts: postTargets.attempts })
       .from(postTargets).innerJoin(channels, eq(channels.id, postTargets.channelId)).where(eq(postTargets.postId, post.id)).orderBy(asc(channels.provider), asc(channels.displayName));
-    const currentVersion = approvalVersion({ ...post, targets: currentTargets.map(({ provider, name }) => ({ provider, name })) });
+    const currentVersion = approvalVersion({ ...post, name: row.name, color: row.color, timezone: row.timezone,
+      targets: currentTargets.map(({ provider, name }) => ({ provider, name })) });
     const key = digest(`${token}\0${ip}`);
     const [limit] = await tx.insert(approvalRateLimits).values({ key, postId: post.id, expiresAt: new Date(Date.now() + 3600000) })
       .onConflictDoUpdate({ target: approvalRateLimits.key, set: {
