@@ -1,7 +1,7 @@
 import {statusLabel} from "@/lib/status-label";
 import Link from "next/link";
 import { eq, and, asc, sql, inArray, gt } from "drizzle-orm";
-import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
+import { brands, channels, posts, postTargets } from "@/db/schema";
 import { coreContext } from "@/lib/core";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ export default async function Overview({
   const scope = and(eq(brands.workspaceId, workspace.id), query.brand ? eq(brands.id, query.brand) : undefined);
   const week = (column: typeof posts.scheduledAt | typeof postTargets.publishedAt | typeof postTargets.updatedAt) =>
     sql`(${column} AT TIME ZONE ${brands.timezone}) >= date_trunc('week', now() AT TIME ZONE ${brands.timezone}) AND (${column} AT TIME ZONE ${brands.timezone}) < date_trunc('week', now() AT TIME ZONE ${brands.timezone}) + interval '7 days'`;
-  const [bs, next, awaiting, cs, shared, [onboarding], [counts]] = await Promise.all([
+  const [bs, next, awaiting, cs, [counts], workspacePosts] = await Promise.all([
     db.select().from(brands).where(eq(brands.workspaceId, workspace.id)).orderBy(asc(brands.createdAt)),
     db.select({post: posts, brand: brands}).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
       .where(and(scope, inArray(posts.status, ['scheduled', 'approved']), gt(posts.scheduledAt, new Date())))
@@ -29,17 +29,13 @@ export default async function Overview({
       .where(and(scope, eq(posts.status, 'pending_approval'))).orderBy(asc(posts.createdAt), asc(posts.id)).limit(10),
     db.select({id: channels.id, brandId: channels.brandId, provider: channels.provider, name: channels.displayName, status: channels.status, brand: brands.name})
       .from(channels).innerJoin(brands, eq(channels.brandId, brands.id)).where(eq(brands.workspaceId, workspace.id)),
-    db.select({id: postEvents.id}).from(postEvents).innerJoin(posts, eq(postEvents.postId, posts.id))
-      .innerJoin(brands, eq(posts.brandId, brands.id))
-      .where(and(eq(brands.workspaceId, workspace.id), eq(postEvents.type, 'approval_link_copied'))).limit(1),
-    db.select({scheduled: sql<boolean>`coalesce(bool_or(${posts.scheduledAt} is not null and ${posts.status} <> 'draft'), false)`,
-      awaiting: sql<boolean>`coalesce(bool_or(${posts.status} = 'pending_approval'), false)`})
-      .from(posts).innerJoin(brands, eq(posts.brandId, brands.id)).where(eq(brands.workspaceId, workspace.id)),
     db.select({
       scheduled: sql<number>`count(*) filter (where ${posts.status} in ('scheduled', 'approved') and ${week(posts.scheduledAt)})`.mapWith(Number),
       published: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'published' and ${week(postTargets.publishedAt)}))`.mapWith(Number),
       failed: sql<number>`count(*) filter (where exists (select 1 from ${postTargets} where ${postTargets.postId} = ${posts.id} and ${postTargets.status} = 'failed' and ${week(postTargets.updatedAt)}))`.mapWith(Number),
     }).from(posts).innerJoin(brands, eq(posts.brandId, brands.id)).where(scope),
+    db.select({ id: posts.id }).from(posts).innerJoin(brands, eq(posts.brandId, brands.id))
+      .where(eq(brands.workspaceId, workspace.id)).limit(1),
   ]);
   const targetQuery = () => db.select({target: postTargets, postId: posts.id, brandId: brands.id, brand: brands.name, channel: channels.displayName, provider: channels.provider})
     .from(postTargets).innerJoin(posts, eq(postTargets.postId, posts.id)).innerJoin(brands, eq(posts.brandId, brands.id)).innerJoin(channels, eq(postTargets.channelId, channels.id));
@@ -52,35 +48,25 @@ export default async function Overview({
   const brandUrl = bs[0] ? `/app/brands/${bs[0].id}#connect` : "/app/brands";
   const steps = [
     {
-      title: "Create your first brand",
-      benefit: "Keep each client’s content and channels together.",
+      title: "Create a brand",
+      benefit: "A brand keeps its content and channels together.",
       done: bs.length > 0,
       href: "/app/brands",
       action: "Create brand",
     },
     {
       title: "Connect a channel",
-      benefit: "Publish to Bluesky, Mastodon or Telegram from one place.",
-      done: cs.some((c) => c.status !== "disconnected"),
+      benefit: "A connected channel is where a brand’s posts can be published.",
+      done: cs.some((c) => c.status === "active"),
       href: brandUrl,
       action: "Connect channel",
     },
     {
-      title: "Schedule your first post",
-      benefit: "Choose a time and let Postial handle the publishing.",
-      done: onboarding.scheduled,
+      title: "Plan your first post",
+      benefit: "Create a post and choose when it should go out.",
+      done: workspacePosts.length > 0,
       href: "/app/posts/new",
-      action: "Schedule post",
-    },
-    {
-      title: "Share an approval link with a client",
-      benefit:
-        "Copy a client approval link, then send it for feedback without a login. Included with Agency.",
-      done: shared.length > 0,
-      href: !access.approvalLinks ? "/app/billing" : onboarding.awaiting
-        ? "#awaiting-approval"
-        : "/app/posts/new",
-      action: access.approvalLinks ? "Prepare approval link" : "Included with Agency — upgrade",
+      action: "Plan post",
     },
   ];
   const completed = steps.filter((s) => s.done).length;
@@ -116,44 +102,24 @@ export default async function Overview({
           </Link>
         </Card>
       )}
-      {completed < 4 && (
+      {completed < steps.length && (
         <Card aria-labelledby="onboarding-title">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="onboarding-title">Make yourself at home</h2>
-            <Badge>{completed}/4 complete</Badge>
+            <h2 id="onboarding-title">Get started</h2>
+            <span>{completed} of {steps.length} steps complete</span>
           </div>
-          <div
-            role="progressbar"
-            aria-label="Getting started"
-            aria-valuemin={0}
-            aria-valuemax={4}
-            aria-valuenow={completed}
-            className="my-4 h-2 overflow-hidden rounded-full bg-zinc-200"
-          >
-            <div
-              className="h-full bg-emerald-700"
-              style={{ width: `${completed * 25}%` }}
-            />
-          </div>
-          <ol className="divide-y divide-zinc-200">
+          <ol aria-label="Getting started" className="divide-y divide-zinc-200">
             {steps.map((s, i) => (
               <li
                 key={s.title}
                 className="flex flex-wrap items-center justify-between gap-4 py-4"
               >
                 <div className="flex min-w-0 basis-full gap-3 sm:basis-auto sm:flex-1">
-                  <span
-                    aria-hidden="true"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800"
-                  >
-                    {s.done ? "✓" : i + 1}
-                  </span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-400 font-semibold" aria-hidden="true">{i + 1}</span>
                   <div>
                     <h3 className="text-base font-medium">{s.title}</h3>
                     <p className="mt-1 text-sm text-zinc-600">{s.benefit}</p>
-                    <span className="text-xs text-zinc-600">
-                      {s.done ? "Complete" : "Pending"}
-                    </span>
+                    <span className="text-sm font-medium">{s.done ? "Done" : "Open"}</span>
                   </div>
                 </div>
                 {!s.done && (

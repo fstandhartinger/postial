@@ -68,7 +68,8 @@ async function main() {
     await page.getByRole('heading', {name: 'Overview', exact: true}).waitFor();
     await page.screenshot({path: `${evidence}/overview-starter.png`, fullPage: true});
     assert.equal(await page.getByRole('link', {name: 'Prepare approval link', exact: true}).count(), 0);
-    assert(await page.getByRole('link', {name: 'Included with Agency — upgrade', exact: true}).isVisible());
+    assert.equal(await page.getByRole('link', {name: 'Included with Agency — upgrade', exact: true}).count(), 0);
+    assert(await page.getByRole('list', {name: 'Getting started'}).getByRole('link', {name: 'Plan post', exact: true}).isVisible());
     await db.update(subscriptions).set({plan: 'agency'}).where(eq(subscriptions.workspaceId, workspace.id));
     const [endpoint] = await db.insert(webhookEndpoints).values({workspaceId: workspace.id, url: 'https://example.invalid/hooks', events: ['approval.decided'], secretHash: 'unused', secretEnc: 'unused', active: false}).returning();
     await db.insert(webhookDeliveries).values(['paused', 'canceled', 'delivered'].map(status => ({endpointId: endpoint.id, event: 'approval.decided', payload: {test: true}, status: status as 'paused' | 'canceled' | 'delivered', attempts: status === 'delivered' ? 1 : 0, responseStatus: status === 'delivered' ? 204 : null, nextAttemptAt: null, pauseReason: status === 'paused' ? 'Endpoint disabled' : null})));
@@ -85,7 +86,7 @@ async function main() {
       await page.screenshot({path: `${evidence}/settings-log-${width}.png`, fullPage: true});
     }
     assert.equal(errors.length, 0);
-    console.log('PASS E03/E10/E12 Playwright 390/1280: disabled publish/schedule with no channel, draft enabled, Starter approval disabled, onboarding upgrade, mobile cards/desktop table; no pageerrors or horizontal overflow');
+    console.log('PASS E03/E10/E12 Playwright 390/1280: disabled publish/schedule with no channel, draft enabled, Starter approval disabled, 3-step activation checklist, mobile cards/desktop table; no pageerrors or horizontal overflow');
   } finally {
     await browser.close(); await deleteFixtureUsers(db).where(eq(users.id, uid));
     assert.equal((await db.select().from(users).where(eq(users.id, uid))).length, 0);
