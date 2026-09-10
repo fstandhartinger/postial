@@ -1,0 +1,75 @@
+{
+  "session": "redacted",
+  "widths": [
+    390,
+    1280
+  ],
+  "rows": [
+    {
+      "step": "Kundenportal ohne Abonnement",
+      "observed": "404 mit verständlichem „Billing customer not found“ statt Portalzugang",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Preisseite 390px",
+      "observed": "Starter/Agency, EUR-Preise und eindeutige Start-Buttons sichtbar",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "App 390px",
+      "observed": "App nach Anmeldung erreichbar; Billing-Navigation vorhanden",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Billing 390px",
+      "observed": "Planwahl und Start-14-day-free-trial eindeutig",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Preisseite 1280px",
+      "observed": "Starter/Agency, EUR-Preise und eindeutige Start-Buttons sichtbar",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "App 1280px",
+      "observed": "App nach Anmeldung erreichbar; Billing-Navigation vorhanden",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Billing 1280px",
+      "observed": "Planwahl und Start-14-day-free-trial eindeutig",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Gehosteter Stripe-Checkout",
+      "observed": "Gültige checkout.stripe.com-Adresse lädt; EUR 19 und Produktname sichtbar; keine Zahlung/Kartendaten/Absenden",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Abbruch-Rückweg",
+      "observed": "Cancel-URL führt zu /pricing?checkout=cancelled und ist verständlich",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Erfolgsadresse ohne Zahlung",
+      "observed": "Nur Hinweis auf ausstehende Zahlungsbestätigung; kein active/trialing-Zugang",
+      "rating": "PASS",
+      "correction": "keine"
+    },
+    {
+      "step": "Kundenportal mit Testkunde",
+      "observed": "Gültige billing.stripe.com-Adresse und Test-Portal-Konfiguration",
+      "rating": "PASS",
+      "correction": "keine"
+    }
+  ]
+}
