@@ -33,7 +33,7 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
     const brandIds = bs.map(b=>b.id);
     const ps = brandIds.length ? await tx.select().from(posts).where(inArray(posts.brandId,brandIds)) : [];
     const postIds = ps.map(p=>p.id);
-    const media = await tx.select({id:mediaAssets.id,brandId:mediaAssets.brandId,mime:mediaAssets.mime,bytes:mediaAssets.bytes,width:mediaAssets.width,height:mediaAssets.height,sha256:mediaAssets.sha256,createdAt:mediaAssets.createdAt,data:mediaAssets.data}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId));
+    const media = await tx.select({id:mediaAssets.id,brandId:mediaAssets.brandId,mime:mediaAssets.mime,bytes:mediaAssets.bytes,width:mediaAssets.width,height:mediaAssets.height,sha256:mediaAssets.sha256,createdAt:mediaAssets.createdAt}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId));
     // Allowlisted channel and membership fields; no credentials, token, secret or internal metadata.
     const cs = brandIds.length ? await tx.select({id:channels.id,brandId:channels.brandId,provider:channels.provider,displayName:channels.displayName,url:channels.url,status:channels.status,createdAt:channels.createdAt}).from(channels).where(inArray(channels.brandId,brandIds)) : [];
     const members = await tx.select({userId:workspaceMembers.userId,role:workspaceMembers.role,joinedAt:workspaceMembers.joinedAt,name:users.name,email:users.email}).from(workspaceMembers).innerJoin(users,eq(users.id,workspaceMembers.userId)).where(eq(workspaceMembers.workspaceId,workspaceId));
@@ -42,7 +42,7 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
       targets:postIds.length?await tx.select().from(postTargets).where(inArray(postTargets.postId,postIds)):[],
       approvals:postIds.length?await tx.select({id:approvalDecisions.id,postId:approvalDecisions.postId,decision:approvalDecisions.decision,reviewerName:approvalDecisions.reviewerName,comment:approvalDecisions.comment,createdAt:approvalDecisions.createdAt}).from(approvalDecisions).where(inArray(approvalDecisions.postId,postIds)):[],
       events:postIds.length?await tx.select().from(postEvents).where(inArray(postEvents.postId,postIds)):[],
-      media:media.map(({data,...asset})=>({...asset,dataBase64:data.toString('base64')})),members};
+      media:await inlineExportMedia(tx,media),members};
   });
 }
 /** Cancel without proration/invoicing. Expire open checkouts so deleted workspaces cannot purchase later. */
@@ -114,5 +114,32 @@ export async function deleteAccount(actor: string, confirmation: string) {
     // Creator FKs for posts/media SET NULL; identity/session/account/key FKs cascade.
     await tx.delete(users).where(eq(users.id,actor));
     await tx.execute(sql`insert into offboarding_events (event) values ('account_deleted')`);
+  });
+}
+
+/**
+ * Media bytes are only embedded while they stay far below the container memory budget.
+ * Base64 inflates by a third, and an Agency workspace may hold gigabytes, so an unbounded
+ * export would exhaust the process for every user, not just the one exporting.
+ */
+export const EXPORT_MEDIA_INLINE_TOTAL_BYTES = 24 * 1024 * 1024;
+type ExportMediaAsset = { id: string; bytes: number };
+async function inlineExportMedia<T extends ExportMediaAsset>(tx: Tx, assets: T[]) {
+  const inline: string[] = [];
+  let budget = EXPORT_MEDIA_INLINE_TOTAL_BYTES;
+  for (const asset of assets) {
+    if (asset.bytes > budget) continue;
+    budget -= asset.bytes;
+    inline.push(asset.id);
+  }
+  const rows = inline.length
+    ? await tx.select({ id: mediaAssets.id, data: mediaAssets.data }).from(mediaAssets).where(inArray(mediaAssets.id, inline))
+    : [];
+  const data = new Map(rows.map(row => [row.id, row.data] as const));
+  return assets.map(asset => {
+    const bytes = data.get(asset.id);
+    return bytes
+      ? { ...asset, dataBase64: bytes.toString('base64') }
+      : { ...asset, dataOmitted: true as const, downloadPath: `/m/${asset.id}` };
   });
 }
