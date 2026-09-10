@@ -1,6 +1,6 @@
 import { createTransport } from 'nodemailer';
 import type { NodemailerConfig } from '@auth/core/providers/nodemailer';
-import { rateLimitIdentityHash, sharedRateLimit, trustedClientIp } from '@/lib/rate-limit';
+import { isIdentifiedClientIp, rateLimitIdentityHash, sharedRateLimit, trustedClientIp, UNIDENTIFIED_TRAFFIC_RATE_LIMIT, UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS } from '@/lib/rate-limit';
 
 /** Auth.js's documented default; used by the provider and all user-facing copy. */
 export const SIGN_IN_LINK_MAX_AGE_SECONDS = 24 * 60 * 60;
@@ -14,10 +14,12 @@ export const SIGN_IN_ACTION_RATE_LIMIT = 10;
 export const SIGN_IN_ACTION_RATE_WINDOW_SECONDS = 60;
 
 export async function signInActionLimited(requestHeaders: Headers): Promise<boolean> {
+  const identity = trustedClientIp(requestHeaders);
+  const unidentified = !isIdentifiedClientIp(identity);
   const retry = await sharedRateLimit(
-    `signin:action:${rateLimitIdentityHash(trustedClientIp(requestHeaders))}`,
-    SIGN_IN_ACTION_RATE_LIMIT,
-    SIGN_IN_ACTION_RATE_WINDOW_SECONDS,
+    `signin:action:${rateLimitIdentityHash(identity)}`,
+    unidentified ? UNIDENTIFIED_TRAFFIC_RATE_LIMIT : SIGN_IN_ACTION_RATE_LIMIT,
+    unidentified ? UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS : SIGN_IN_ACTION_RATE_WINDOW_SECONDS,
   );
   return retry > 0;
 }
@@ -37,9 +39,11 @@ export async function sendPostialVerificationRequest(params: Parameters<Nodemail
   const { identifier, url, provider } = params;
   const normalizedIdentifier = normalizeEmail(identifier);
   const requestHeaders = params.request?.headers ?? new Headers();
+  const identity = trustedClientIp(requestHeaders);
+  const unidentified = !isIdentifiedClientIp(identity);
   const [recipientRetry, ipRetry] = await Promise.all([
     sharedRateLimit(`signin:recipient:${rateLimitIdentityHash(normalizedIdentifier)}`, SIGN_IN_EMAIL_RATE_LIMIT, SIGN_IN_EMAIL_RATE_WINDOW_SECONDS),
-    sharedRateLimit(`signin:ip:${rateLimitIdentityHash(trustedClientIp(requestHeaders))}`, SIGN_IN_IP_RATE_LIMIT, SIGN_IN_IP_RATE_WINDOW_SECONDS),
+    sharedRateLimit(`signin:ip:${rateLimitIdentityHash(identity)}`, unidentified ? UNIDENTIFIED_TRAFFIC_RATE_LIMIT : SIGN_IN_IP_RATE_LIMIT, unidentified ? UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS : SIGN_IN_IP_RATE_WINDOW_SECONDS),
   ]);
   if (recipientRetry || ipRetry) {
     const domain = normalizedIdentifier.slice(normalizedIdentifier.indexOf('@') + 1);

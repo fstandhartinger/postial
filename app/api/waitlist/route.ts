@@ -1,11 +1,10 @@
 import { readJson } from '@/lib/http/body';
 import { ApiError, apiError } from '@/lib/api/errors';
 import { createHmac } from 'node:crypto';
-import { isIP } from 'node:net';
-import ipaddr from 'ipaddr.js';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { networkWaitlist } from '@/db/schema';
+import { isIdentifiedClientIp, sharedRateLimit, trustedClientIp, UNIDENTIFIED_TRAFFIC_RATE_LIMIT, UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS, WAITLIST_IDENTIFIED_RATE_LIMIT, WAITLIST_IDENTIFIED_RATE_WINDOW_SECONDS } from '@/lib/rate-limit';
 import availability from '@/content/availability.json';
 
 export const runtime = 'nodejs';
@@ -24,21 +23,29 @@ export async function POST(request: Request) {
   if (!availability.networks.some(n => n.id === network && n.status !== 'live') || email.length > 254 || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(email) || email.startsWith('.') || email.includes('..') || email.includes('.@') || !['pricing', 'roadmap'].includes(String(source))) {
     return Response.json({ error: 'Valid email, upcoming network and source required' }, { status: 422 });
   }
-  // Trust only the rightmost hop appended by the ingress. Do not expose the
-  // app port publicly; ingress must append/overwrite X-Forwarded-For.
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? '';
-  const ip = isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'unknown';
+  const ip = trustedClientIp(request.headers);
   const secret = process.env.APP_ENCRYPTION_KEY || process.env.AUTH_SECRET;
   if (!secret) return Response.json({ error: 'Waitlist temporarily unavailable' }, { status: 503 });
   const ipHash = createHmac('sha256', secret).update(`waitlist:${ip}`).digest('hex');
   try {
-    const status = await getDb().transaction(async tx => {
+    // Count every valid submission, including duplicates. A duplicate that
+    // reaches the brake remains a generic success to avoid enumeration.
+    const identified = isIdentifiedClientIp(ip);
+    const attemptRetry = await sharedRateLimit(
+      `waitlist:attempt:${ipHash}`,
+      identified ? WAITLIST_IDENTIFIED_RATE_LIMIT : UNIDENTIFIED_TRAFFIC_RATE_LIMIT,
+      identified ? WAITLIST_IDENTIFIED_RATE_WINDOW_SECONDS : UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS,
+    );
+    if (attemptRetry) {
+      const [duplicate] = await getDb().select({ id: networkWaitlist.id }).from(networkWaitlist).where(and(eq(networkWaitlist.network, network), eq(networkWaitlist.email, email))).limit(1);
+      if (duplicate) return Response.json({ saved: true }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
+      return Response.json({ error: 'Hourly signup limit reached' }, { status: 429, headers: { 'Retry-After': String(attemptRetry), 'Cache-Control': 'no-store' } });
+    }
+    const status: number = await getDb().transaction(async tx => {
       // Shared across workers and restarts; serializes registrations for an IP.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${ipHash}, 0))`);
       const [existing] = await tx.select({ id: networkWaitlist.id }).from(networkWaitlist).where(and(eq(networkWaitlist.network, network), eq(networkWaitlist.email, email))).limit(1);
       if (existing) return 200;
-      const [count] = await tx.select({ total: sql<number>`count(*)::int` }).from(networkWaitlist).where(and(eq(networkWaitlist.ipHash, ipHash), gte(networkWaitlist.createdAt, new Date(Date.now() - 3600000))));
-      if (count.total >= 10) return 429;
       const inserted = await tx.insert(networkWaitlist).values({ network, email, ipHash, source: String(source) }).onConflictDoNothing().returning({ id: networkWaitlist.id });
       return inserted.length ? 201 : 200;
     });

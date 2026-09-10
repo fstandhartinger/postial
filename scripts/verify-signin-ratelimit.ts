@@ -14,6 +14,7 @@ import {
   SIGN_IN_LINK_MAX_AGE_SECONDS,
   signInActionLimited,
 } from '../lib/auth-email';
+import { UNIDENTIFIED_TRAFFIC_RATE_LIMIT } from '../lib/rate-limit';
 
 process.env.APPROVAL_TRUST_PROXY = 'true';
 const db = getDb();
@@ -70,6 +71,18 @@ test('sign-in mail has recipient and IP limits without changing the caller respo
     await send(provider, `review-${i}@example.invalid`, '198.51.100.11');
   }
   assert.equal(counter.sent, SIGN_IN_IP_RATE_LIMIT);
+});
+
+test('unidentified traffic does not share a narrow user limit but still hits the emergency brake', async () => {
+  await clearFixtures();
+  process.env.APPROVAL_TRUST_PROXY = 'false';
+  const counter = { sent: 0 };
+  const provider = providerFor(counter);
+  for (let i = 0; i < UNIDENTIFIED_TRAFFIC_RATE_LIMIT; i += 1) await send(provider, `unknown-${i}@example.invalid`, '198.51.100.99');
+  assert.equal(counter.sent, UNIDENTIFIED_TRAFFIC_RATE_LIMIT);
+  await send(provider, 'unknown-after-brake@example.invalid', '198.51.100.99');
+  assert.equal(counter.sent, UNIDENTIFIED_TRAFFIC_RATE_LIMIT);
+  process.env.APPROVAL_TRUST_PROXY = 'true';
 });
 
 test('sign-in mail sends again after both fixed windows expire', async () => {
