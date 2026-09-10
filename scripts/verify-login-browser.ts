@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { users, sessions, subscriptions, verificationTokens } from "../db/schema";
 import { ensureWorkspace } from "../lib/workspaces";
-import { normalizeEmail } from "../lib/auth-email";
+import { normalizeEmail, signInLinkLifetime, SIGN_IN_LINK_MAX_AGE_SECONDS } from "../lib/auth-email";
 async function main() {
   const db = getDb(),
     uid = crypto.randomUUID(),
@@ -49,9 +49,9 @@ async function main() {
     await page.goto(base + "/login/check-email?email=" + encodeURIComponent(enteredEmail));
     await page.getByRole("heading", { name: "Check your email", exact: true }).waitFor();
     const confirmation = await page.locator("main").innerText();
-    assert(confirmation.includes("We sent a sign-in link to " + enteredEmail), "submitted address is shown");
-    assert(confirmation.includes("expires in 24 hours"), "24-hour expiry is shown");
-    assert(confirmation.includes("Check spam"), "spam hint is shown");
+    assert(confirmation.includes("We sent a Postial sign-in link to " + enteredEmail), "submitted address is shown");
+    assert(confirmation.includes("valid for " + signInLinkLifetime(SIGN_IN_LINK_MAX_AGE_SECONDS)), "configured link lifetime is shown");
+    assert(confirmation.includes("spam folder"), "spam hint is shown");
     const different = page.getByRole("link", { name: "Use a different email", exact: true });
     await different.waitFor();
     assert.equal(await different.getAttribute("href"), "/login");
