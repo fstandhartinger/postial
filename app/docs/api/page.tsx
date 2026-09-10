@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import spec from '@/public/openapi.json';
-export const metadata = {title: 'API v1 documentation', description: 'Connect Postial to n8n and your tools using API keys and signed webhooks.', alternates: {canonical: '/docs/api'}};
+import { seoMetadata } from '@/lib/seo';
+export const metadata = seoMetadata({ title: 'Postial REST API v1 documentation', description: 'Connect Postial to n8n and other tools with API keys, signed webhooks, bulk posting, retries, approvals, and documented REST endpoints.', path: '/docs/api' });
 const example = {brand_id: '11111111-1111-4111-8111-111111111111', body: 'Hello from Postial', media_urls: [], channel_ids: ['22222222-2222-4222-8222-222222222222'], scheduled_at: 'now', requires_approval: true};
 const signatureExample = `import { createHmac, timingSafeEqual } from 'node:crypto';
 

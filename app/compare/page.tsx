@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import copy from '@/content/compare.json';
 import { recordPublicView } from '@/lib/funnel';
+import { seoMetadata } from '@/lib/seo';
 
-export const metadata = {
-  title: 'Compare social publishing tools',
-  description: 'Compare Postial with other social publishing tools for agencies.',
-  alternates: { canonical: '/compare' },
-};
+export const metadata = seoMetadata({ title: 'Compare social publishing tools · Postial', description: 'Compare Postial with social publishing tools for agencies, including plans, supported workflows, approvals, and publishing status.', path: '/compare' });
 
 export default async function CompareIndex() {
   await recordPublicView('compare_view', '/compare');

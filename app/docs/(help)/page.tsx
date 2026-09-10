@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { helpIndex } from '../content';
 import { recordPublicView } from '@/lib/funnel';
-export const metadata = { title: 'Help center', description: 'Learn to connect channels, plan posts, collect client approvals and manage your Postial workspace.', alternates: { canonical: '/docs' } };
+import { seoMetadata } from '@/lib/seo';
+export const metadata = seoMetadata({ title: 'Postial help center', description: 'Use Postial help guides to connect channels, plan client posts, manage approvals, and run publishing workflows across your workspace.', path: '/docs' });
 export default async function HelpHome() {
   await recordPublicView('docs_view', '/docs');
   const categories = [...new Set(helpIndex.map(article => article.category))];
