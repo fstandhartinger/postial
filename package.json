@@ -16,6 +16,7 @@
     "fixture-sweep": "tsx scripts/fixture-sweep.ts",
     "verify:double-fire": "tsx scripts/verify-double-fire.ts"
     ,"verify:error-visibility": "tsx scripts/verify-error-visibility.ts"
+    ,"verify:deployment-skew": "tsx scripts/verify-deployment-skew.tsx"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

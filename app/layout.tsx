@@ -7,6 +7,7 @@ import { description, words } from "@/components/marketing/copy";
 import { siteUrl } from '@/lib/seo';
 import "./globals.css";
 import { SiteFrame } from "@/components/app/site-frame";
+import { DeploymentSkewNotice } from "@/components/app/deployment-skew-notice";
 
 const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
 const bingSiteVerification = process.env.BING_SITE_VERIFICATION?.trim();
@@ -57,6 +58,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.variable}>
+        <DeploymentSkewNotice />
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
