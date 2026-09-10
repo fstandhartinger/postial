@@ -20,12 +20,21 @@ export async function sessionActionBudget(userId: string) {
   const retry = await sharedRateLimit('session:' + userId, 120, 60);
   if (retry) throw new ApiError(429,'rate_limited','Maximum 120 actions per minute. Please wait.',retry);
 }
-export async function anonymousLimit(headers: Headers, path: string, limit: number) {
+/** The ingress contract used by public anonymous endpoints. */
+export function trustedClientIp(headers: Headers): string {
   const forwarded = process.env.APPROVAL_TRUST_PROXY === 'true' ? headers.get('x-real-ip') : null;
-  const ip = forwarded && isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'untrusted-peer';
+  return forwarded && isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'untrusted-peer';
+}
+
+/** Stable, secret-keyed identity for shared rate-limit keys and safe log hints. */
+export function rateLimitIdentityHash(identity: string): string {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error('AUTH_SECRET is required');
-  const key = createHmac('sha256', secret).update(ip).digest('hex');
+  return createHmac('sha256', secret).update(identity).digest('hex');
+}
+
+export async function anonymousLimit(headers: Headers, path: string, limit: number) {
+  const key = rateLimitIdentityHash(trustedClientIp(headers));
   const retry = await sharedRateLimit('anonymous:' + path + ':' + key, limit, 60);
   return retry ? Response.json({error:{code:'rate_limited',message:'Too many requests. Please wait.'}},
     {status:429,headers:{'Retry-After':String(retry),'Cache-Control':'no-store'}}) : null;
