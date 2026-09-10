@@ -9,6 +9,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { getDb } from "@/db";
 import { users, accounts, sessions, verificationTokens } from "@/db/schema";
 import { configuredProviders } from "@/lib/auth-providers";
+import { recordFunnelEvent } from '@/lib/funnel';
 export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   validateConfig();
   const enabled = configuredProviders();
@@ -32,6 +33,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       ...(enabled.email ? [Nodemailer({ name: 'Postial', normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
+    events: { async createUser({ user }) { await recordFunnelEvent('signup_completed', { props: { has_email: Boolean(user.email) } }); } },
     logger: { error() { console.error("Authentication request failed"); } },
   };
 });

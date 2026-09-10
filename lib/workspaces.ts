@@ -2,8 +2,10 @@ import { isUuid } from '@/lib/api/input';
 import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { users, workspaces, workspaceMembers } from "@/db/schema";
+import { recordFunnelEvent } from '@/lib/funnel';
 export async function ensureWorkspace(userId: string, activeId?: string) {
-  return getDb().transaction(async tx => {
+  let createdId: string | undefined;
+  const workspace = await getDb().transaction(async tx => {
     // Serialize onboarding for this user, including simultaneous first requests.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
     if (activeId && isUuid(activeId)) {
@@ -18,6 +20,9 @@ export async function ensureWorkspace(userId: string, activeId?: string) {
     if (existing) return existing.workspace;
     const [workspace] = await tx.insert(workspaces).values({ name: "My workspace", slug: `workspace-${crypto.randomUUID()}`, ownerUserId: userId }).returning();
     await tx.insert(workspaceMembers).values({ workspaceId: workspace.id, userId, role: "owner" });
+    createdId = workspace.id;
     return workspace;
   });
+  if (createdId) await recordFunnelEvent('workspace_created', { workspaceId: createdId });
+  return workspace;
 }

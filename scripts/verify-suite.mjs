@@ -38,7 +38,7 @@ try {
     APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
   });
   mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
-  const db = ['entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'fixer3-migration'];
+  const db = ['funnel', 'entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'fixer3-migration'];
   const http = ['http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
     'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];

@@ -18,6 +18,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  if ((await headers()).get('x-postial-path') === '/app/admin/funnel') return <main className="mx-auto max-w-4xl p-6">{children}</main>;
   if(session?.user?.id) {
     const { getDb } = await import('@/db');
     const memberships = await getDb().select({id:workspaceMembers.workspaceId}).from(workspaceMembers).where(eq(workspaceMembers.userId,session.user.id)).limit(1);

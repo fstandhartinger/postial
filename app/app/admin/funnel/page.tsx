@@ -1,0 +1,13 @@
+import { auth } from '@/auth';
+import { funnelReport, isAdminEmail, FUNNEL_EVENTS } from '@/lib/funnel';
+import { notFound } from 'next/navigation';
+
+export default async function FunnelPage() {
+  const session = await auth(), email = session?.user?.email?.trim().toLowerCase();
+  if (!isAdminEmail(email)) notFound();
+  const report = await funnelReport(30);
+  return <section><h1 className="text-3xl font-semibold">Funnel</h1><p className="text-sm text-zinc-600">Last {report.days} days, from {report.since}</p>
+    <h2 className="mt-6 text-xl font-semibold">Totals</h2><table className="mt-2"><tbody>{FUNNEL_EVENTS.map(e => <tr key={e}><th className="p-2 text-left">{e}</th><td className="p-2">{report.totals[e] ?? 0}</td></tr>)}</tbody></table>
+    <h2 className="mt-6 text-xl font-semibold">Conversion</h2><pre>{JSON.stringify(report.conversions, null, 2)}</pre>
+    <h2 className="mt-6 text-xl font-semibold">Top referrers</h2><ul>{report.topReferrers.map(r => <li key={r.host}>{r.host}: {r.count}</li>)}</ul></section>;
+}

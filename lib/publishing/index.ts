@@ -13,6 +13,7 @@ import { getDb } from "@/db";
 import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
 import { decryptCredentials, encryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
+import { recordFunnelEvent } from '@/lib/funnel';
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function derivePostStatus(tx: Tx, postId: string) {
   const [previous] = await tx
@@ -41,6 +42,10 @@ export async function derivePostStatus(tx: Tx, postId: string) {
     .where(eq(posts.id, postId));
   // API outbox shares the status/history transaction; delivery happens in the worker.
   if (previous) await emitPublishing(tx, postId, previous.status, status);
+  if (status === 'published') {
+    const [row] = await tx.select({ workspaceId: brands.workspaceId }).from(posts).innerJoin(brands, eq(brands.id, posts.brandId)).where(eq(posts.id, postId));
+    await recordFunnelEvent('post_published', { workspaceId: row?.workspaceId });
+  }
 }
 export async function tick() {
   const db = getDb();

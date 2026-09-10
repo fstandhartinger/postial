@@ -10,6 +10,7 @@ import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, oauthConfig, type OAuthProvider } from './oauth-config';
 import { oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 async function authorizeBrand(brandId: string, userId: string) {
   if (!isUuid(brandId)) throw failure('AUTH_EXPIRED', 'Brand not found.');
@@ -72,6 +73,8 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
     else await tx.insert(channels).values(values);
   });
+  const [workspace] = await getDb().select({ workspaceId: brands.workspaceId }).from(brands).where(eq(brands.id, saved.brandId)).limit(1);
+  await recordFunnelEvent('channel_connected', { workspaceId: workspace?.workspaceId });
   return saved.brandId;
   } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
 }
