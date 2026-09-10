@@ -10,7 +10,7 @@ export function approvalDocument(post: PublicApproval | null, options: { error?:
   const color = post && /^#[\da-f]{6}$/i.test(post.color) ? post.color : "#047857";
   const date = (at: Date) => escape(at.toLocaleString("en-GB", { timeZone: post?.timezone || "UTC", dateStyle: "medium", timeStyle: "short" }));
   const last = post?.lastDecision;
-  const content = !post ? `<section><h1>Page not found</h1><p>This page is unavailable.</p></section>` : `
+  const content = !post ? `<section role="alert"><h1>This approval link is no longer available</h1><p>This link may be incorrect, expired, or already used. We cannot tell which from here.</p><p>Ask the sender for a new link. If you need help, email <a href="mailto:info@productivity-boost.com">info@productivity-boost.com</a>.</p></section>` : `
     <header><p class="muted">Client review</p><h1>${escape(post.name)}</h1></header>
     <article aria-label="Social post"><p>${escape(post.body)}</p>
     ${post.mediaUrls.map((url, i) => https(url) ? `<img src="?media=${i}" alt="${escape(post.mediaAlt[url]?.trim() || `Image ${i + 1} of ${post.mediaUrls.length}`)}" referrerpolicy="no-referrer" loading="lazy">` : "").join("")}

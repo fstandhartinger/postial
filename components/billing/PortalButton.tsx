@@ -12,10 +12,10 @@ export function PortalButton({label = "Manage billing"}:{label?:string}) {
       const response = await fetch("/api/stripe/portal", { method: "POST" });
       if (response.status === 401) { router.push("/login?next=/app/billing"); return; }
       const data = await response.json();
-      if (!response.ok || !data.url) throw new Error(data.error ?? "Unable to open billing");
+      if (!response.ok || !data.url) throw new Error(data.error ?? "We couldn’t open billing. Try again. If it still fails, contact support.");
       window.location.assign(data.url);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to open billing");
+      setError(error instanceof Error ? error.message : "We couldn’t open billing. Try again. If it still fails, contact support.");
       setBusy(false);
     }
   }
