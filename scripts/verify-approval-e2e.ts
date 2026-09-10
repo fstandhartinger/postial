@@ -43,7 +43,12 @@ async function main() {
     await cp.getByText('Thank you. Your decision has been saved.').waitFor();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status, 'changes_requested');
     await ap.reload(); await ap.getByRole('status').filter({hasText:'Changes requested'}).first().waitFor(); await ap.getByText('Please shorten the opening.').first().waitFor();
-    await ap.getByRole('link', {name:'Edit post'}).click(); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.'); await ap.getByRole('button', {name:'Schedule'}).click(); await ap.waitForURL(/\/app\/posts\//); await ap.getByRole('status').filter({hasText:'Post saved for client approval'}).waitFor();
+    await ap.getByRole('link', {name:'Edit post'}).click(); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.');
+    await Promise.all([
+      ap.waitForURL(/\/app\/posts\//, { waitUntil: 'networkidle' }),
+      ap.getByRole('button', {name:'Schedule'}).click(),
+    ]);
+    await ap.getByRole('status').filter({hasText:'Post saved for client approval'}).waitFor();
     const revised = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(revised.status,'pending_approval'); assert.equal(revised.requiresApproval,true); assert.equal(revised.approvalToken, token); const fresh = `${base}/r/${token}`;
     const events = await db.select().from(postEvents).where(eq(postEvents.postId,post.id)); assert(events.some(e => e.message === 'Client Anna Client requested changes: Please shorten the opening.')); assert(events.some(e => e.message === 'Edited content resubmitted for client approval'));
     await ap.goto(`${base}/app/approvals`); await ap.getByRole('region', {name:/Awaiting/}).getByText(/Maple Studio/).waitFor(); assert.equal(await ap.getByRole('region', {name:/Changes requested/}).getByText(/Maple Studio/).count(), 0);

@@ -134,7 +134,10 @@ async function main() {
       await page.getByLabel("Mint feed", { exact: true }).check();
       await page.getByLabel("Date and time").fill("2030-01-15T12:00");
       await page.getByLabel("Requires client approval").check();
-      await page.getByRole("button", { name: "Schedule", exact: true }).click();
+      await Promise.all([
+        page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }),
+        page.getByRole("button", { name: "Schedule", exact: true }).click(),
+      ]);
       await page.getByLabel("Client approval link").waitFor();
       const created = await db.select().from(posts).where(eq(posts.brandId, brand.id));
       const composerPost = created.find((p) => p.body === "Created through the real composer")!;

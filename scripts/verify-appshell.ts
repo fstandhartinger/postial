@@ -130,7 +130,7 @@ async function main() {
       );
     await page.getByLabel("Maple community", { exact: true }).check();
     await page.getByRole("button", { name: "Save draft", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
+    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
     await page.getByRole("link", { name: "Edit post", exact: true }).click();
     const when = new Date(Date.now() + 86400000 * 2);
     await page
@@ -170,7 +170,7 @@ async function main() {
     }
     await page.getByRole("button",{name:"Remove image 1",exact:true}).click();
     await page.getByRole("button", { name: "Schedule", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
+    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
     await page
       .getByRole("status")
       .filter({ hasText: "Post scheduled for" })
@@ -265,7 +265,7 @@ async function main() {
       .fill(inZone(when, brand.timezone));
     await page.getByLabel("Requires client approval", { exact: true }).check();
     await page.getByRole("button", { name: "Schedule", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
+    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
     await page.goto(base + "/app");
     assert.equal(await page.getByRole("list", { name: "Getting started" }).count(), 0);
     await page.getByRole("button", { name: "Copy link", exact: true }).click();
