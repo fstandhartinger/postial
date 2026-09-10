@@ -193,7 +193,7 @@ async function main() {
           .from(postTargets)
           .where(eq(postTargets.id, orphan.targets[0].id))
       )[0].status,
-      "published",
+      "needs_review",
     );
     assert.equal(
       (
@@ -307,8 +307,8 @@ async function main() {
       assert.equal((await readTarget(uncertain.targets[0].id)).status, "publishing");
       await db.update(postTargets).set({ attemptStartedAt: new Date(Date.now() - 660000) }).where(eq(postTargets.id, uncertain.targets[0].id));
       await tick(); await tick();
-      assert.equal((await readTarget(uncertain.targets[0].id)).status, provider === "telegram" ? "needs_review" : "published");
-      assert.equal(remoteCalls, provider === "telegram" ? 1 : 2); assert.equal(remoteKeys.size, 1);
+      assert.equal((await readTarget(uncertain.targets[0].id)).status, "needs_review");
+      assert.equal(remoteCalls, 1); assert.equal(remoteKeys.size, 1);
     }
     console.log("PASS: persisted warnings/history, canceled subscription and expired trial hold/resume, recovery budget, skipped aggregation, commit outage: stable Mastodon/Bluesky key and Telegram manual review");
     console.log(

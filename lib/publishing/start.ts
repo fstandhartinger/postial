@@ -8,10 +8,23 @@ export function startPublishingWorker() {
   if (state.postialWorker || !process.env.DATABASE_URL || process.env.WORKER_ENABLED === "false") return;
   workerState.startedAt = Date.now();
   let running = false;
+  let currentTick: Promise<unknown> | undefined;
+  let stopping = false;
+  const shutdown = async () => {
+    if (stopping) return;
+    stopping = true;
+    clearInterval(state.postialWorker);
+    state.postialWorker = undefined;
+    const pending = currentTick;
+    if (pending) await Promise.race([pending, new Promise(resolve => setTimeout(resolve, 95000))]);
+    process.exit(0);
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
   state.postialWorker = setInterval(async () => {
-    if (running) return;
+    if (running || stopping) return;
     running = true;
-    try {
+    currentTick = (async () => { try {
       await tick();
       workerState.lastTickAt = new Date().toISOString();
     } catch {
@@ -19,7 +32,8 @@ export function startPublishingWorker() {
     } finally {
       running = false;
       void deliverWebhooksTick().catch(() => console.error("Webhook tick failed"));
-    }
-  }, 30000);
+    } })();
+    try { await currentTick; } finally { currentTick = undefined; }
+  }, Number(process.env.WORKER_INTERVAL_MS || 30000));
   state.postialWorker.unref();
 }
