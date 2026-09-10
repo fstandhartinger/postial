@@ -12,6 +12,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "verify:all": "node scripts/verify-suite.mjs db",
     "verify:http": "node scripts/verify-suite.mjs http",
+    "verify:crawler": "node scripts/verify-crawler-render.mjs",
     "fixture-sweep": "tsx scripts/fixture-sweep.ts",
     "verify:double-fire": "tsx scripts/verify-double-fire.ts"
   },

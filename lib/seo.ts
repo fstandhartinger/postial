@@ -18,7 +18,14 @@ export function seoMetadata({
     title: { absolute: title },
     description,
     alternates: { canonical: url },
-    openGraph: { type: 'website', siteName: 'Postial', title, description, url },
+    openGraph: {
+      type: 'website',
+      siteName: 'Postial',
+      title,
+      description,
+      url,
+      images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Postial — scheduling and client approvals for social agencies' }],
+    },
     twitter: { card: 'summary', title, description },
     ...(robots ? { robots } : { robots: { index: true, follow: true } }),
   };
