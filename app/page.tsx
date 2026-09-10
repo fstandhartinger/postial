@@ -8,6 +8,7 @@ import { FAQ } from '@/components/marketing/FAQ';
 import { DemoLink } from '@/components/marketing/DemoLink';
 import { LazyApprovalDemo } from '@/components/marketing/LazyApprovalDemo';
 import { SignInNotice } from '@/components/marketing/SignInNotice';
+import { recordPublicView } from '@/lib/funnel';
 export const metadata = { title: { absolute: words('SEO', '<title>') }, description, alternates: { canonical: '/' } };
 function FactGrid({ section }: { section: Section }) {
   const content = items(section);
@@ -15,6 +16,7 @@ function FactGrid({ section }: { section: Section }) {
 }
 export default async function Home() {
   await connection();
+  await recordPublicView('landing_view', '/');
   const schema = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Postial', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: appUrl, description, offers: [{ '@type': 'Offer', name: 'Starter', price: '19', priceCurrency: 'EUR', url: `${appUrl}/pricing` }, { '@type': 'Offer', name: 'Agency', price: '49', priceCurrency: 'EUR', url: `${appUrl}/pricing` }] };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
     <section className="hero"><p className="eyebrow">{words('Hero', 'Eyebrow')}</p><h1>{words('Hero', 'H1')}</h1><p className="hero-sub">{words('Hero', 'Sub')}</p><div className="actions"><Link prefetch={false} className="primary" href="/login">{words('Hero', 'Primary CTA → /signup')}</Link><DemoLink>{words('Hero', 'Secondary CTA → #demo')}</DemoLink></div><SignInNotice /><p className="note">{words('Hero', 'Trial note')}</p><p className="note">{words('Hero', 'Plan note')}</p></section>

@@ -177,7 +177,8 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
           });
         return post.id;
       };
-      return transaction ? save(transaction) : db.transaction(save);
+      const result = transaction ? await save(transaction) : await db.transaction(save);
+      return result;
 }
 export async function changeTarget(ctx: PostContext, form: FormData, action: "retry" | "skip", transaction?: Tx) {
  const {db, workspace} = ctx;

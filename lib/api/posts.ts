@@ -8,6 +8,7 @@ import { workspaceEntitlements } from '@/lib/entitlements';
 import { ApiError, json } from './errors';
 import { hash, type ApiContext } from './auth';
 import { changeTarget, reschedulePost, isUuid, savePost, type Tx } from './post-service';
+import { recordFunnelEvent } from '@/lib/funnel';
 export const postInput = z.object({
   brand_id: z.string().uuid(), body: z.string(), media_urls: z.array(z.string()).max(4).default([]),
   media_alt: z.record(z.string(),z.string().max(1000)).default({}),
@@ -87,6 +88,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
       .onConflictDoUpdate({target: [apiIdempotency.keyId, apiIdempotency.key], set: {requestHash, response: result, expiresAt: new Date(Date.now() + 86400000)}});
     return result;
   });
+  if (data.scheduled_at) await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
   return json(response, 201);
 }
 export async function deletePost(_request: Request, ctx: ApiContext, id?: string) {

@@ -22,6 +22,7 @@ import { checkChannelHealth } from "@/lib/publishing/health";
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 import { ApiError } from "@/lib/api/errors";
 import { InputError, check, https, savePost, changeTarget, duplicatePost, reschedulePost } from "@/lib/api/post-service";
+import { recordFunnelEvent } from '@/lib/funnel';
 export async function coreAction(
   _state: { error: string },
   form: FormData,
@@ -169,6 +170,7 @@ export async function coreAction(
       destination = `/app/posts/${id}`;
     } else if (action === "post") {
       const postId = await savePost({db, workspace, userId}, form);
+      if (form.get('intent') !== 'draft') await recordFunnelEvent('post_scheduled', { workspaceId: workspace.id });
       destination = `/app/posts/${postId}`;
     } else if (action === "retry" || action === "skip") {
       const postId = await changeTarget({db, workspace, userId}, form, action);

@@ -6,6 +6,7 @@ import { hash, type ApiContext } from "./auth";
 import { ApiError, apiError, json } from "./errors";
 import { postInput, readJson } from "./posts";
 import { savePost, type PostContext, type Tx } from "./post-service";
+import { recordFunnelEvent } from '@/lib/funnel';
 export type BulkResult = {
   index: number;
   status: number;
@@ -76,6 +77,7 @@ export async function saveBulk(
             ? "pending_approval"
             : "scheduled",
       });
+      if (d.scheduled_at && !transaction) await recordFunnelEvent('post_scheduled', { workspaceId: context.workspace.id });
     } catch (error) {
       const response = apiError(error, "bulk");
       results.push({
@@ -140,5 +142,7 @@ export async function createBulk(request: Request, ctx: ApiContext) {
       });
     return response;
   });
+  for (const row of input as Array<{ scheduled_at?: unknown }>)
+    if (row?.scheduled_at) await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
   return json(result);
 }

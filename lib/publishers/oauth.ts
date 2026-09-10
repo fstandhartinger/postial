@@ -10,6 +10,7 @@ import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, oauthConfig, type OAuthProvider } from './oauth-config';
 import { oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 async function authorizeBrand(brandId: string, userId: string) {
   if (!isUuid(brandId)) throw failure('AUTH_EXPIRED', 'Brand not found.');
@@ -17,6 +18,7 @@ async function authorizeBrand(brandId: string, userId: string) {
     .innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, brands.workspaceId))
     .where(and(eq(brands.id, brandId), eq(workspaceMembers.userId, userId)));
   if (!row || !await canEditBrand(row.brand.workspaceId, brandId)) throw failure('AUTH_EXPIRED', 'You cannot connect channels for this brand.');
+  return row.brand.workspaceId;
 }
 /** Server action entry point; identity always comes from the current session. */
 export async function startAuth(provider: OAuthProvider, brandId: string) {
@@ -49,7 +51,8 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   // Atomic consumption commits BEFORE the provider call, including denied or failed exchanges.
   const [saved] = await db.delete(oauthStates).where(and(eq(oauthStates.state, state), eq(oauthStates.provider, provider), eq(oauthStates.userId, userId), gt(oauthStates.expiresAt, new Date()))).returning();
   if (!saved) throw new OAuthCallbackError('expired');
-  try { await authorizeBrand(saved.brandId, userId); } catch { throw new OAuthCallbackError('expired'); }
+  let workspaceId: string;
+  try { workspaceId = await authorizeBrand(saved.brandId, userId); } catch { throw new OAuthCallbackError('expired'); }
   if (!code || code.length > 4096) throw new OAuthCallbackError('denied', saved.brandId);
   try {
   const config = oauthConfig(provider);
@@ -64,7 +67,7 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   const issuedCredentials = tokenCredentials(token);
   const account = await getPublisher(provider).validate(issuedCredentials);
   const credentials = { ...issuedCredentials, ...(provider === 'linkedin' ? { externalId: account.externalId } : {}) };
-  await authorizeBrand(saved.brandId, userId);
+  workspaceId = await authorizeBrand(saved.brandId, userId);
   await db.transaction(async tx => {
     await tx.select().from(brands).where(eq(brands.id, saved.brandId)).for('update');
     const [existing] = await tx.select().from(channels).where(and(eq(channels.brandId, saved.brandId), eq(channels.provider, provider), eq(channels.externalId, account.externalId)));
@@ -72,6 +75,7 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
     else await tx.insert(channels).values(values);
   });
+  await recordFunnelEvent('channel_connected', { workspaceId });
   return saved.brandId;
   } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
 }

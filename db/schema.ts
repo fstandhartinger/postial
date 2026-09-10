@@ -8,6 +8,7 @@ import {
   boolean,
   uuid,
   jsonb,
+  date,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -384,3 +385,14 @@ export const workspaceDeletions = pgTable('workspace_deletions', {
 export const mediaTombstones = pgTable('media_tombstones', {
   id:text('id').primaryKey(),deletedAt:timestamp('deleted_at',{withTimezone:true}).notNull().defaultNow(),
 });
+
+export const funnelEvents = pgTable('funnel_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  event: text('event').notNull(),
+  day: date('day', { mode: 'string' }).notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  path: text('path'),
+  referrerHost: text('referrer_host'),
+  props: jsonb('props').$type<Record<string, unknown>>().notNull().default({}),
+}, t => [index('funnel_events_event_day').on(t.event, t.day), index('funnel_events_day').on(t.day)]);

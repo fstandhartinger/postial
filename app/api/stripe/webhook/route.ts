@@ -9,6 +9,7 @@ import { billingState, stripeEvents, retiredSubscriptions } from '@/db/billing-s
 import { stripe, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans, type Plan } from '@/lib/plans';
 import { lockWorkspace } from '@/lib/billing';
+import { recordFunnelEvent } from '@/lib/funnel';
 export const runtime = 'nodejs';
 function id(value: string | { id: string } | null | undefined): string | undefined {
   return typeof value === 'string' ? value : value?.id;
@@ -104,7 +105,7 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
       await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
       return true;
     });
-    if (applied) return;
+    if (applied) { if (['active', 'trialing'].includes(current.status)) await recordFunnelEvent('subscription_active', { workspaceId }); return; }
   }
   throw new Error("Concurrent billing update; retry event");
 }

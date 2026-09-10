@@ -9,6 +9,7 @@ import { billingState } from '@/db/billing-schema';
 import { billingOwner, billingError, BillingHttpError, lockWorkspace } from '@/lib/billing';
 import { stripe, appUrl, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans } from '@/lib/plans';
+import { recordFunnelEvent } from '@/lib/funnel';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   let release: (() => Promise<unknown>) | undefined;
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
     }, { idempotencyKey: `socialmint-checkout-${workspace.id}-${plan}-${trial}-${state?.checkoutSessionId ?? 'first'}` });
     if (!checkout.url || checkout.status !== 'open') throw new BillingHttpError(409, 'Checkout expired; please retry');
     await db.update(billingState).set({ checkoutSessionId: checkout.id, checkoutPlan: plan }).where(eq(billingState.workspaceId, workspace.id));
+    await recordFunnelEvent('checkout_started', { workspaceId: workspace.id });
     return Response.json({ url: checkout.url });
   } catch (error) { return error instanceof ApiError ? apiError(error) : billingError(error); }
   finally { if (release) { try { await release(); } catch { console.error('Checkout lease cleanup failed; lease will expire'); } } }

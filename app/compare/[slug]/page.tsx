@@ -8,6 +8,7 @@ import { SignInNotice } from '@/components/marketing/SignInNotice';
 import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
 import styles from '../compare.module.css';
+import { recordPublicView } from '@/lib/funnel';
 
 type Props = { params: Promise<{ slug: string }> };
 export const dynamicParams = false;
@@ -31,6 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 export default async function ComparePage({ params }: Props) {
+  await recordPublicView('compare_view', '/compare');
   const page = comparison((await params).slug);
   const networkText=networkSummary;
   const featureText=`Available today: ${availability.available.join('; ')}. ${availability.pending}. ${networkText}`;

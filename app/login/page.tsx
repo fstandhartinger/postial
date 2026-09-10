@@ -7,6 +7,7 @@ import { configuredProviders } from "@/lib/auth-providers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { recordFunnelEvent } from '@/lib/funnel';
 export const dynamic = "force-dynamic";
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; plan?: string; callbackUrl?: string }> }) {
   const enabled = configuredProviders();
@@ -27,10 +28,10 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     {!enabled.google && !enabled.email && <p className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">We’re getting sign-in ready. Please come back soon.</p>}
     {params.error && <p role="alert" className="mt-4 text-sm text-red-700">We couldn’t sign you in. Please try again.</p>}
     {/* Each provider keeps its own form, so Enter inside the email field submits the magic-link form instead of starting the Google flow. */}
-    <form className="mt-7" action={async () => { "use server"; if (configuredProviders().google) await signIn("google", { redirectTo }); }}><Button className="w-full" disabled={!enabled.google}>Continue with Google{!enabled.google && " — coming soon"}</Button></form>
+    <form className="mt-7" action={async () => { "use server"; await recordFunnelEvent('signup_started'); if (configuredProviders().google) await signIn("google", { redirectTo }); }}><Button className="w-full" disabled={!enabled.google}>Continue with Google{!enabled.google && " — coming soon"}</Button></form>
     <form className="mt-6 space-y-3" action={async (data: FormData) => { "use server"; if (!configuredProviders().email) return; const email = String(data.get("email") ?? "");
       // redirect: false surfaces delivery or configuration errors as error-page redirects instead of showing the confirmation page.
-      const url = await signIn("nodemailer", { email, redirectTo, redirect: false });
+      await recordFunnelEvent('signup_started'); const url = await signIn("nodemailer", { email, redirectTo, redirect: false });
       if (typeof url === "string" && url.includes("error=")) redirect(url);
       redirect("/login/check-email?email=" + encodeURIComponent(email.trim()));
     }}><label className="text-sm font-medium" htmlFor="email">Email address</label><Input id="email" name="email" type="email" autoComplete="email" placeholder="you@agency.com" required disabled={!enabled.email} /><Button className="w-full" disabled={!enabled.email}>Send magic link{!enabled.email && " — coming soon"}</Button></form>

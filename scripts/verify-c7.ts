@@ -176,7 +176,7 @@ async function main() {
     }
 
     const h=await health(request('/healthz',{headers:{'x-real-ip':'198.51.100.253'}}));assert.equal(h.status,200);
-    const healthData=await h.json();assert(healthData.migrations.applied>=15);assert.match(healthData.migrations.latest,/0015/);assert('lastTickAt' in healthData.worker);
+    const healthData=await h.json();assert(healthData.migrations.applied>=16);assert.match(healthData.migrations.latest,/0016/);assert('lastTickAt' in healthData.worker);
     const oldWorker=workerState.lastTickAt, oldEnabled=process.env.WORKER_ENABLED;
     process.env.WORKER_ENABLED='true';workerState.lastTickAt=ago(1).toISOString();assert.equal((await health()).status,503);
     process.env.WORKER_ENABLED='false';assert.equal((await health()).status,200);workerState.lastTickAt=oldWorker;
