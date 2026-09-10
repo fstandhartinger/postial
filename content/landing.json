@@ -64,7 +64,7 @@
     },
     {
       "label": "Plan note",
-      "text": "Client approval links, API, and n8n are included with Agency. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
+      "text": "Client approval links, API, and n8n workflows are included with Agency. The native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand."
     }
   ],
   "Social-proof alternative": [
@@ -162,7 +162,7 @@
     },
     {
       "label": "Body",
-      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming."
+      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. The native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand."
     }
   ],
   "How it works": [
@@ -382,7 +382,7 @@
     },
     {
       "label": "Body",
-      "text": "Agency includes API access and n8n-nodes-socialmint 0.1.0 on npm for connecting your own automations. The Postial-branded release is coming."
+      "text": "Agency includes API access for connecting your own automations. The native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand."
     },
     {
       "label": "Fair-comparison note",
@@ -448,7 +448,7 @@
     },
     {
       "label": "Answer 7",
-      "text": "Agency includes REST API and webhooks. n8n-nodes-socialmint 0.1.0 is available on npm; the Postial-branded release is coming. Automations use the same brand limits and connected-network permissions as your account."
+      "text": "Agency includes REST API and webhooks. The native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand. Automations use the same brand limits and connected-network permissions as your account."
     }
   ],
   "Final CTA": [
