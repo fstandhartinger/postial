@@ -39,11 +39,11 @@ async function main() {
       await page.screenshot({ path: `${evidence}/client-review-${width}.png`, fullPage: true }); await ctx.close();
     }
     const client = await browser.newContext({ viewport: {width:390,height:844} }); const cp = await client.newPage(); await cp.goto(link);
-    await cp.getByLabel('Name (required)').fill('Anna Client'); await cp.getByLabel('Comment (required when requesting changes)').fill('Please shorten the opening.'); await cp.getByRole('button', { name: 'Request changes' }).click();
+    await cp.getByLabel('Name (required)').fill('Anna Client'); await cp.getByLabel('Comment (required when requesting changes)').fill('Please shorten the opening.'); await Promise.all([cp.waitForNavigation(), cp.getByRole('button', { name: 'Request changes' }).click()]);
     await cp.getByText('Thank you. Your decision has been saved.').waitFor();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status, 'changes_requested');
     await ap.reload(); await ap.getByRole('status').filter({hasText:'Changes requested'}).first().waitFor(); await ap.getByText('Please shorten the opening.').first().waitFor();
-    await ap.getByRole('link', {name:'Edit post'}).click(); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.');
+    await Promise.all([ap.waitForURL(/\/app\/posts\/.+\/edit$/), ap.getByRole('link', {name:'Edit post'}).click()]); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.');
     await Promise.all([
       ap.waitForURL(/\/app\/posts\//, { waitUntil: 'networkidle' }),
       ap.getByRole('button', {name:'Schedule'}).click(),
@@ -53,7 +53,7 @@ async function main() {
     const events = await db.select().from(postEvents).where(eq(postEvents.postId,post.id)); assert(events.some(e => e.message === 'Client Anna Client requested changes: Please shorten the opening.')); assert(events.some(e => e.message === 'Edited content resubmitted for client approval'));
     await ap.goto(`${base}/app/approvals`); await ap.getByRole('region', {name:/Awaiting/}).getByText(/Maple Studio/).waitFor(); assert.equal(await ap.getByRole('region', {name:/Changes requested/}).getByText(/Maple Studio/).count(), 0);
     const before = await fetch(fresh); assert.equal(before.status,200); const beforeHtml = await before.text(); assert.match(beforeHtml, /Awaiting your review after resubmission/); assert(!beforeHtml.includes('Changes requested by'));
-    const client2 = await browser.newContext({ viewport: {width:390,height:844} }); const cp2 = await client2.newPage(); await cp2.goto(fresh); await cp2.getByLabel('Name (required)').fill('Anna Client'); await cp2.getByRole('button',{name:'Approve'}).click(); await cp2.getByText('Thank you. Your decision has been saved.').waitFor();
+    const client2 = await browser.newContext({ viewport: {width:390,height:844} }); const cp2 = await client2.newPage(); await cp2.goto(fresh); await cp2.getByLabel('Name (required)').fill('Anna Client'); await Promise.all([cp2.waitForNavigation(), cp2.getByRole('button',{name:'Approve'}).click()]); await cp2.getByText('Thank you. Your decision has been saved.').waitFor();
     const approved = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(approved.status,'approved'); await ap.reload(); await ap.getByText('Approved').first().waitFor();
     await db.update(posts).set({ scheduledAt: new Date(Date.now()-1000) }).where(eq(posts.id,post.id)); await db.update(postTargets).set({ nextAttemptAt: new Date(Date.now()-1000) }).where(eq(postTargets.postId,post.id)); await tick();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status,'published');

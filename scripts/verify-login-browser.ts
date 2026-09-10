@@ -99,8 +99,7 @@ async function main() {
     let behavioral: string;
     if (await emailInput.isEnabled() && process.env.SMTP_URL !== 'smtp://127.0.0.1:1') {
       await emailInput.fill(enteredEmail);
-      await emailInput.press("Enter");
-      await page.waitForURL(/\/login\/check-email/, { timeout: 20000 });
+      await Promise.all([page.waitForURL(/\/login\/check-email/, { timeout: 20000 }), emailInput.press("Enter")]);
       assert(!page.url().includes("accounts.google.com"), "Enter must not start the Google flow");
       assert(decodeURIComponent(page.url()).includes(enteredEmail), "submitted address reaches the confirmation page");
       await page.getByRole("heading", { name: "Check your email", exact: true }).waitFor();

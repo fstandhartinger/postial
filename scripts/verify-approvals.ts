@@ -147,7 +147,7 @@ async function main() {
       console.log("PASS: real composer creates pending post and displays a working 32-byte approval link");
       await page.goto(`${base}/app/posts/${post.id}`);
       const linkBefore = await page.getByLabel("Client approval link").inputValue();
-      await page.getByRole("button", { name: "Regenerate link" }).click();
+      await Promise.all([page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === "POST"), page.getByRole("button", { name: "Regenerate link" }).click()]);
       await page.waitForFunction((previous: string) => Array.from(document.querySelectorAll("input")).some((i) => i.readOnly && i.value.includes("/r/") && i.value !== previous), linkBefore);
       const linkAfter = await page.getByLabel("Client approval link").inputValue();
       assert.equal((await fetch(linkBefore)).status, 404);

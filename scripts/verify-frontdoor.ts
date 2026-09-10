@@ -82,7 +82,7 @@ async function main() {
     try {
       const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
       await page.goto(checkout.url!, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForTimeout(8000);
+      await page.getByText(/19/).first().waitFor();
       await page.screenshot({ path: `${evidence}/stripe-checkout-390.png`, fullPage: true });
       const text = await page.locator('body').innerText(); assert.match(text, /19/); assert.match(text, /Starter|frontdoor/i);
       await page.setViewportSize({ width: 1280, height: 900 }); await page.screenshot({ path: `${evidence}/stripe-checkout-1280.png`, fullPage: true });

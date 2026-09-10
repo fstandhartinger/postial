@@ -39,8 +39,7 @@ async function main() {
     await page.getByRole("link", { name: "Create brand" }).click();
     await page.getByRole("heading", { name: "Create your first brand" }).waitFor();
     await page.getByLabel("Name").fill("Activation fixture brand");
-    await page.getByRole("button", { name: "Create brand" }).click();
-    await page.waitForURL(/\/app\/brands\/[0-9a-f-]+/);
+    await Promise.all([page.waitForURL(/\/app\/brands\/[0-9a-f-]+/), page.getByRole("button", { name: "Create brand" }).click()]);
     const brandId = new URL(page.url()).pathname.split("/").pop()!;
     await page.goto(`${base}/app`);
     assert.equal(await page.getByRole("link", { name: "Connect channel" }).getAttribute("href"), `/app/brands/${brandId}#connect`);

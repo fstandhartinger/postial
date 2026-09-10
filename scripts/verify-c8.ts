@@ -53,16 +53,14 @@ async function main() {
     const postLinks=p.locator('main a[href^="/app/posts/"]').filter({hasText:/^Fixture post/});
     assert.equal(await postLinks.count(),50);
     const first=await postLinks.allTextContents();
-    await p.getByRole('link',{name:'Next page',exact:true}).click();
-    await p.waitForURL('**page=2');
+    await Promise.all([p.waitForURL('**page=2'), p.getByRole('link',{name:'Next page',exact:true}).click()]);
     assert.equal(await postLinks.count(),50);
     assert((await postLinks.allTextContents()).every((s:string)=>!first.includes(s)));
     await goto(base+'/app/posts?status=draft'); assert.equal(await postLinks.count(),0);
     await goto(base+'/app/posts?page=99999'); assert(await p.getByText('500 posts · Page 10 of 10').isVisible());
     await goto(base+'/app/calendar?date=2026-09-09&view=week');
     assert.equal(await p.locator('[data-testid=calendar-agenda] a[href^="/app/posts/"]').count(),200);
-    await p.getByRole('button',{name:'Next period'}).click();
-    await p.waitForURL('**date=2026-09-16**');
+    await Promise.all([p.waitForURL('**date=2026-09-16**'), p.getByRole('button',{name:'Next period'}).click()]);
     assert.equal(await p.locator('[data-testid=calendar-agenda] a[href^="/app/posts/"]').count(),0);
     await goto(base+'/app/calendar?date=2026-10-20&view=week');
     assert.equal(await p.locator('[data-testid=calendar-agenda] a[href^="/app/posts/"]').count(),300);

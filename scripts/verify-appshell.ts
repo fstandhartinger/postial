@@ -70,12 +70,9 @@ async function main() {
     assert.equal(await page.locator(".site-header, .site-footer").count(), 0);
     assert.equal(await page.getByRole("list", { name: "Getting started" }).getByRole("listitem").count(), 3);
     assert.equal(await page.getByText("0 of 3 steps complete", { exact: true }).count(), 1);
-    await page.getByRole("link", { name: "Create brand", exact: true }).click();
+    await Promise.all([page.waitForURL(/\/app\/brands$/), page.getByRole("link", { name: "Create brand", exact: true }).click()]);
     await page.getByLabel("Name", { exact: true }).fill("Maple Studio");
-    await page
-      .getByRole("button", { name: "Create brand", exact: true })
-      .click();
-    await page.waitForURL(/\/app\/brands\/[a-f0-9-]+$/);
+    await Promise.all([page.waitForURL(/\/app\/brands\/[a-f0-9-]+$/), page.getByRole("button", { name: "Create brand", exact: true }).click()]);
     const [brand] = await db
       .select()
       .from(brands)
@@ -89,9 +86,7 @@ async function main() {
       .getByLabel("Access token", { exact: false })
       .fill("synthetic-invalid-credential");
 
-    await page
-      .getByRole("button", { name: "Connect channel", exact: true })
-      .click();
+    await Promise.all([page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === "POST"), page.getByRole("button", { name: "Connect channel", exact: true }).click()]);
     await page.locator("form [role=alert]").waitFor();
     assert.equal(
       await page.getByLabel("Instance URL", { exact: true }).inputValue(),
@@ -129,9 +124,8 @@ async function main() {
         "A fresh look for your next chapter. Our new studio portfolio is coming soon.",
       );
     await page.getByLabel("Maple community", { exact: true }).check();
-    await page.getByRole("button", { name: "Save draft", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
-    await page.getByRole("link", { name: "Edit post", exact: true }).click();
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Save draft", exact: true }).click()]);
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+\/edit$/), page.getByRole("link", { name: "Edit post", exact: true }).click()]);
     const when = new Date(Date.now() + 86400000 * 2);
     await page
       .getByLabel("Date and time", { exact: false })
@@ -169,8 +163,7 @@ async function main() {
       });
     }
     await page.getByRole("button",{name:"Remove image 1",exact:true}).click();
-    await page.getByRole("button", { name: "Schedule", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
     await page
       .getByRole("status")
       .filter({ hasText: "Post scheduled for" })
@@ -264,8 +257,7 @@ async function main() {
       .getByLabel("Date and time", { exact: false })
       .fill(inZone(when, brand.timezone));
     await page.getByLabel("Requires client approval", { exact: true }).check();
-    await page.getByRole("button", { name: "Schedule", exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" });
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
     await page.goto(base + "/app");
     assert.equal(await page.getByRole("list", { name: "Getting started" }).count(), 0);
     await page.getByRole("button", { name: "Copy link", exact: true }).click();

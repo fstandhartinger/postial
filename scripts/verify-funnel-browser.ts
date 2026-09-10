@@ -30,8 +30,7 @@ test('browser funnel journey records each stage exactly once', async () => {
     assert.equal((await counts()).pricing_view - before.pricing_view, 1);
     await page.goto(base + '/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: /magic link/i }).click();
-    await page.waitForURL(/\/login(?:\/check-email|\?error)/);
+    await Promise.all([page.waitForURL(/\/login(?:\/check-email|\?error)/), page.getByRole('button', { name: /magic link/i }).click()]);
     assert.equal((await counts()).signup_started - before.signup_started, 1);
     // The local SMTP sink is intentionally disabled; this fixture represents the link delivered by the provider.
     const rawToken = crypto.randomUUID();
@@ -47,22 +46,20 @@ test('browser funnel journey records each stage exactly once', async () => {
     await db.insert(subscriptions).values({ workspaceId: wsEvent.workspaceId!, plan: 'starter', status: 'active', stripeSubscriptionId: 'verify-funnel', currentPeriodEnd: new Date(Date.now() + 86400000) });
     await page.goto(base + '/app/brands');
     await page.getByLabel('Name').fill('Funnel brand');
-    await page.getByRole('button', { name: /create brand/i }).click();
-    await page.waitForURL(/\/app\/brands\//);
+    await Promise.all([page.waitForURL(/\/app\/brands\//), page.getByRole('button', { name: /create brand/i }).click()]);
     const brandUrl = page.url();
     await page.getByLabel('Provider').selectOption('mastodon');
     await page.getByLabel('Instance URL').fill('https://fixture.invalid');
     await page.getByLabel('Access token').fill('fixture-token');
-    await page.getByRole('button', { name: /connect channel/i }).click();
+    await Promise.all([page.waitForResponse(r => r.request().method() === 'POST'), page.getByRole('button', { name: /connect channel/i }).click()]);
     await page.waitForLoadState('networkidle');
     let c = await counts(); assert.equal(c.channel_connected - before.channel_connected, 1, (await page.locator('body').innerText()).slice(0, 1200));
     await page.goto(base + '/app/posts/new');
     await page.getByRole('checkbox', { name: /verify@fixture/ }).check();
     await page.getByLabel('Post text').fill('A funnel verification post');
     await page.getByLabel(/Date and time/).fill('2099-01-01T09:00');
-    await page.getByRole('button', { name: 'Schedule' }).click();
-    await page.waitForURL(/\/app\/posts\//);
-    for (let i = 0; i < 10 && (await counts()).post_scheduled - before.post_scheduled < 1; i++) await new Promise(r => setTimeout(r, 100));
+    await Promise.all([page.waitForURL(/\/app\/posts\//), page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === 'POST'), page.getByRole('button', { name: 'Schedule' }).click()]);
+    await page.waitForLoadState('networkidle');
     c = await counts(); assert.equal(c.post_scheduled - before.post_scheduled, 1, (await page.locator('body').innerText()).slice(0, 1000));
     const [scheduledPost] = await db.select({ id: posts.id }).from(posts).orderBy(desc(posts.createdAt));
     await db.update(posts).set({ scheduledAt: new Date(Date.now() - 1000) }).where(eq(posts.id, scheduledPost.id));

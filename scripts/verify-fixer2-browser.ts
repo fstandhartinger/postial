@@ -65,7 +65,7 @@ async function main() {
     await page.locator('[name=provider]').selectOption('mastodon');
     await page.getByLabel('Instance URL', { exact: true }).fill('http://invalid.example');
     await page.getByLabel('Access token', { exact: false }).fill('synthetic-secret');
-    await page.getByRole('button', { name: 'Connect channel', exact: true }).click();
+    await Promise.all([page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === 'POST'), page.getByRole('button', { name: 'Connect channel', exact: true }).click()]);
     await page.locator('form [role=alert]').waitFor();
     assert.equal(await page.locator('[name=provider]').inputValue(), 'mastodon');
     assert.equal(await page.getByLabel('Instance URL', { exact: true }).inputValue(), 'http://invalid.example');
@@ -80,15 +80,14 @@ async function main() {
     assert(await page.getByRole('button', { name: 'Schedule', exact: true }).isDisabled());
     assert(!(await page.getByRole('button', { name: 'Save draft', exact: true }).isDisabled()));
     await page.getByLabel('Post text', { exact: true }).fill('Draft while subscription is inactive');
-    await page.getByRole('button', { name: 'Save draft', exact: true }).click();
-    await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/), page.getByRole('button', { name: 'Save draft', exact: true }).click()]);
     await db.update(postTargets).set({ status: 'needs_review', lastErrorCode: 'UNCERTAIN' }).where(eq(postTargets.id, target.id));
     await db.update(posts).set({ status: 'failed' }).where(eq(posts.id, post.id));
     await page.goto(base + '/app/posts/' + post.id);
     assert(await page.getByRole('button', { name: 'Retry now', exact: true }).isDisabled());
     await db.update(subscriptions).set({ status: 'active' }).where(eq(subscriptions.workspaceId, workspace.id));
     await page.reload();
-    await page.getByRole('button', { name: 'Retry now', exact: true }).click();
+    await Promise.all([page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === 'POST'), page.getByRole('button', { name: 'Retry now', exact: true }).click()]);
     await page.getByText('Retry requested', { exact: true }).waitFor();
     const retried = (await db.select().from(postTargets).where(eq(postTargets.id, target.id)))[0];
     assert.equal(retried.status, 'queued'); assert.equal(retried.attempts, 0);

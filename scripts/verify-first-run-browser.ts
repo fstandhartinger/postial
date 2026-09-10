@@ -31,7 +31,7 @@ async function main() {
     assert.equal(await homeLogin.getAttribute("href"), "/login");
     await capture("01-home");
 
-    await homeLogin.click();
+    await Promise.all([page.waitForURL(/\/login(?:$|\?)/), homeLogin.click()]);
     await page.getByRole("heading", { name: "Welcome to Postial" }).waitFor();
     const emailInput = page.locator("#email");
     const send = page.getByRole("button", { name: /Send magic link/ });
@@ -62,12 +62,11 @@ async function main() {
     await capture("04b-empty-composer");
 
     await page.goto(base + "/app");
-    await page.getByRole("link", { name: "Create brand" }).click();
+    await Promise.all([page.waitForURL(/\/app\/brands$/), page.getByRole("link", { name: "Create brand" }).click()]);
     await page.getByRole("heading", { name: "Create your first brand" }).waitFor();
     const brandName = page.getByLabel("Name");
     await brandName.fill("First-run brand");
-    await page.getByRole("button", { name: "Create brand" }).click();
-    await page.waitForURL(/\/app\/brands\/[0-9a-f-]+/);
+    await Promise.all([page.waitForURL(/\/app\/brands\/[0-9a-f-]+/), page.getByRole("button", { name: "Create brand" }).click()]);
     await page.getByRole("heading", { name: "Connect a channel" }).waitFor();
     assert((await page.locator("#connect").getByRole("button", { name: /Connect/ }).count()) > 0 || (await page.locator("#connect").innerText()).includes("coming soon"), "channel connection next step is explained and actionable");
     await capture("05-brand-connect");

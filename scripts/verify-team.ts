@@ -45,7 +45,7 @@ async function main() {
       await join.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/team-evidence/join-${width}.png`, fullPage: true });
     }
     await page.getByRole('textbox', { name: 'Invite email' }).fill(`${editor}@example.invalid`);
-    await page.getByRole('button', { name: 'Create invite link' }).click();
+    await Promise.all([page.waitForResponse((r: { request(): { method(): string } }) => r.request().method() === 'POST'), page.getByRole('button', { name: 'Create invite link' }).click()]);
     const linkInput = page.getByRole('textbox', { name: 'Invite link' });
     await linkInput.waitFor();
     const uiLink = await linkInput.inputValue();
@@ -53,7 +53,7 @@ async function main() {
     assert(await findInvite(uiLink.split('/').pop()!));
     await page.reload();
     assert.equal(await page.getByRole('textbox', { name: 'Invite link' }).count(), 0);
-    await join.getByRole('button', { name: 'Join workspace' }).click(); await join.waitForURL(`${base}/app`);
+    await Promise.all([join.waitForURL(`${base}/app`), join.getByRole('button', { name: 'Join workspace' }).click()]);
     const [membership] = await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, editor))); assert.equal(membership.role, 'editor');
     assert.match(inviteProblem((await findInvite(token))?.invite)!, /already been used/);
     assert.equal((await ensureWorkspace(editor, ws.id)).id, ws.id);
@@ -62,7 +62,7 @@ async function main() {
     const billing = await editorContext.request.post(`${base}/api/stripe/portal`, { headers: { origin: base } }); assert.equal(billing.status(), 403);
     await join.goto(`${base}/app/settings/api`); assert.match(await join.locator('body').innerText(), /Only the workspace owner/);
     await join.goto(`${base}/app/settings/team`); assert.match(await join.locator('body').innerText(), /Only owners/);
-    await join.getByRole('combobox', { name: 'Workspace', exact: true }).first().selectOption(second.id); await join.getByRole('button', { name: 'Switch workspace' }).first().click(); await join.waitForURL(`${base}/app`);
+    await join.getByRole('combobox', { name: 'Workspace', exact: true }).first().selectOption(second.id); await Promise.all([join.waitForURL(`${base}/app`), join.getByRole('button', { name: 'Switch workspace' }).first().click()]);
     assert.equal((await editorContext.cookies()).find((c: { name: string }) => c.name === 'sm_ws')?.value, second.id);
     const expired = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${other}@example.invalid`))!;
     await db.update(workspaceInvites).set({ expiresAt: new Date(0) }).where(eq(workspaceInvites.id, (await findInvite(expired))!.invite.id));
