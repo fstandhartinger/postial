@@ -97,7 +97,7 @@ async function main() {
     const emailInput = page.locator("#email");
     await emailInput.waitFor();
     let behavioral: string;
-    if (await emailInput.isEnabled()) {
+    if (await emailInput.isEnabled() && process.env.SMTP_URL !== 'smtp://127.0.0.1:1') {
       await emailInput.fill(enteredEmail);
       await emailInput.press("Enter");
       await page.waitForURL(/\/login\/check-email/, { timeout: 20000 });
