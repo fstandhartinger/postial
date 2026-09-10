@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || process.env.DEPLOYMENT_VERSION || process.env.GIT_SHA,
   experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [{source: '/api/v1/:path*', headers: [{key: 'Cache-Control', value: 'no-store'}]}, { source: '/:path*', headers: [

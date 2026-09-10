@@ -13,6 +13,8 @@ export async function register() {
 import type { Instrumentation } from 'next';
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   const { recordError } = await import('./lib/error-visibility');
+  const { DeploymentSkewError, isDeploymentSkewError } = await import('./lib/deployment-skew');
   const status = typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : undefined;
-  await recordError(error, { route: context.routeType === 'action' ? `action:${context.routePath}` : (context.routePath || request.path), status, authenticated: Boolean(request.headers.authorization || request.headers.cookie) });
+  const classifiedError = isDeploymentSkewError(error) ? new DeploymentSkewError() : error;
+  await recordError(classifiedError, { route: context.routeType === 'action' ? `action:${context.routePath}` : (context.routePath || request.path), status, authenticated: Boolean(request.headers.authorization || request.headers.cookie) });
 };
