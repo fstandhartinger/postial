@@ -3,7 +3,8 @@ import localFont from "next/font/local";
 import { Header } from "@/components/marketing/Header";
 import { Footer } from "@/components/marketing/Footer";
 import { SignInNotice } from "@/components/marketing/SignInNotice";
-import { appUrl, description, words } from "@/components/marketing/copy";
+import { description, words } from "@/components/marketing/copy";
+import { siteUrl } from '@/lib/seo';
 import "./globals.css";
 import { SiteFrame } from "@/components/app/site-frame";
 
@@ -31,7 +32,7 @@ const inter = localFont({
   display: "swap",
 });
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL(siteUrl),
   title: { default: words("SEO", "<title>"), template: "%s · Postial" },
   description,
   verification,
@@ -47,6 +48,7 @@ export const metadata: Metadata = {
     title: words("SEO", "OG title"),
     description: words("SEO", "OG description"),
   },
+  robots: { index: true, follow: true },
   icons: { icon: '/favicon.ico' },
 };
 export default function RootLayout({

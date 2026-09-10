@@ -5,8 +5,9 @@ import { getDb } from '@/db';
 import { workspaceMembers } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { JoinForm } from '@/components/team/join-form';
+import { seoMetadata } from '@/lib/seo';
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Join workspace', robots: { index: false, follow: false }, referrer: 'no-referrer' as const };
+export const metadata = { ...seoMetadata({ title: 'Join a Postial workspace', description: 'Use a private Postial invitation link to join an agency workspace after signing in; invitation links are intended for invited members.', path: '/join', robots: { index: false, follow: false } }), referrer: 'no-referrer' as const };
 export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params, found = await findInvite(token);
   const problem = inviteProblem(found?.invite);

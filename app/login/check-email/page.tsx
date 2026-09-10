@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { seoMetadata } from '@/lib/seo';
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Check your email" };
+export const metadata = seoMetadata({ title: 'Check your Postial sign-in email', description: 'Postial sign-in links arrive by email and expire after 24 hours; check your inbox or spam folder before trying again to access your workspace.', path: '/login/check-email', robots: { index: false, follow: false } });
 export default async function CheckEmail({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
   const params = await searchParams;
   // The login form passes the address it submitted; Auth.js internal verify-request redirects omit it.

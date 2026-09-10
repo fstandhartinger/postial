@@ -3,11 +3,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
-import { appUrl } from '@/components/marketing/copy';
 import { SignInNotice } from '@/components/marketing/SignInNotice';
 import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
 import styles from '../compare.module.css';
+import { jsonLd, seoMetadata } from '@/lib/seo';
 
 type Props = { params: Promise<{ slug: string }> };
 export const dynamicParams = false;
@@ -21,14 +21,7 @@ function comparison(slug: string) {
 }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = comparison((await params).slug);
-  const url = new URL(`/compare/${page.slug}`, appUrl).href;
-  return {
-    title: { absolute: `${page.title} · Postial` },
-    description: page.description,
-    alternates: { canonical: url },
-    openGraph: { title: page.title, description: page.description, url, type: 'website', siteName: 'Postial' },
-    twitter: { card: 'summary', title: page.title, description: page.description },
-  };
+  return seoMetadata({ title: `${page.vendor} alternative for agency publishing · Postial`, description: `Compare Postial and ${page.vendor} for agency work across supported networks, approvals, pricing, and publishing status for client teams.`, path: `/compare/${page.slug}` });
 }
 export default async function ComparePage({ params }: Props) {
   const page = comparison((await params).slug);
@@ -47,7 +40,7 @@ export default async function ComparePage({ params }: Props) {
     })}</span>;
   }
   return <div className={styles.page}>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(schema) }} />
     <section className="hero">
       <p className="eyebrow">Postial comparisons · September 2026</p>
       <h1>{page.title}</h1>
