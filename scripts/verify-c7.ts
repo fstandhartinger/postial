@@ -26,6 +26,7 @@ import { identityOnlyAdapter } from '../lib/auth-adapter';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { normalizeEmail } from '../lib/auth-email';
 import Nodemailer from 'next-auth/providers/nodemailer';
+import { sendPostialVerificationRequest, SIGN_IN_LINK_MAX_AGE_SECONDS } from '../lib/auth-email';
 import { cleanText, linkInput, visibleIdentifier } from '../lib/text-input';
 import { workerState } from '../lib/publishing/state';
 import { deleteFixtureUsers } from './fixture-cleanup';
@@ -183,9 +184,9 @@ async function main() {
     if(oldEnabled===undefined) delete process.env.WORKER_ENABLED; else process.env.WORKER_ENABLED=oldEnabled;
     console.log('S07 missing CRON exits, migration and worker health fields, stale worker 503/disabled 200 pass');
     let mailCount=0;
-    const provider=Nodemailer({server:{host:'unused'}});
+    const provider=Nodemailer({server:{host:'unused'},maxAge:SIGN_IN_LINK_MAX_AGE_SECONDS}); provider.sendVerificationRequest=sendPostialVerificationRequest;
     provider.server={name:'fixture',version:'1',send(mail:{data:Record<string,unknown>},callback:(e:null,result:unknown)=>void){
-      const d=mail.data;assert.equal(d.to,'review@example.invalid');assert(!('raw' in d));assert(!('resolveContent' in d));assert.match(String(d.text),/fixture-token/);mailCount++;
+      const d=mail.data;assert.equal(d.to,'review@example.invalid');assert(!('raw' in d));assert(!('resolveContent' in d));assert.match(String(d.text),/fixture-token/);assert.match(String(d.html),/Sign in to Postial/);assert.equal(d.subject,'Your Postial sign-in link');mailCount++;
       callback(null,{accepted:['review@example.invalid'],rejected:[],pending:[]});
     }} as unknown as typeof provider.server;
     await provider.sendVerificationRequest({identifier:'review@example.invalid',url:'https://socialmint.example/api/auth/callback/nodemailer?token=fixture-token',provider,theme:{},token:'fixture-token',expires:new Date(Date.now()+60000),request:request('/mail')} as Parameters<typeof provider.sendVerificationRequest>[0]);

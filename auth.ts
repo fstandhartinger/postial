@@ -1,4 +1,4 @@
-import { normalizeEmail } from '@/lib/auth-email';
+import { normalizeEmail, sendPostialVerificationRequest, SIGN_IN_LINK_MAX_AGE_SECONDS } from '@/lib/auth-email';
 import { identityOnlyAdapter } from '@/lib/auth-adapter';
 import NextAuth from "next-auth";
 import type { Adapter } from "next-auth/adapters";
@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
     pages: { signIn: "/login", error: "/login", verifyRequest: "/login/check-email" },
     providers: [
       ...(enabled.google ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []),
-      ...(enabled.email ? [Nodemailer({ name: 'Postial', normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM })] : []),
+      ...(enabled.email ? [(() => { const provider = Nodemailer({ name: 'Postial', normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM, maxAge: SIGN_IN_LINK_MAX_AGE_SECONDS }); provider.sendVerificationRequest = sendPostialVerificationRequest; return provider; })()] : []),
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
     events: { async createUser({ user }) { await recordFunnelEvent('signup_completed', { props: { has_email: Boolean(user.email) } }); } },
