@@ -16,15 +16,24 @@ export async function sharedRateLimit(key: string, limit: number, seconds: numbe
   return Number(row.attempts) > limit ? Number(row.retry) : 0;
 }
 export const billingRateLimit = (userId: string) => sharedRateLimit('billing:' + userId, 5, 60);
+export const UNIDENTIFIED_TRAFFIC_RATE_LIMIT = 200;
+export const UNIDENTIFIED_TRAFFIC_RATE_WINDOW_SECONDS = 60 * 60;
+export const WAITLIST_IDENTIFIED_RATE_LIMIT = 10;
+export const WAITLIST_IDENTIFIED_RATE_WINDOW_SECONDS = 60 * 60;
 export async function sessionActionBudget(userId: string) {
   const retry = await sharedRateLimit('session:' + userId, 120, 60);
   if (retry) throw new ApiError(429,'rate_limited','Maximum 120 actions per minute. Please wait.',retry);
 }
 /** The ingress contract used by public anonymous endpoints. */
 export function trustedClientIp(headers: Headers): string {
-  const forwarded = process.env.APPROVAL_TRUST_PROXY === 'true' ? headers.get('x-real-ip') : null;
+  if (process.env.APPROVAL_TRUST_PROXY !== 'true') return 'untrusted-peer';
+  const realIp = headers.get('x-real-ip')?.trim();
+  if (realIp && isIP(realIp)) return ipaddr.process(realIp).toNormalizedString();
+  const forwarded = headers.get('x-forwarded-for')?.split(',').at(-1)?.trim();
   return forwarded && isIP(forwarded) ? ipaddr.process(forwarded).toNormalizedString() : 'untrusted-peer';
 }
+
+export function isIdentifiedClientIp(identity: string): boolean { return identity !== 'untrusted-peer'; }
 
 /** Stable, secret-keyed identity for shared rate-limit keys and safe log hints. */
 export function rateLimitIdentityHash(identity: string): string {
