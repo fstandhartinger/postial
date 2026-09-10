@@ -7,7 +7,7 @@
     "Agency: €49/month including VAT; 15 brands, 5 users.",
     "Client approval links (Agency)",
     "Publishing status and retries",
-    "REST API and webhooks (Agency); the native Postial n8n package is not published yet; use HTTP Request and Webhook nodes meanwhile",
+    "REST API and webhooks (Agency); the native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand.",
     "See the availability matrix above.",
     "Hosted in Germany. Publishing still sends content to the selected social networks.",
     "14 days, no card needed. Cancel anytime."
@@ -94,7 +94,7 @@
           ]
         }
       ],
-      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today. The native Postial n8n package is not published yet; use HTTP Request and Webhook nodes meanwhile. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today, and the native n8n node on npm as n8n-nodes-socialmint 0.1.2, shown as “Postial” in n8n. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
       "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
         "integrations",
@@ -213,7 +213,7 @@
         },
         {
           "question": "Is API automation unique to Postial?",
-          "answer": "No. Postiz documents a public API and custom n8n node. Postial Agency includes REST API and webhooks today, but the native Postial n8n package is not published yet; use HTTP Request and Webhook nodes meanwhile."
+          "answer": "No. Postiz documents a public API and custom n8n node. Postial Agency includes REST API and webhooks today, and the native n8n node is on npm as n8n-nodes-socialmint 0.1.2 and appears as “Postial” inside n8n; only the package name still carries the former brand."
         },
         {
           "question": "Can clients review Postial posts without signing up?",

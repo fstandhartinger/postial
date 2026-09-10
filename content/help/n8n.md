@@ -1,6 +1,13 @@
 # Use Postial with n8n
 
-Build an HTTP workflow now and prepare for the native community node release.
+Install the native community node, or build an HTTP workflow instead.
+
+## Steps: install the native node
+
+1. In n8n, open Settings, then Community nodes, and choose Install.
+2. Enter the package name `n8n-nodes-socialmint` and confirm. The package still carries the former brand name; the nodes appear as "Postial" and "Postial Trigger".
+3. Create a credential of type "Postial API" and paste an API key from Settings, API keys in Postial.
+4. Add the Postial node for actions, or the Postial Trigger node to receive signed webhooks.
 
 ## Steps: HTTP Request setup
 
