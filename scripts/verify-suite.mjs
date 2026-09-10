@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { mkdirSync, openSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createIsolatedDatabase } from './isolated-db.mjs';
+import { assertVerificationDatabase, createIsolatedDatabase, databaseName } from './isolated-db.mjs';
 
 const mode = process.argv[2];
 if (!['db', 'http'].includes(mode)) throw new Error('Usage: verify-suite.mjs db|http');
@@ -24,7 +24,12 @@ for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
   void stop(active); void stop(server);
 });
 try {
-  isolated = await createIsolatedDatabase(undefined, { signal: controller.signal });
+  if (process.env.VERIFY_PREPROVISIONED_DATABASE === '1') {
+    assertVerificationDatabase(process.env.DATABASE_URL);
+    isolated = { url: process.env.DATABASE_URL, name: databaseName(process.env.DATABASE_URL), cleanup: async () => {} };
+  } else {
+    isolated = await createIsolatedDatabase(undefined, { signal: controller.signal });
+  }
   const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'CHROME_PATH', 'PLAYWRIGHT_MODULE', 'AXE_PATH']
     .filter(k => process.env[k]).map(k => [k, process.env[k]]));
   Object.assign(env, {
