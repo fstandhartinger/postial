@@ -32,9 +32,15 @@ export default async function NewPost({
           }}
         />
       ) : (
-        <Link className="underline" href="/app/brands">
-          Create your first brand
-        </Link>
+        <div className="space-y-3 rounded-xl border p-5">
+          <h2 className="text-xl font-semibold">Create a brand first</h2>
+          <p className="text-zinc-600">
+            Posts belong to a brand. Create one before planning your first post.
+          </p>
+          <Link className="inline-block rounded border px-4 py-2 font-semibold" href="/app/brands">
+            Create your first brand
+          </Link>
+        </div>
       )}
     </>
   );

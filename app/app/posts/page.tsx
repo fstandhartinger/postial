@@ -101,10 +101,18 @@ export default async function PostsPage({
       ))}
       {!rows.length && (
         <Card>
-          <Link href="/app/posts/new">Schedule your first post</Link>
-          <p className="mt-2 text-gray-500">
-            Your drafts and scheduled posts will appear here.
-          </p>
+          {bs.length ? (
+            <>
+              <Link href="/app/posts/new">Schedule your first post</Link>
+              <p className="mt-2 text-gray-500">Your drafts and scheduled posts will appear here.</p>
+            </>
+          ) : (
+            <>
+              <h2>Create a brand before planning posts</h2>
+              <p className="mt-2 text-gray-500">Posts belong to a brand. Create one to start planning.</p>
+              <Link className="mt-3 inline-block rounded border px-4 py-2 font-semibold" href="/app/brands">Create your first brand</Link>
+            </>
+          )}
         </Card>
       )}
     </>
