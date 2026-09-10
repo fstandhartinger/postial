@@ -134,6 +134,13 @@
       "when": 1789044394299,
       "tag": "0018_tricky_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789051609603,
+      "tag": "0019_jittery_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

@@ -407,6 +407,7 @@ export const errorEvents = pgTable('error_events', {
   errorClass: text('error_class').notNull(),
   message: text('message').notNull(),
   fingerprint: text('fingerprint').notNull(),
+  sourceLocation: text('source_location'),
   authenticated: boolean('authenticated').notNull().default(false),
 }, t => [index('error_events_occurred_at').on(t.occurredAt)]);
 
