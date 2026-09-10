@@ -67,15 +67,17 @@ export async function tick() {
       .limit(10);
     for (const { target: t } of abandoned) {
       const [channel] = await tx.select().from(channels).where(eq(channels.id, t.channelId));
-      const status = t.attempts >= 5 ? "failed" : uncertainProvider(channel.provider) ? "needs_review" : "queued";
-      const message = uncertainProvider(channel.provider) ? reviewMessage(channel.provider) : status === "failed" ? "Attempt limit reached. Check the remote account before retrying." : "Recovering interrupted attempt using provider idempotency";
+      // A lease expiry does not prove that the provider did not accept the request.
+      // Stop for human/provider confirmation rather than risking a duplicate post.
+      const status = t.attempts >= 5 ? "failed" : "needs_review";
+      const message = status === "failed" ? "Attempt limit reached. Check the remote account before retrying." : reviewMessage(channel.provider);
       await tx
         .update(postTargets)
         .set({
           status,
           lastErrorCode: "UNCERTAIN",
           lastErrorHuman: message,
-          nextAttemptAt: status === "queued" ? new Date() : null,
+          nextAttemptAt: null,
           updatedAt: new Date(),
         })
         .where(eq(postTargets.id, t.id));
