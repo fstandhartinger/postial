@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { recordFunnelEvent } from '@/lib/funnel';
 import { seoMetadata } from '@/lib/seo';
 export const dynamic = "force-dynamic";
-export const metadata = seoMetadata({ title: 'Sign in to Postial', description: 'Sign in to your Postial workspace with Google or a magic link to manage brands, posts, channels, approvals, and publishing.', path: '/login', robots: { index: false, follow: false } });
+export const metadata = seoMetadata({ title: 'Sign in to Postial', description: 'Sign in to your Postial workspace with Google or a magic link to manage brands, posts, channels, approvals, and publishing.', path: '/login' });
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; plan?: string; callbackUrl?: string }> }) {
   const enabled = configuredProviders();
   const params = await searchParams;
