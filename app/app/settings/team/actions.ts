@@ -8,7 +8,7 @@ export async function teamAction(_state: TeamState, form: FormData): Promise<Tea
   const ctx = await coreContext();
   try {
   await sessionActionBudget(ctx.userId);
-    const token = await manageTeam(ctx.workspace.id, ctx.userId, String(form.get('action')), String(form.get('target') ?? ''), String(form.get('role') ?? 'editor'));
+    const token = await manageTeam(ctx.workspace.id, ctx.userId, String(form.get('action')), String(form.get('target') ?? ''), String(form.get('role') ?? 'editor'), String(form.get('email') ?? ''));
     revalidatePath('/app', 'layout');
     if (token) {
       const origin = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL;

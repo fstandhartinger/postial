@@ -19,7 +19,7 @@ export async function findInvite(token: string) {
     .leftJoin(users, eq(users.id, workspaceInvites.createdBy)).where(eq(workspaceInvites.tokenHash, hashInvite(token)));
   return row;
 }
-export async function manageTeam(workspaceId: string, actor: string, action: string, target = '', role = 'editor') {
+export async function manageTeam(workspaceId: string, actor: string, action: string, target = '', role = 'editor', invitedEmail = '') {
   return getDb().transaction(async tx => {
     const [ws] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId)).for('update');
     if (!ws) throw new TeamError('Workspace not found.');
@@ -27,12 +27,14 @@ export async function manageTeam(workspaceId: string, actor: string, action: str
     if (!members.some(m => m.userId === actor && m.role === 'owner')) throw new TeamError('Only owners can manage the team.');
     if (action === 'create') {
       if (role !== 'owner' && role !== 'editor') throw new TeamError('Invalid role.');
+      const email = invitedEmail.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) throw new TeamError('Enter a valid email address.');
       const access = await workspaceEntitlements(workspaceId);
       if (members.length >= access.seats) throw new TeamError('Seat limit reached. Upgrade to Agency to invite more members.');
       const recent = await tx.select({ id: workspaceInvites.id }).from(workspaceInvites).where(and(eq(workspaceInvites.workspaceId, workspaceId), gt(workspaceInvites.createdAt, new Date(Date.now() - 3600000))));
       if (recent.length >= 10) throw new TeamError('Invite limit reached. Try again in an hour.');
       const token = randomBytes(32).toString('base64url');
-      await tx.insert(workspaceInvites).values({ workspaceId, role, tokenHash: hashInvite(token), createdBy: actor, expiresAt: new Date(Date.now() + 7 * 86400000) });
+      await tx.insert(workspaceInvites).values({ workspaceId, role, invitedEmail: email, tokenHash: hashInvite(token), createdBy: actor, expiresAt: new Date(Date.now() + 7 * 86400000) });
       return token;
     }
     if (action === 'revoke') {
@@ -66,6 +68,8 @@ export async function acceptInvite(token: string, userId: string) {
     const [invite] = await tx.select().from(workspaceInvites).where(eq(workspaceInvites.id, found.invite.id));
     const problem = inviteProblem(invite);
     if (problem) throw new TeamError(problem);
+    const [user] = await tx.select({ email: users.email }).from(users).where(eq(users.id, userId));
+    if (!user?.email || user.email.trim().toLowerCase() !== invite.invitedEmail.trim().toLowerCase()) throw new TeamError('This invitation was sent to a different email address.');
     const members = await tx.select().from(workspaceMembers).where(eq(workspaceMembers.workspaceId, invite.workspaceId));
     if (members.some(m => m.userId === userId)) throw new TeamError('You are already a member of this workspace.');
     if (members.length >= (await workspaceEntitlements(invite.workspaceId)).seats) throw new TeamError('This workspace has reached its seat limit. Ask an owner to upgrade.');

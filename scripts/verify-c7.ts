@@ -177,7 +177,7 @@ async function main() {
     }
 
     const h=await health(request('/healthz',{headers:{'x-real-ip':'198.51.100.253'}}));assert.equal(h.status,200);
-    const healthData=await h.json();assert(healthData.migrations.applied>=17);assert.match(healthData.migrations.latest,/0017/);assert('lastTickAt' in healthData.worker);assert(!('errorsLastHour' in healthData));
+    const healthData=await h.json();assert(healthData.migrations.applied>=18);assert.match(healthData.migrations.latest,/0018/);assert('lastTickAt' in healthData.worker);assert(!('errorsLastHour' in healthData));
     const oldWorker=workerState.lastTickAt, oldEnabled=process.env.WORKER_ENABLED;
     process.env.WORKER_ENABLED='true';workerState.lastTickAt=ago(1).toISOString();assert.equal((await health()).status,503);
     process.env.WORKER_ENABLED='false';assert.equal((await health()).status,200);workerState.lastTickAt=oldWorker;
@@ -203,7 +203,7 @@ async function main() {
     const [oldDelivery]=await db.insert(webhookDeliveries).values({endpointId:endpoint.id,event:'ping',payload:{},createdAt:ago(31)}).returning();
     const [oldNotification]=await db.insert(notifications).values({workspaceId,type:'fixture',message:'expired',createdAt:ago(91)}).returning();
     const state=randomUUID();await db.insert(oauthStates).values({state,codeVerifier:encryptCredentials({verifier:'fixture'}),brandId,userId:user,provider:'x',expiresAt:ago(2)});
-    const [invite]=await db.insert(workspaceInvites).values({workspaceId,role:'editor',tokenHash:randomUUID(),createdBy:user,expiresAt:ago(31)}).returning();
+    const [invite]=await db.insert(workspaceInvites).values({workspaceId,role:'editor',invitedEmail:'invitee@example.invalid',tokenHash:randomUUID(),createdBy:user,expiresAt:ago(31)}).returning();
     await db.execute(sql`insert into request_rate_limits values (${'c7:'+user},1,${ago(2).toISOString()}::timestamptz)`);
     await db.insert(maintenanceRuns).values({name:'media_retention',completedAt:new Date(0)}).onConflictDoUpdate({target:maintenanceRuns.name,set:{completedAt:new Date(0)}});
     await retainMedia();
