@@ -106,6 +106,7 @@ export async function createBulk(request: Request, ctx: ApiContext) {
   };
   const run = async (tx?: Tx) => ({ data: await saveBulk(context, input, tx) });
   if (!idem) return json(await run());
+  let replay = false;
   const result = await ctx.db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${ctx.key.id + ":" + idem},0))`,
@@ -123,6 +124,7 @@ export async function createBulk(request: Request, ctx: ApiContext) {
           "idempotency_conflict",
           "This key was used with a different request.",
         );
+      replay = true;
       return old.response;
     }
     const response = await run(tx),
@@ -142,7 +144,11 @@ export async function createBulk(request: Request, ctx: ApiContext) {
       });
     return response;
   });
-  for (const row of input as Array<{ scheduled_at?: unknown }>)
-    if (row?.scheduled_at) await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
+  if (!replay) {
+    const rows = (result as { data: BulkResult[] }).data;
+    for (const row of rows)
+      if (row.status === 201 && (input as Array<{ scheduled_at?: unknown }>)[row.index]?.scheduled_at)
+        await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
+  }
   return json(result);
 }

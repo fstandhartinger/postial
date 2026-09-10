@@ -25,9 +25,15 @@ export async function retainMedia(now = new Date()) {
     await tx.execute(sql`delete from workspace_invites where accepted_at < ${ago(30)}::timestamptz or revoked_at < ${ago(30)}::timestamptz or expires_at < ${ago(30)}::timestamptz`);
     await tx.execute(sql`delete from oauth_states where expires_at < ${ago(1)}::timestamptz`);
     await tx.execute(sql`delete from offboarding_events where created_at < ${ago(90)}::timestamptz`);
+    let funnelCount = 0;
+    while (true) {
+      const removed = await tx.execute(sql`delete from funnel_events where id in (select id from funnel_events where day < ${new Date(+now-180*86400000).toISOString().slice(0, 10)}::date order by day, id limit 1000) returning id`);
+      funnelCount += removed.length;
+      if (removed.length < 1000) break;
+    }
     await tx.update(maintenanceRuns).set({completedAt:now}).where(eq(maintenanceRuns.name,'media_retention'));
-    console.info('Media retention complete', {count,bytes});
-    return {ran:true,count,bytes};
+    console.info('Media retention complete', {count,bytes,funnelCount});
+    return {ran:true,count,bytes,funnelCount};
   });
 }
 export async function mediaRetentionTick() {

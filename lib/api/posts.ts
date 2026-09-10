@@ -66,6 +66,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
   if (idem !== null && (!/^[\x21-\x7e]{1,200}$/.test(idem))) throw new ApiError(422, 'validation_error', 'Idempotency-Key must contain 1–200 printable non-space ASCII characters.');
   const requestHash = hash(JSON.stringify(data));
   const serviceContext = {...ctx, access: await workspaceEntitlements(ctx.workspace)};
+  let created = false;
   const response = await ctx.db.transaction(async tx => {
     if (idem) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${ctx.key.id + ':' + idem}, 0))`);
@@ -76,6 +77,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
       }
     }
     await ownBrand(ctx, data.brand_id, tx);
+    created = true;
     const form = new FormData();
     for (const [k, v] of Object.entries({brandId: data.brand_id, body: data.body, mediaUrls: data.media_urls.join('\n'),
       mediaAlt: JSON.stringify(data.media_alt), linkUrl: data.link_url ?? '', intent: data.scheduled_at ? 'publish' : 'draft', when: data.scheduled_at === 'now' ? 'now' : 'later',
@@ -88,7 +90,7 @@ export async function createPost(request: Request, ctx: ApiContext) {
       .onConflictDoUpdate({target: [apiIdempotency.keyId, apiIdempotency.key], set: {requestHash, response: result, expiresAt: new Date(Date.now() + 86400000)}});
     return result;
   });
-  if (data.scheduled_at) await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
+  if (created && data.scheduled_at) await recordFunnelEvent('post_scheduled', { workspaceId: ctx.workspace.id });
   return json(response, 201);
 }
 export async function deletePost(_request: Request, ctx: ApiContext, id?: string) {

@@ -57,19 +57,19 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
     const applied = await getDb().transaction(async tx => {
       await lockWorkspace(tx, workspaceId);
       const [seen] = await tx.select().from(stripeEvents).where(eq(stripeEvents.id, event.id));
-      if (seen) return true;
+      if (seen) return { applied: true, becameActive: false };
       const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId));
       const deleting = await tx.execute(sql`select 1 from workspace_deletions where workspace_id=${workspaceId}::uuid`);
-      if (deleting.length) { await tx.insert(stripeEvents).values({id:event.id}).onConflictDoNothing(); return true; }
+      if (deleting.length) { await tx.insert(stripeEvents).values({id:event.id}).onConflictDoNothing(); return { applied: true, becameActive: false }; }
       if (!workspace) throw new Error('Workspace not found');
       const [local] = await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
-      if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return false;
+      if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return { applied: false, becameActive: false };
       if (local?.stripeCustomerId && local.stripeCustomerId !== customerId) throw new Error('Customer mismatch');
       if (current.metadata.workspace_id && current.metadata.workspace_id !== workspaceId) throw new Error('Workspace mismatch');
       const [retired] = await tx.select().from(retiredSubscriptions).where(eq(retiredSubscriptions.id, current.id));
       if (retired) {
         await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-        return true;
+        return { applied: true, becameActive: false };
       }
       if (local?.stripeSubscriptionId && local.stripeSubscriptionId !== current.id) {
         const ended = ['canceled', 'incomplete_expired', 'unpaid'];
@@ -78,7 +78,7 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
         } else {
           if (!ended.includes(current.status)) console.warn('Conflicting workspace subscriptions ignored');
           await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-          return true;
+          return { applied: true, becameActive: false };
         }
       }
       if (current.trial_start || current.trial_end) {
@@ -103,9 +103,9 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
       await tx.insert(billingState).values({ workspaceId, pastDueSince })
         .onConflictDoUpdate({ target: billingState.workspaceId, set: { pastDueSince } });
       await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-      return true;
+      return { applied: true, becameActive: !['active', 'trialing'].includes(local?.status ?? '') && ['active', 'trialing'].includes(current.status) };
     });
-    if (applied) { if (['active', 'trialing'].includes(current.status)) await recordFunnelEvent('subscription_active', { workspaceId }); return; }
+    if (applied.applied) { if (applied.becameActive) await recordFunnelEvent('subscription_active', { workspaceId }); return; }
   }
   throw new Error("Concurrent billing update; retry event");
 }

@@ -12,13 +12,19 @@ import { coreContext } from "@/lib/core";
 import { BrandSwitcher } from "@/components/core/brand-switcher";
 import { Navigation, NewPostLink } from "@/components/app/navigation";
 import { Button } from "@/components/ui/button";
+import { isAdminEmail } from '@/lib/funnel';
+import { notFound } from 'next/navigation';
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if ((await headers()).get('x-postial-path') === '/app/admin/funnel') return <main className="mx-auto max-w-4xl p-6">{children}</main>;
+  const requestPath = ((await headers()).get('x-postial-path') ?? '').split('?', 1)[0];
+  if (requestPath === '/app/admin/funnel') {
+    if (!isAdminEmail(session?.user?.email)) notFound();
+    return <main className="mx-auto max-w-4xl p-6">{children}</main>;
+  }
   if(session?.user?.id) {
     const { getDb } = await import('@/db');
     const memberships = await getDb().select({id:workspaceMembers.workspaceId}).from(workspaceMembers).where(eq(workspaceMembers.userId,session.user.id)).limit(1);

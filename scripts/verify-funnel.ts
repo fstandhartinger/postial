@@ -36,3 +36,23 @@ test('product paths keep funnel measurement outside critical transactions', asyn
   assert.doesNotMatch(publishing, /tx\.select\(\{ workspaceId: brands\.workspaceId \}/);
   assert.doesNotMatch(postService, /recordFunnelEvent/);
 });
+
+test('funnel fix regression guards cover all six findings', () => {
+  const funnel = readFileSync('lib/funnel.ts', 'utf8');
+  const retention = readFileSync('lib/media/retention.ts', 'utf8');
+  const posts = readFileSync('lib/api/posts.ts', 'utf8');
+  const bulk = readFileSync('lib/api/bulk.ts', 'utf8');
+  const webhook = readFileSync('app/api/stripe/webhook/route.ts', 'utf8');
+  const layout = readFileSync('app/app/layout.tsx', 'utf8');
+  const admin = readFileSync('app/app/admin/funnel/page.tsx', 'utf8');
+  assert.match(retention, /funnel_events[\s\S]*limit 1000/);
+  assert.match(funnel, /FUNNEL_VIEW_DAILY_CAP|publicViewCounts/);
+  assert.match(funnel, /try \{[\s\S]*await headers\(\)/);
+  assert.match(posts, /created && data\.scheduled_at/);
+  assert.match(bulk, /!replay[\s\S]*row\.status === 201/);
+  assert.match(webhook, /becameActive/);
+  assert.match(layout, /split\('\?', 1\)/);
+  assert.match(layout, /isAdminEmail\(session\?\.user\?\.email\)/);
+  assert.match(admin, /Event conversion rates \(raw event counts\)/);
+  assert.match(funnel, /workspaceConversions/);
+});
