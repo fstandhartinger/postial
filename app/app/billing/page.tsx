@@ -30,7 +30,7 @@ export default async function BillingPage() {
       {date && <p>{subscription?.status === "trialing" ? "Trial ends" : subscription?.status === "canceled" ? "Period ended" : subscription?.cancelAtPeriodEnd ? "Access ends" : "Current period ends"}: <time dateTime={date.toISOString()}>{date.toLocaleDateString("en-GB", { timeZone: "UTC" })}</time></p>}
       {!access && <p>Choose a plan or update your billing to access publishing features. Your workspace remains available.</p>}
       {subscription?.cancelAtPeriodEnd && <p>Your subscription will cancel at the end of this period.</p>}
-      <p>Cancel in the billing portal: access continues until the current paid period ends. Scheduled posts then pause; drafts and history remain available. Cancel during a trial to prevent the first charge.</p>
+      <p>Cancel in the billing portal: access continues until the current paid period ends. Renewal reconciliation may take up to three days; scheduled posts pause after that. Drafts and history remain available. Cancel during a trial to prevent the first charge.</p>
       {owner && record?.stripeCustomerId && <div className="space-y-3"><PortalButton label="Manage payment method, plan and cancellation"/><PortalButton label="View invoice history"/></div>}
       {!owner && <p>Contact your workspace owner to manage billing.</p>}
     </Card>
