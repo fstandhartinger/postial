@@ -1,4 +1,4 @@
-import { AccessStatus } from '@/components/billing/AccessStatus';
+import { MarketingAccessStatus as AccessStatus } from './NetworkAvailability';
 import availability from '@/content/availability.json';
 import { words } from './copy';
 export function FAQ({ short = false }: { short?: boolean }) {

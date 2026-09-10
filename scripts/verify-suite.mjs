@@ -8,63 +8,54 @@ import { createIsolatedDatabase } from './isolated-db.mjs';
 
 const mode = process.argv[2];
 if (!['db', 'http'].includes(mode)) throw new Error('Usage: verify-suite.mjs db|http');
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required; the suite creates and migrates its own isolated database');
-const sourceDatabaseUrl = process.env.DATABASE_URL;
-const isolated = await createIsolatedDatabase(sourceDatabaseUrl);
-process.env.DATABASE_URL = isolated.url;
-// Fixtures may run retention and worker batches: never use a production database.
-// Do not pass provider credentials or delivery configuration to any child.
-const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'DATABASE_URL', 'APP_ENCRYPTION_KEY', 'APP_ENCRYPTION_KEYS',
-  'CHROME_PATH', 'PLAYWRIGHT_MODULE', 'AXE_PATH'].filter(k => process.env[k]).map(k => [k, process.env[k]]));
-Object.assign(env, {
-  AUTH_SECRET: randomBytes(32).toString('hex'), CRON_SECRET: randomBytes(32).toString('hex'),
-  STRIPE_SECRET_KEY: 'sk_test_fixture', STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
-  STRIPE_PRICE_STARTER: 'price_fixture_starter', STRIPE_PRICE_AGENCY: 'price_fixture_agency',
-  STRIPE_PORTAL_CONFIG: 'bpc_fixture', WORKER_ENABLED: 'false', AUTH_TRUST_HOST: 'true',
-  APPROVAL_TRUST_PROXY: 'true', PLAYWRIGHT_MODULE: env.PLAYWRIGHT_MODULE || 'playwright',
-  VERIFY_MODE: '1',
-  ...(isolated.mode === 'schema' ? { VERIFY_ISOLATED_SCHEMA: '1' } : {}),
-  VERIFY_EVIDENCE_DIR: resolve(process.env.VERIFY_EVIDENCE_DIR || '../work/verification'),
-  APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
-});
-if (!env.APP_ENCRYPTION_KEY && !env.APP_ENCRYPTION_KEYS) env.APP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
-mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
-// DB/unit verifiers run without an app server. Browser verifiers (including C8,
-// which also creates DB fixtures) belong to the managed standalone HTTP suite.
-const db = ['entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'fixer3-migration'];
-  const http = ['http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
-    'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
-    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];
-let server, active, cleaningUp = false;
-async function cleanupSuite() {
-  if (cleaningUp) return;
-  cleaningUp = true;
-  await stop(active); await stop(server);
-  await isolated.cleanup();
-}
+const controller = new AbortController();
+let isolated, server, active;
 async function stop(child) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const done = once(child, 'exit');
   child.kill('SIGTERM');
   const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-  await done;
-  clearTimeout(timer);
+  try { await done; } finally { clearTimeout(timer); }
 }
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => {
-  await cleanupSuite(); process.exit(signal === 'SIGINT' ? 130 : 143);
+// Installed before the first connection/migration, and do not exit before cleanup settles.
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+  process.exitCode = signal === 'SIGINT' ? 130 : 143;
+  controller.abort();
+  void stop(active); void stop(server);
 });
-async function run(name) {
-  const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
-  console.log(`VERIFY ${file}`);
-  active = spawn(process.execPath, ['--import', 'tsx', file], { env, stdio: 'inherit' });
-  const child = active;
-  const timer = setTimeout(() => { void stop(child); }, 300_000);
-  const [code, signal] = await once(active, 'exit');
-  clearTimeout(timer); active = undefined;
-  if (code !== 0) throw new Error(`${file} failed (${signal || code})`);
-}
 try {
+  isolated = await createIsolatedDatabase(undefined, { signal: controller.signal });
+  const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'CHROME_PATH', 'PLAYWRIGHT_MODULE', 'AXE_PATH']
+    .filter(k => process.env[k]).map(k => [k, process.env[k]]));
+  Object.assign(env, {
+    DATABASE_URL: isolated.url, APP_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+    AUTH_SECRET: randomBytes(32).toString('hex'), CRON_SECRET: randomBytes(32).toString('hex'),
+    STRIPE_SECRET_KEY: 'sk_test_fixture', STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
+    STRIPE_PRICE_STARTER: 'price_fixture_starter', STRIPE_PRICE_AGENCY: 'price_fixture_agency',
+    STRIPE_PORTAL_CONFIG: 'bpc_fixture', WORKER_ENABLED: 'false', AUTH_TRUST_HOST: 'true',
+    APPROVAL_TRUST_PROXY: 'true', PLAYWRIGHT_MODULE: env.PLAYWRIGHT_MODULE || 'playwright', VERIFY_MODE: '1',
+    VERIFY_EVIDENCE_DIR: resolve(process.env.VERIFY_EVIDENCE_DIR || '../work/verification'),
+    APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
+  });
+  mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
+  const db = ['entitlements', 'workspace', 'webhook', 'publishers', 'core', 'api', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'fixer3-migration'];
+  const http = ['http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media',
+    'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
+    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser'];
+  async function run(name) {
+    controller.signal.throwIfAborted();
+    const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
+    console.log(`VERIFY ${file}`);
+    active = spawn(process.execPath, ['--import', 'tsx', '--test-reporter=tap', file], { env, stdio: 'inherit' });
+    const child = active;
+    const timer = setTimeout(() => { void stop(child); }, 300_000);
+    try {
+      const [code, signal] = await once(child, 'exit');
+      if (code !== 0) throw new Error(`${file} failed (${signal || code})`);
+    } finally { clearTimeout(timer); active = undefined; }
+  }
   if (mode === 'http') {
+    controller.signal.throwIfAborted();
     const probe = createServer(); probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
     const port = probe.address().port; await new Promise(r => probe.close(r));
     const base = `http://localhost:${port}`;
@@ -76,6 +67,7 @@ try {
     closeSync(log);
     let ready = false;
     for (let i = 0; i < 120; i++) {
+      controller.signal.throwIfAborted();
       if (server.exitCode !== null) throw new Error('Standalone exited; inspect private standalone.log');
       try { ready = (await fetch(base + '/healthz', { signal: AbortSignal.timeout(2000) })).ok; } catch { /* starting */ }
       if (ready) break;
@@ -86,10 +78,13 @@ try {
   }
   const failures = [];
   for (const name of mode === 'db' ? db : http) {
+    controller.signal.throwIfAborted();
     try { await run(name); } catch (error) { failures.push(error.message); console.error(error.message); }
   }
   if (failures.length) throw new Error(failures.join('\n'));
   console.log(`PASS verify:${mode === 'db' ? 'all' : 'http'}`);
+} catch (error) {
+  console.error(error.message); process.exitCode ||= 1;
 } finally {
-  await cleanupSuite();
+  await stop(active); await stop(server); await isolated?.cleanup();
 }

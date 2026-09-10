@@ -1,3 +1,4 @@
+import { connection } from 'next/server';
 import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
 import { NetworkAvailability } from '@/components/marketing/NetworkAvailability';
 import Link from 'next/link';
@@ -12,7 +13,8 @@ function FactGrid({ section }: { section: Section }) {
   const content = items(section);
   return <div className={`marketing-grid ${section === 'Features' ? 'two features-grid' : 'three'}`}>{content.map((item, index) => item.label === 'H3' ? <article key={item.text}><div className="feature-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7 12 3 3 7-7"/></svg></div><h3>{item.text}</h3>{content.slice(index + 1, content.findIndex((next, nextIndex) => nextIndex > index && next.label === 'H3') === -1 ? undefined : content.findIndex((next, nextIndex) => nextIndex > index && next.label === 'H3')).filter(next => next.label !== 'Fair-comparison note').map(next => next.label === 'Badge' ? <span className="badge" key={next.text}>{next.text}</span> : <p className={next.label.includes('note') || next.label === 'Note' ? 'note' : ''} key={next.text}>{next.text}</p>)}</article> : null)}</div>;
 }
-export default function Home() {
+export default async function Home() {
+  await connection();
   const schema = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Postial', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: appUrl, description, offers: [{ '@type': 'Offer', name: 'Starter', price: '19', priceCurrency: 'EUR', url: `${appUrl}/pricing` }, { '@type': 'Offer', name: 'Agency', price: '49', priceCurrency: 'EUR', url: `${appUrl}/pricing` }] };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
     <section className="hero"><p className="eyebrow">{words('Hero', 'Eyebrow')}</p><h1>{words('Hero', 'H1')}</h1><p className="hero-sub">{words('Hero', 'Sub')}</p><div className="actions"><Link prefetch={false} className="primary" href="/login">{words('Hero', 'Primary CTA → /signup')}</Link><DemoLink>{words('Hero', 'Secondary CTA → #demo')}</DemoLink></div><SignInNotice /><p className="note">{words('Hero', 'Trial note')}</p><p className="note">{words('Hero', 'Plan note')}</p></section>
