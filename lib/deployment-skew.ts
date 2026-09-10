@@ -1,7 +1,9 @@
 const SERVER_ACTION_NOT_FOUND = 'Failed to find Server Action.';
 
 export const DEPLOYMENT_SKEW_MESSAGE =
-  'Postial was updated while this page was open. Reload the page once to continue. Your entries are still here.';
+  // Do not promise that unsaved input survives: the composer keeps text in client state
+  // only, and a reload discards it. Saying otherwise would cost people their work.
+  'Postial was updated while this page was open. Copy anything you have typed but not saved, then reload the page once to continue.';
 
 export function isDeploymentSkewError(value: unknown): boolean {
   if (value instanceof Error) return value.message.includes(SERVER_ACTION_NOT_FOUND);
