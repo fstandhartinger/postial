@@ -15,6 +15,7 @@
     "verify:crawler": "node scripts/verify-crawler-render.mjs",
     "fixture-sweep": "tsx scripts/fixture-sweep.ts",
     "verify:double-fire": "tsx scripts/verify-double-fire.ts"
+    ,"verify:error-visibility": "tsx scripts/verify-error-visibility.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

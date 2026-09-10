@@ -4,6 +4,7 @@ import { version } from '@/package.json';
 import journal from '@/drizzle/meta/_journal.json';
 import { workerHealth } from '@/lib/publishing/state';
 import { anonymousLimit } from '@/lib/rate-limit';
+import { recentErrorCount } from '@/lib/error-visibility';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(request = new Request('http://localhost/healthz')) {
@@ -15,8 +16,9 @@ export async function GET(request = new Request('http://localhost/healthz')) {
       const [row] = await getDb().execute(sql`select count(*)::integer as applied, max(created_at) as latest from drizzle.__drizzle_migrations`);
       const applied = Number(row.applied), latest = journal.entries.find(e => e.when === Number(row.latest))?.tag ?? null;
       const worker = workerHealth();
+      const errorsLastHour = await recentErrorCount();
       const ok = applied >= journal.entries.length && latest !== null && (!worker.expected || worker.ageSeconds <= 300);
-      return Response.json({ok,db:true,version,migrations:{applied,latest},worker},{status:ok?200:503,headers:{'Cache-Control':'no-store'}});
+      return Response.json({ok,db:true,version,migrations:{applied,latest},worker,errorsLastHour},{status:ok?200:503,headers:{'Cache-Control':'no-store'}});
     })(), new Promise<Response>(resolve => {timer=setTimeout(()=>resolve(Response.json({ok:false},{status:503})),2000);})]);
   } catch { return Response.json({ok:false},{status:503}); }
   finally { clearTimeout(timer); }

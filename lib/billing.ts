@@ -6,6 +6,7 @@ import { billingState } from '@/db/billing-schema';
 import { auth } from '@/auth';
 import { coreContext } from '@/lib/core';
 import { appUrl } from '@/lib/stripe';
+import { recordError } from '@/lib/error-visibility';
 export { plans } from '@/lib/plans';
 export type BillingTransaction = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function lockWorkspace(tx: BillingTransaction, id: string) {
@@ -38,6 +39,6 @@ export async function billingOwner(request: Request) {
 export function billingError(error: unknown): Response {
   if (error instanceof BillingHttpError) return Response.json({ error: error.message }, { status: error.status, headers: error.retryAfter ? { "Retry-After": String(error.retryAfter) } : undefined });
   // Never log Stripe payloads, Checkout URLs, secrets, or customer information.
-  console.error('Stripe billing operation failed');
+  void recordError(error, { route: 'billing', status: 500 });
   return Response.json({ error: 'Billing is temporarily unavailable' }, { status: 500 });
 }

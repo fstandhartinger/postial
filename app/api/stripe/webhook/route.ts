@@ -10,6 +10,7 @@ import { stripe, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans, type Plan } from '@/lib/plans';
 import { lockWorkspace } from '@/lib/billing';
 import { recordFunnelEvent } from '@/lib/funnel';
+import { recordError } from '@/lib/error-visibility';
 export const runtime = 'nodejs';
 function id(value: string | { id: string } | null | undefined): string | undefined {
   return typeof value === 'string' ? value : value?.id;
@@ -125,8 +126,8 @@ export async function POST(request: Request) {
     const target = subscriptionId(event);
     if (target) await reconcile(event, target);
     return Response.json({ received: true });
-  } catch {
-    console.error('Stripe webhook reconciliation failed', { eventId: event.id, type: event.type });
+  } catch (error) {
+    void recordError(error, { route: '/api/stripe/webhook', status: 500, authenticated: false });
     return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

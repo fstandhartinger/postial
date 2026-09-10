@@ -53,8 +53,8 @@ async function main() {
     const response = apiError(new TypeError('PRIVATE PAYLOAD'),'/api/media');
     assert.equal(response.status,500);
     const event = JSON.parse(logs[0]);
-    assert.deepEqual(Object.keys(event).sort(),['errorClass','event','requestId','route']);
-    assert.equal(event.errorClass,'TypeError'); assert.equal(event.route,'/api/media');
+    assert.deepEqual(Object.keys(event).sort(),['authenticated','errorClass','event','fingerprint','message','requestId','route','status','timestamp']);
+    assert.equal(event.errorClass,'TypeError'); assert.equal(event.route,'/api/media'); assert.equal(event.status,500);
     assert.equal(event.requestId,response.headers.get('x-request-id')); assert(!logs[0].includes('PRIVATE'));
   } finally {logger.mock.restore();}
   const db = getDb(), userId = randomUUID(), foreignId = randomUUID();

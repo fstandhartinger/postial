@@ -14,6 +14,7 @@ import { brands, channels, posts, postTargets, postEvents } from "@/db/schema";
 import { decryptCredentials, encryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 import { recordFunnelEvent } from '@/lib/funnel';
+import { recordError, retainErrors } from '@/lib/error-visibility';
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function derivePostStatus(tx: Tx, postId: string): Promise<string | undefined> {
   const [previous] = await tx
@@ -289,8 +290,9 @@ export async function tick() {
       if (finalStatus === 'published') await recordFunnelEvent('post_published', { workspaceId: brand.workspaceId });
     }),
   );
-  await checkChannelHealth().catch(() => console.error("Channel health tick failed"));
-  await mediaRetentionTick().catch(() => console.error("Media retention tick failed"));
+  await checkChannelHealth().catch(error => { void recordError(error, { route: 'worker:channel-health' }); });
+  await mediaRetentionTick().catch(error => { void recordError(error, { route: 'worker:media-retention' }); });
+  await retainErrors();
   workerState.lastTickAt = new Date().toISOString();
   return { claimed: claimed.length };
 }

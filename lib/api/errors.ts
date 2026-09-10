@@ -1,19 +1,19 @@
 import { InputError } from './input';
 import { PublishError } from '@/lib/publishers';
+import { recordError, errorRequestId } from '@/lib/error-visibility';
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public retryAfter?: number, public field?: string) { super(message); }
 }
 export function json(value: unknown, status = 200) {
   return Response.json(value, {status, headers: {'Cache-Control': 'no-store'}});
 }
-export function apiError(error: unknown, route = "api") {
-  const requestId = crypto.randomUUID();
-  if (!(error instanceof ApiError || error instanceof InputError || error instanceof PublishError))
-    console.error(JSON.stringify({event: 'api_error', route, errorClass: error instanceof Error ? error.constructor.name : 'UnknownError', requestId}));
+export function apiError(error: unknown, route = "api", authenticated = false) {
+  const requestId = errorRequestId();
   const e = error instanceof ApiError ? error : error instanceof InputError || error instanceof PublishError
     ? new ApiError(422, 'validation_error', error instanceof PublishError ? error.humanMessage : error.message)
     : new ApiError(500, 'internal_error', 'Unable to complete this request.');
   const response = json({error: {code: e.code, message: e.message, ...(e.field ? {field: e.field} : {})}}, e.status);
+  if (!(error instanceof ApiError || error instanceof InputError || error instanceof PublishError)) void recordError(error, {route, status: e.status, authenticated, requestId});
   response.headers.set('X-Request-ID', requestId);
   if (e.retryAfter) response.headers.set('Retry-After', String(e.retryAfter));
   return response;

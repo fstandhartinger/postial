@@ -1,6 +1,7 @@
 import { workerState } from './state';
 import { deliverWebhooksTick } from "@/lib/api/webhooks";
 import { tick } from "./index";
+import { recordError } from '@/lib/error-visibility';
 const state = globalThis as typeof globalThis & {
   postialWorker?: ReturnType<typeof setInterval>;
 };
@@ -27,11 +28,11 @@ export function startPublishingWorker() {
     currentTick = (async () => { try {
       await tick();
       workerState.lastTickAt = new Date().toISOString();
-    } catch {
-      console.error("Publishing tick failed");
+    } catch (error) {
+      void recordError(error, { route: 'worker:publishing' });
     } finally {
       running = false;
-      void deliverWebhooksTick().catch(() => console.error("Webhook tick failed"));
+      void deliverWebhooksTick().catch(error => { void recordError(error, { route: 'worker:webhooks' }); });
     } })();
     try { await currentTick; } finally { currentTick = undefined; }
   }, Number(process.env.WORKER_INTERVAL_MS || 30000));

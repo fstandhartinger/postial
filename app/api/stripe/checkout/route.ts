@@ -10,6 +10,7 @@ import { billingOwner, billingError, BillingHttpError, lockWorkspace } from '@/l
 import { stripe, appUrl, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans } from '@/lib/plans';
 import { recordFunnelEvent } from '@/lib/funnel';
+import { recordError } from '@/lib/error-visibility';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   let release: (() => Promise<unknown>) | undefined;
@@ -75,5 +76,5 @@ export async function POST(request: Request) {
     await recordFunnelEvent('checkout_started', { workspaceId: workspace.id });
     return Response.json({ url: checkout.url });
   } catch (error) { return error instanceof ApiError ? apiError(error) : billingError(error); }
-  finally { if (release) { try { await release(); } catch { console.error('Checkout lease cleanup failed; lease will expire'); } } }
+  finally { if (release) { try { await release(); } catch (error) { void recordError(error, { route: '/api/stripe/checkout:lease-cleanup' }); } } }
 }

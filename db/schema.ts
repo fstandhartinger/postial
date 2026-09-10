@@ -396,3 +396,20 @@ export const funnelEvents = pgTable('funnel_events', {
   referrerHost: text('referrer_host'),
   props: jsonb('props').$type<Record<string, unknown>>().notNull().default({}),
 }, t => [index('funnel_events_event_day').on(t.event, t.day), index('funnel_events_day').on(t.day)]);
+
+// Operational errors contain only redacted diagnostics; request data and secrets never enter this table.
+export const errorEvents = pgTable('error_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  route: text('route').notNull(),
+  status: integer('status'),
+  errorClass: text('error_class').notNull(),
+  message: text('message').notNull(),
+  fingerprint: text('fingerprint').notNull(),
+  authenticated: boolean('authenticated').notNull().default(false),
+}, t => [index('error_events_occurred_at').on(t.occurredAt)]);
+
+export const errorEventHourly = pgTable('error_event_hourly', {
+  hour: timestamp('hour', { withTimezone: true }).primaryKey(),
+  count: integer('count').notNull().default(0),
+});

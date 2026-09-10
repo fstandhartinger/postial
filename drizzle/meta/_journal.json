@@ -114,6 +114,7 @@
       "tag": "0015_skinny_skullbuster",
       "breakpoints": true
     },
-    {"idx":16,"version":"7","when":1789014000000,"tag":"0016_funnel_events","breakpoints":true}
+    {"idx":16,"version":"7","when":1789014000000,"tag":"0016_funnel_events","breakpoints":true},
+    {"idx":17,"version":"7","when":1789035000000,"tag":"0017_error_events","breakpoints":true}
   ]
 }
