@@ -6,13 +6,13 @@ Install the native community node, or build an HTTP workflow instead.
 
 1. In n8n, open Settings, then Community nodes, and choose Install.
 2. Enter the package name `n8n-nodes-socialmint` and confirm. The package still carries the former brand name; the nodes appear as "Postial" and "Postial Trigger".
-3. Create a credential of type "Postial API" and paste an API key from Settings, API keys in Postial.
+3. Create a credential of type "Postial API" and paste an API key from [API settings](/app/settings/api) in Postial.
 4. Add the Postial node for actions, or the Postial Trigger node to receive signed webhooks.
 
 ## Steps: HTTP Request setup
 
-1. Use your own running n8n installation and an active Agency workspace.
-2. Create a Postial API key with the required scopes in [API settings](/app/settings/api).
+1. Use your own running n8n installation and an active Agency workspace (an Agency trial also works).
+2. Create a Postial API key with the required scopes in [API settings](/app/settings/api). The key is shown once, so copy it immediately.
 3. In n8n, create a Header Auth credential named Authorization with the value Bearer followed by a space and your API key.
 4. Add an HTTP Request node with the API URL and JSON body from the [API reference](/docs/api).
 5. For post creation, add an Idempotency-Key based on a stable source record ID to avoid duplicates on workflow retries.
@@ -27,9 +27,9 @@ Install the native community node, or build an HTTP workflow instead.
 
 ## Native node installation status
 
-The native package is named n8n-nodes-postial and awaits npm publication. It is not currently offered as an installable public release. After publication, an n8n owner whose installation permits community packages can install that package through Settings → Community Nodes → Install, then search for Postial or Postial Trigger. n8n Cloud discovery additionally requires n8n verification. Configure Postial API credentials with the base URL https://postial.co (without /api/v1) and your API key. Grant brands:read for dropdowns, posts:read for reads, posts:write for changes and webhooks:manage for automatic trigger registration. Until then, use the HTTP Request and Webhook nodes above. No release date is promised; contact [support](mailto:info@productivity-boost.com) for release availability.
+The published community package is `n8n-nodes-socialmint` 0.1.2. In n8n it appears as “Postial” and “Postial Trigger”; only the npm package name carries the former brand. An n8n owner whose installation permits community packages can install it through Settings → Community Nodes → Install. Configure the “Postial API” credential with base URL `https://postial.co` and your API key. Grant `brands:read` for dropdowns, `posts:read` for reads, `posts:write` for changes and `webhooks:manage` for automatic trigger registration. The API itself is served under `https://postial.co/api/v1`.
 
-## Native trigger setup after publication
+## Native trigger setup
 
 1. Add Postial Trigger and choose one or more events, for example Approval Decided.
 2. In Automatic mode, select the API credential and activate the workflow. Its public HTTPS endpoint is registered automatically; deactivation deletes that registration.
