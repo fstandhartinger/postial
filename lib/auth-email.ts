@@ -8,6 +8,19 @@ export const SIGN_IN_EMAIL_RATE_LIMIT = 3;
 export const SIGN_IN_EMAIL_RATE_WINDOW_SECONDS = 15 * 60;
 export const SIGN_IN_IP_RATE_LIMIT = 10;
 export const SIGN_IN_IP_RATE_WINDOW_SECONDS = 60 * 60;
+// The login Server Action records a funnel event before Auth.js invokes the
+// provider. Bound that database write separately from the delivery budget.
+export const SIGN_IN_ACTION_RATE_LIMIT = 10;
+export const SIGN_IN_ACTION_RATE_WINDOW_SECONDS = 60;
+
+export async function signInActionLimited(requestHeaders: Headers): Promise<boolean> {
+  const retry = await sharedRateLimit(
+    `signin:action:${rateLimitIdentityHash(trustedClientIp(requestHeaders))}`,
+    SIGN_IN_ACTION_RATE_LIMIT,
+    SIGN_IN_ACTION_RATE_WINDOW_SECONDS,
+  );
+  return retry > 0;
+}
 
 export function signInLinkLifetime(maxAgeSeconds: number): string {
   if (maxAgeSeconds % 3600 === 0) return `${maxAgeSeconds / 3600} hour${maxAgeSeconds / 3600 === 1 ? '' : 's'}`;

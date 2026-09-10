@@ -9,7 +9,10 @@ import {
   SIGN_IN_EMAIL_RATE_WINDOW_SECONDS,
   SIGN_IN_IP_RATE_LIMIT,
   SIGN_IN_IP_RATE_WINDOW_SECONDS,
+  SIGN_IN_ACTION_RATE_LIMIT,
+  SIGN_IN_ACTION_RATE_WINDOW_SECONDS,
   SIGN_IN_LINK_MAX_AGE_SECONDS,
+  signInActionLimited,
 } from '../lib/auth-email';
 
 process.env.APPROVAL_TRUST_PROXY = 'true';
@@ -32,6 +35,14 @@ function providerFor(counter: { sent: number }) {
 async function clearFixtures() {
   await db.execute(sql`delete from request_rate_limits where key like 'signin:%'`);
 }
+
+test('login Server Action has a separate per-IP budget before funnel writes', async () => {
+  await clearFixtures();
+  const headers = new Headers({ 'x-real-ip': '198.51.100.20' });
+  for (let i = 0; i < SIGN_IN_ACTION_RATE_LIMIT; i += 1) assert.equal(await signInActionLimited(headers), false);
+  assert.equal(await signInActionLimited(headers), true);
+  assert.equal(SIGN_IN_ACTION_RATE_WINDOW_SECONDS, 60);
+});
 
 async function send(provider: ReturnType<typeof providerFor>, email: string, ip: string) {
   return provider.sendVerificationRequest({

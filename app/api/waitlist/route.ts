@@ -42,6 +42,8 @@ export async function POST(request: Request) {
       const inserted = await tx.insert(networkWaitlist).values({ network, email, ipHash, source: String(source) }).onConflictDoNothing().returning({ id: networkWaitlist.id });
       return inserted.length ? 201 : 200;
     });
-    return Response.json(status === 429 ? { error: 'Hourly signup limit reached' } : { saved: true }, { status, headers: { 'Cache-Control': 'no-store', ...(status === 429 ? { 'Retry-After': '3600' } : {}) } });
+    // Use one success status for new and duplicate submissions so the public
+    // endpoint cannot enumerate registered email addresses.
+    return Response.json(status === 429 ? { error: 'Hourly signup limit reached' } : { saved: true }, { status: status === 429 ? 429 : 202, headers: { 'Cache-Control': 'no-store', ...(status === 429 ? { 'Retry-After': '3600' } : {}) } });
   } catch { return Response.json({ error: 'Could not save signup. Please try again.' }, { status: 503 }); }
 }
