@@ -1,12 +1,14 @@
 import { gte, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { errorEventHourly, errorEvents } from '@/db/schema';
+import { errorEvents } from '@/db/schema';
 
 const MAX_PER_HOUR = 500;
-const secretKey = /(authorization|cookie|token|secret|password|credential|signature|api[-_]?key|access[-_]?token|refresh[-_]?token)/i;
 const email = /\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g;
 const bearer = /\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi;
 const longSecret = /\b(?:sm_live_|sk_live_|whsec_|gh[pousr]_)[A-Za-z0-9_-]+\b/g;
+const PERSISTED_MESSAGE = '[message omitted]';
+const PERSISTED_MESSAGE_ALLOWLIST = new Set<string>(['Unable to complete this request.']);
+const processHourlyCounts = new Map<number, number>();
 
 export function redactErrorValue(value: unknown): string {
   let text = typeof value === 'string' ? value : (() => { try { return JSON.stringify(value); } catch { return String(value); } })();
@@ -18,26 +20,26 @@ export function redactErrorValue(value: unknown): string {
 
 function errorDetails(error: unknown) {
   const errorClass = error instanceof Error ? error.constructor.name : 'UnknownError';
-  const message = redactErrorValue(error instanceof Error ? error.message : error);
+  const logMessage = redactErrorValue(error instanceof Error ? error.message : error);
   let hash = 2166136261;
-  for (const char of `${errorClass}:${message}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return { errorClass: redactErrorValue(errorClass).slice(0, 120), message, fingerprint: (hash >>> 0).toString(16).padStart(8, '0') };
+  for (const char of `${errorClass}:${logMessage}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return { errorClass: errorClass.slice(0, 120), logMessage, message: PERSISTED_MESSAGE_ALLOWLIST.has(logMessage) ? logMessage : PERSISTED_MESSAGE, fingerprint: (hash >>> 0).toString(16).padStart(8, '0') };
 }
 
 export type ErrorEventOptions = { route: string; status?: number; authenticated?: boolean; action?: string; now?: Date; requestId?: string };
 export async function recordError(error: unknown, options: ErrorEventOptions): Promise<void> {
   try {
     const now = options.now ?? new Date();
-    const hour = new Date(Math.floor(now.getTime() / 3600000) * 3600000);
+    const hourKey = Math.floor(now.getTime() / 3600000);
     const details = errorDetails(error);
     const route = (options.action ? `action:${options.action}` : options.route).slice(0, 512);
     const id = options.requestId ?? errorRequestId();
-    try { console.error(JSON.stringify({ event: 'error', timestamp: now.toISOString(), route, status: options.status ?? null, errorClass: details.errorClass, message: details.message, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated), requestId: id })); } catch { /* Logging must not affect the operation. */ }
-    const db = getDb();
-    const [counter] = await db.insert(errorEventHourly).values({ hour, count: 1 }).onConflictDoUpdate({ target: errorEventHourly.hour, set: { count: sql`${errorEventHourly.count} + 1` } }).returning({ count: errorEventHourly.count });
+    try { console.error(JSON.stringify({ event: 'error', timestamp: now.toISOString(), route, status: options.status ?? null, errorClass: details.errorClass, message: details.logMessage, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated), requestId: id })); } catch { /* Logging must not affect the operation. */ }
     const cap = Number(process.env.ERROR_VISIBILITY_TEST_CAP ?? MAX_PER_HOUR);
-    if (Number(counter?.count) > cap) return;
-    await db.insert(errorEvents).values({ occurredAt: now, route, status: options.status, errorClass: details.errorClass, message: details.message, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated) });
+    const count = processHourlyCounts.get(hourKey) ?? 0;
+    if (count >= cap) return;
+    processHourlyCounts.set(hourKey, count + 1);
+    await getDb().insert(errorEvents).values({ occurredAt: now, route, status: options.status, errorClass: details.errorClass, message: details.message, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated) });
   } catch { /* Error visibility is strictly best effort and must never affect the operation. */ }
 }
 
@@ -46,7 +48,7 @@ export async function recentErrorCount(now = new Date()): Promise<number> {
 }
 
 export async function retainErrors(now = new Date()): Promise<void> {
-  try { await getDb().delete(errorEvents).where(sql`${errorEvents.occurredAt} < ${new Date(now.getTime() - 14 * 86400000)}`); await getDb().delete(errorEventHourly).where(sql`${errorEventHourly.hour} < ${new Date(now.getTime() - 14 * 86400000)}`); } catch { /* maintenance is retryable */ }
+  try { await getDb().delete(errorEvents).where(sql`${errorEvents.occurredAt} < ${new Date(now.getTime() - 14 * 86400000)}`); } catch { /* maintenance is retryable */ }
 }
 
 export function errorRequestId() { return globalThis.crypto.randomUUID(); }

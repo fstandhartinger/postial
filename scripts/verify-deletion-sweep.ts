@@ -17,7 +17,7 @@ type Table={table:string; cols:string[]};
 async function tables():Promise<Table[]> { const rows=await raw`select table_name, array_agg(column_name order by ordinal_position) cols from information_schema.columns where table_schema='public' group by table_name order by table_name`; return rows.map(r=>({table:String(r.table_name),cols:r.cols as string[]})); }
 async function snapshot(ts:Table[], stage:string, ids:string[]) {
   const out:{table:string; count:number; sample:string}[]=[];
-  for(const t of ts) { let n=0; if(t.cols.length) { const needles=[...ids,email].map(x=>x.replaceAll("'","''")); const where=needles.map(x=>`row_to_json(x)::text like '%${x}%'`).join(' or '); const rows=await raw.unsafe(`select count(*)::int n from "${t.table}" x where ${where}`); n=Number(rows[0]?.n||0); } out.push({table:t.table,count:n,sample:stage}); }
+  for(const t of ts) { let n=0; const hits:string[]=[]; const needles=[...ids,email].map(x=>x.replaceAll("'","''")); for(const col of t.cols) { const where=needles.map(x=>`cast("${col.replaceAll('"','""')}" as text) like '%${x}%'`).join(' or '); const rows=await raw.unsafe(`select count(*)::int n from "${t.table.replaceAll('"','""')}" where ${where}`); const c=Number(rows[0]?.n||0); if(c){ n+=c; hits.push(`${col}=${c}`); } } out.push({table:t.table,count:n,sample:`${stage}; columns: ${hits.join(', ') || 'none'}`}); }
   return out;
 }
 function personal(t:Table){ return /email|name|user|workspace|brand|channel|post|payload|message|comment|body|media|token|secret|credential|url|ip|path|referrer|props|billing|stripe|account|session|approval|notification|invite|event/i.test(t.cols.join(' ')+' '+t.table); }

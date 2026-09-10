@@ -33,7 +33,9 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
     const brandIds = bs.map(b=>b.id);
     const ps = brandIds.length ? await tx.select().from(posts).where(inArray(posts.brandId,brandIds)) : [];
     const postIds = ps.map(p=>p.id);
-    const media = await tx.select({id:mediaAssets.id,brandId:mediaAssets.brandId,mime:mediaAssets.mime,bytes:mediaAssets.bytes,width:mediaAssets.width,height:mediaAssets.height,sha256:mediaAssets.sha256,createdAt:mediaAssets.createdAt}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId));
+    const allMediaCount = await tx.select({count:sql<number>`count(*)::int`}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId));
+    const media = await tx.select({id:mediaAssets.id,brandId:mediaAssets.brandId,mime:mediaAssets.mime,bytes:mediaAssets.bytes,width:mediaAssets.width,height:mediaAssets.height,sha256:mediaAssets.sha256,createdAt:mediaAssets.createdAt}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId)).orderBy(asc(mediaAssets.createdAt), asc(mediaAssets.id)).limit(MAX_EXPORT_MEDIA_ENTRIES);
+    const mediaOmittedCount = Math.max(0, Number(allMediaCount[0]?.count ?? 0) - media.length);
     // Allowlisted channel and membership fields; no credentials, token, secret or internal metadata.
     const cs = brandIds.length ? await tx.select({id:channels.id,brandId:channels.brandId,provider:channels.provider,displayName:channels.displayName,url:channels.url,status:channels.status,createdAt:channels.createdAt}).from(channels).where(inArray(channels.brandId,brandIds)) : [];
     const members = await tx.select({userId:workspaceMembers.userId,role:workspaceMembers.role,joinedAt:workspaceMembers.joinedAt,name:users.name,email:users.email}).from(workspaceMembers).innerJoin(users,eq(users.id,workspaceMembers.userId)).where(eq(workspaceMembers.workspaceId,workspaceId));
@@ -42,7 +44,7 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
       targets:postIds.length?await tx.select().from(postTargets).where(inArray(postTargets.postId,postIds)):[],
       approvals:postIds.length?await tx.select({id:approvalDecisions.id,postId:approvalDecisions.postId,decision:approvalDecisions.decision,reviewerName:approvalDecisions.reviewerName,comment:approvalDecisions.comment,createdAt:approvalDecisions.createdAt}).from(approvalDecisions).where(inArray(approvalDecisions.postId,postIds)):[],
       events:postIds.length?await tx.select().from(postEvents).where(inArray(postEvents.postId,postIds)):[],
-      media:await inlineExportMedia(tx,media),members};
+      media:await inlineExportMedia(tx,media),mediaOmittedCount,members};
   });
 }
 /** Cancel without proration/invoicing. Expire open checkouts so deleted workspaces cannot purchase later. */
@@ -123,6 +125,7 @@ export async function deleteAccount(actor: string, confirmation: string) {
  * export would exhaust the process for every user, not just the one exporting.
  */
 export const EXPORT_MEDIA_INLINE_TOTAL_BYTES = 24 * 1024 * 1024;
+export const MAX_EXPORT_MEDIA_ENTRIES = 1000;
 type ExportMediaAsset = { id: string; bytes: number };
 async function inlineExportMedia<T extends ExportMediaAsset>(tx: Tx, assets: T[]) {
   const inline: string[] = [];
@@ -140,6 +143,6 @@ async function inlineExportMedia<T extends ExportMediaAsset>(tx: Tx, assets: T[]
     const bytes = data.get(asset.id);
     return bytes
       ? { ...asset, dataBase64: bytes.toString('base64') }
-      : { ...asset, dataOmitted: true as const, downloadPath: `/m/${asset.id}` };
+      : { ...asset, dataOmitted: true as const, downloadBeforeDeletion: true as const, omissionNote: 'Load this file individually before deleting the workspace.' };
   });
 }
