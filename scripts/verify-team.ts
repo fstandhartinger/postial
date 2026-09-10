@@ -14,15 +14,16 @@ async function main() {
   const base = process.env.TEAM_HTTP_URL ?? 'http://localhost:3997';
   let browser: { close(): Promise<void> } | undefined;
   try {
-    await db.insert(users).values([{ id: owner, name: 'Team Owner', email: `${owner}@example.invalid` }, { id: editor, name: 'Team Editor', email: `${editor}@example.invalid` }, { id: other, name: 'Another Member' }]);
+    await db.insert(users).values([{ id: owner, name: 'Team Owner', email: `${owner}@example.invalid` }, { id: editor, name: 'Team Editor', email: `${editor}@example.invalid` }, { id: other, name: 'Another Member', email: `${other}@example.invalid` }]);
     const ws = await ensureWorkspace(owner), second = await ensureWorkspace(editor);
     await db.update(workspaces).set({ name: 'Team verification' }).where(eq(workspaces.id, ws.id));
-    await assert.rejects(manageTeam(ws.id, owner, 'create'), /Seat limit/);
+    await assert.rejects(manageTeam(ws.id, owner, 'create', '', 'editor', 'new@example.invalid'), /Seat limit/);
     await assert.rejects(manageTeam(ws.id, owner, 'remove', owner), /yourself/);
     await assert.rejects(manageTeam(ws.id, owner, 'role', owner, 'editor'), /one owner/);
     await db.insert(subscriptions).values({ workspaceId: ws.id, plan: 'agency', status: 'active', stripeSubscriptionId: `sub_team_${owner}`, currentPeriodEnd: new Date(Date.now() + 86400000) });
     await db.insert(sessions).values([{ sessionToken: ownerSession, userId: owner, expires: new Date(Date.now() + 3600000) }, { sessionToken: editorSession, userId: editor, expires: new Date(Date.now() + 3600000) }]);
-    const token = (await manageTeam(ws.id, owner, 'create'))!;
+    const token = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${editor}@example.invalid`))!;
+    await assert.rejects(acceptInvite(token, other), /different email/);
     const publicResponse = await fetch(`${base}/join/${token}`); assert.equal(publicResponse.status, 200); assert.match(await publicResponse.text(), /Sign in to join/);
     const mod = process.env.PLAYWRIGHT_MODULE ?? 'playwright';
     const { chromium } = await import(mod);
@@ -41,6 +42,7 @@ async function main() {
       await join.setViewportSize({ width, height: 900 }); await join.goto(`${base}/join/${token}`); await join.getByRole('button', { name: 'Join workspace' }).waitFor();
       await join.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/team-evidence/join-${width}.png`, fullPage: true });
     }
+    await page.getByRole('textbox', { name: 'Invite email' }).fill(`${editor}@example.invalid`);
     await page.getByRole('button', { name: 'Create invite link' }).click();
     const linkInput = page.getByRole('textbox', { name: 'Invite link' });
     await linkInput.waitFor();
@@ -60,27 +62,28 @@ async function main() {
     await join.goto(`${base}/app/settings/team`); assert.match(await join.locator('body').innerText(), /Only owners/);
     await join.getByRole('combobox', { name: 'Workspace', exact: true }).first().selectOption(second.id); await join.getByRole('button', { name: 'Switch workspace' }).first().click(); await join.waitForURL(`${base}/app`);
     assert.equal((await editorContext.cookies()).find((c: { name: string }) => c.name === 'sm_ws')?.value, second.id);
-    const expired = (await manageTeam(ws.id, owner, 'create'))!;
+    const expired = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${other}@example.invalid`))!;
     await db.update(workspaceInvites).set({ expiresAt: new Date(0) }).where(eq(workspaceInvites.id, (await findInvite(expired))!.invite.id));
     assert.match(await (await fetch(`${base}/join/${expired}`)).text(), /has expired/); await assert.rejects(acceptInvite(expired, other), /expired/);
-    const revoked = (await manageTeam(ws.id, owner, 'create'))!; await manageTeam(ws.id, owner, 'revoke', (await findInvite(revoked))!.invite.id);
+    const revoked = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${other}@example.invalid`))!; await manageTeam(ws.id, owner, 'revoke', (await findInvite(revoked))!.invite.id);
     assert.match(await (await fetch(`${base}/join/${revoked}`)).text(), /was revoked/); await assert.rejects(acceptInvite(revoked, other), /revoked/);
-    await assert.rejects(manageTeam(ws.id, editor, 'create'), /Only owners/);
+    await assert.rejects(manageTeam(ws.id, editor, 'create', '', 'editor', `${other}@example.invalid`), /Only owners/);
     await manageTeam(ws.id, owner, 'role', editor, 'owner'); await manageTeam(ws.id, editor, 'role', owner, 'editor');
     await manageTeam(ws.id, editor, 'role', owner, 'owner'); await manageTeam(ws.id, owner, 'role', editor, 'editor');
     await manageTeam(ws.id, owner, 'remove', editor);
     assert.equal((await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, editor)))).length, 0);
-    const concurrent = (await manageTeam(ws.id, owner, 'create'))!;
+    const concurrent = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${editor}@example.invalid`))!;
     const attempts = await Promise.allSettled([acceptInvite(concurrent, editor), acceptInvite(concurrent, other)]);
     assert.equal(attempts.filter(r => r.status === 'fulfilled').length, 1);
     const already = attempts[0].status === 'fulfilled' ? editor : other;
-    const unused = (await manageTeam(ws.id, owner, 'create'))!;
-    await assert.rejects(acceptInvite(unused, already), /already a member/);
+    const alreadyInvite = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${already}@example.invalid`))!;
+    await assert.rejects(acceptInvite(alreadyInvite, already), /already a member/);
+    const unused = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${other}@example.invalid`))!;
     await db.update(subscriptions).set({ plan: 'starter' }).where(eq(subscriptions.workspaceId, ws.id));
     await assert.rejects(acceptInvite(unused, already === editor ? other : editor), /seat limit/);
     await db.update(subscriptions).set({ plan: 'agency' }).where(eq(subscriptions.workspaceId, ws.id));
-    for (let i = 6; i < 10; i++) await manageTeam(ws.id, owner, 'create');
-    await assert.rejects(manageTeam(ws.id, owner, 'create'), /Invite limit/);
+    for (let i = 6; i < 9; i++) await manageTeam(ws.id, owner, 'create', '', 'editor', `${other}-${i}@example.invalid`);
+    await assert.rejects(manageTeam(ws.id, owner, 'create', '', 'editor', `${other}-last@example.invalid`), /Invite limit/);
     console.log('PASS team: browser join, editor billing 403, settings guards, roles, seats, expiry, revocation, removal, last owner, rate limit, workspace cookie/context, 390/1280 screenshots');
   } finally { await browser?.close(); await deleteFixtureUsers(db).where(inArray(users.id, [owner, editor, other])); await db.$client.end(); }
 }

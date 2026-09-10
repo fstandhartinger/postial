@@ -326,6 +326,7 @@ export const workspaceInvites = pgTable("workspace_invites", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   role: memberRole("role").notNull(),
+  invitedEmail: text("invited_email").notNull(),
   tokenHash: text("token_hash").notNull().unique(),
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
