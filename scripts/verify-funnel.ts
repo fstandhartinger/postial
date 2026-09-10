@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { conversionRates, FUNNEL_EVENTS, recordFunnelEvent, adminEmails, isAdminEmail } from '@/lib/funnel';
 
 test('allowlist rejects unknown events and write failures are best effort', async () => {
@@ -23,4 +24,15 @@ test('admin configuration fails closed', () => {
   assert.equal(isAdminEmail(null), false);
   assert.equal(isAdminEmail('wrong@example.test'), false);
   assert.equal(isAdminEmail('ADMIN@POSTIAL.CO'), true);
+});
+
+test('product paths keep funnel measurement outside critical transactions', async () => {
+  process.env.DATABASE_URL = '';
+  await assert.doesNotReject(() => recordFunnelEvent('workspace_created'));
+  const oauth = readFileSync('lib/publishers/oauth.ts', 'utf8');
+  const publishing = readFileSync('lib/publishing/index.ts', 'utf8');
+  const postService = readFileSync('lib/api/post-service.ts', 'utf8');
+  assert.doesNotMatch(oauth, /select\(\{ workspaceId: brands\.workspaceId \}/);
+  assert.doesNotMatch(publishing, /tx\.select\(\{ workspaceId: brands\.workspaceId \}/);
+  assert.doesNotMatch(postService, /recordFunnelEvent/);
 });

@@ -14,7 +14,6 @@ import { channelTextLimit, countChannelText, countText, MAX_POST_TEXT_LENGTH, po
 export type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export type PostContext = { db: ReturnType<typeof getDb>; workspace: {id: string}; userId: string; access?: Awaited<ReturnType<typeof workspaceEntitlements>> };
 import { isUuid, str, InputError, check, https } from "./input";
-import { recordFunnelEvent } from '@/lib/funnel';
 export { isUuid, InputError, check, https } from "./input";
 
 export async function savePost(ctx: PostContext, form: FormData, isoDate = false, transaction?: Tx) {
@@ -179,7 +178,6 @@ export async function savePost(ctx: PostContext, form: FormData, isoDate = false
         return post.id;
       };
       const result = transaction ? await save(transaction) : await db.transaction(save);
-      if (status === 'scheduled') await recordFunnelEvent('post_scheduled', { workspaceId: workspace.id });
       return result;
 }
 export async function changeTarget(ctx: PostContext, form: FormData, action: "retry" | "skip", transaction?: Tx) {

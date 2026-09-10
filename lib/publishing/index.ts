@@ -15,7 +15,7 @@ import { decryptCredentials, encryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 import { recordFunnelEvent } from '@/lib/funnel';
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-export async function derivePostStatus(tx: Tx, postId: string) {
+export async function derivePostStatus(tx: Tx, postId: string): Promise<string | undefined> {
   const [previous] = await tx
     .select({ id: posts.id, status: posts.status })
     .from(posts)
@@ -42,10 +42,7 @@ export async function derivePostStatus(tx: Tx, postId: string) {
     .where(eq(posts.id, postId));
   // API outbox shares the status/history transaction; delivery happens in the worker.
   if (previous) await emitPublishing(tx, postId, previous.status, status);
-  if (status === 'published') {
-    const [row] = await tx.select({ workspaceId: brands.workspaceId }).from(posts).innerJoin(brands, eq(brands.id, posts.brandId)).where(eq(posts.id, postId));
-    await recordFunnelEvent('post_published', { workspaceId: row?.workspaceId });
-  }
+  return status;
 }
 export async function tick() {
   const db = getDb();
@@ -204,7 +201,7 @@ export async function tick() {
       }
       clearInterval(heartbeat);
       clearTimeout(deadline);
-      await db.transaction(async (tx) => {
+      const finalStatus = await db.transaction(async (tx) => {
         // Lock the post first to serialize aggregate status updates across its targets.
         await tx
           .select({ id: posts.id })
@@ -284,8 +281,10 @@ export async function tick() {
         // needs_review is per target and may leave the aggregate status unchanged.
         if (error && uncertainProvider(c.provider) && ["NETWORK", "PROVIDER_DOWN", "UNKNOWN"].includes(error.code))
           await emit(tx, p.id, "post.needs_review", {target_id: t.id});
-        await derivePostStatus(tx, p.id);
+        const status = await derivePostStatus(tx, p.id);
+        return status;
       });
+      if (finalStatus === 'published') await recordFunnelEvent('post_published', { workspaceId: brand.workspaceId });
     }),
   );
   await checkChannelHealth().catch(() => console.error("Channel health tick failed"));
