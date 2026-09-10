@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { users, workspaces, workspaceMembers, subscriptions, brands, channels, posts, postTargets, postEvents, approvalDecisions, verificationTokens, networkWaitlist } from '@/db/schema';
 import { billingState } from '@/db/billing-schema';
+import { mediaAssets } from '@/db/media-schema';
 import { ApiError } from '@/lib/api/errors';
 import { stripe } from '@/lib/stripe';
 import { lockWorkspace } from '@/lib/billing';
@@ -32,6 +33,7 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
     const brandIds = bs.map(b=>b.id);
     const ps = brandIds.length ? await tx.select().from(posts).where(inArray(posts.brandId,brandIds)) : [];
     const postIds = ps.map(p=>p.id);
+    const media = await tx.select({id:mediaAssets.id,brandId:mediaAssets.brandId,mime:mediaAssets.mime,bytes:mediaAssets.bytes,width:mediaAssets.width,height:mediaAssets.height,sha256:mediaAssets.sha256,createdAt:mediaAssets.createdAt,data:mediaAssets.data}).from(mediaAssets).where(eq(mediaAssets.workspaceId,workspaceId));
     // Allowlisted channel and membership fields; no credentials, token, secret or internal metadata.
     const cs = brandIds.length ? await tx.select({id:channels.id,brandId:channels.brandId,provider:channels.provider,displayName:channels.displayName,url:channels.url,status:channels.status,createdAt:channels.createdAt}).from(channels).where(inArray(channels.brandId,brandIds)) : [];
     const members = await tx.select({userId:workspaceMembers.userId,role:workspaceMembers.role,joinedAt:workspaceMembers.joinedAt,name:users.name,email:users.email}).from(workspaceMembers).innerJoin(users,eq(users.id,workspaceMembers.userId)).where(eq(workspaceMembers.workspaceId,workspaceId));
@@ -39,7 +41,8 @@ export async function exportWorkspace(workspaceId: string, actor: string) {
       posts:ps.map(p=>{const {approvalToken,...safe}=p; void approvalToken; return safe;}),
       targets:postIds.length?await tx.select().from(postTargets).where(inArray(postTargets.postId,postIds)):[],
       approvals:postIds.length?await tx.select({id:approvalDecisions.id,postId:approvalDecisions.postId,decision:approvalDecisions.decision,reviewerName:approvalDecisions.reviewerName,comment:approvalDecisions.comment,createdAt:approvalDecisions.createdAt}).from(approvalDecisions).where(inArray(approvalDecisions.postId,postIds)):[],
-      events:postIds.length?await tx.select().from(postEvents).where(inArray(postEvents.postId,postIds)):[],members};
+      events:postIds.length?await tx.select().from(postEvents).where(inArray(postEvents.postId,postIds)):[],
+      media:media.map(({data,...asset})=>({...asset,dataBase64:data.toString('base64')})),members};
   });
 }
 /** Cancel without proration/invoicing. Expire open checkouts so deleted workspaces cannot purchase later. */

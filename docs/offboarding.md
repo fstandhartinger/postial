@@ -4,7 +4,7 @@ Removing a member stops session access; workspace API keys and webhook endpoints
 
 ## Workspace export and deletion
 
-Authenticated owners use `/app/settings/workspace` → **Export data**. The JSON download includes brands, credential-free channel metadata, posts, targets, approvals, history and members. It omits channel credentials, API/webhook secrets, Google tokens and approval capabilities. Keep the export private. Media URLs are included; image bytes and external network copies are not bundled.
+Authenticated owners use `/app/settings/workspace` → **Export data**. The JSON download includes brands, credential-free channel metadata, posts, targets, approvals, history, members and uploaded media bytes encoded as base64 with their metadata. It omits channel credentials, API/webhook secrets, Google tokens and approval capabilities. Keep the export private. External network copies are not bundled.
 
 **Delete workspace** requires the exact displayed name. The server rechecks owner membership under the workspace lock, blocks concurrent Checkout provisioning, records deletion-started and persistently disables API/publishing/billing. It expires open Stripe checkouts and cancels subscriptions without proration or immediate invoicing, then deletes workspace-owned brands/channels/posts/targets/approvals/history/media/keys/webhooks/deliveries/invites/members/billing mappings. If Stripe fails, no workspace content is deleted; retry the same operation in settings to complete. Random workspace-ID deletion markers prevent late Stripe events from resurrecting the workspace. Event names and timestamps are retained for 90 days, without email/name. Deletion markers and media tombstones contain only random identifiers and times and remain for revocation.
 
