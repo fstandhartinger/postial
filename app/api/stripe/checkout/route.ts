@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       line_items: [{ price, quantity: 1 }],
       ...checkoutTrial(trial, { ...metadata, plan }),
       metadata: { ...metadata, plan, trial: String(trial) }, allow_promotion_codes: true,
+      custom_text: { submit: { message: 'Postial social publishing subscription.' } },
       client_reference_id: workspace.id,
       success_url: `${appUrl()}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl()}/pricing?checkout=cancelled`,
