@@ -23,6 +23,7 @@ export function approvalDocument(post: PublicApproval | null, options: { error?:
     ${options.error ? `<p id="review-error" class="error" role="alert">${escape(options.error)}</p>` : ""}
     ${post.reviewable ? `<p>You can update your decision until publishing starts.</p>
     <form method="post"${options.error ? ' aria-describedby="review-error"' : ""}>
+      <input type="hidden" name="approvalVersion" value="${escape(post.approvalVersion)}">
       <label for="reviewerName">Name (required)</label><input id="reviewerName" name="reviewerName" required maxlength="80" autocomplete="name" value="${escape(options.name)}">
       <label for="comment">Comment (required when requesting changes)</label><textarea id="comment" name="comment" maxlength="1000">${escape(options.comment)}</textarea>
       <div class="buttons"><button name="decision" value="approved">Approve</button><button name="decision" value="changes_requested">Request changes</button></div>

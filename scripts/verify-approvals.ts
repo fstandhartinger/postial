@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { subscriptions, users, workspaces, workspaceMembers, brands, channels, posts, postTargets, postEvents, approvalDecisions, sessions } from "../db/schema";
-import { newApprovalToken, rotateApprovalLink } from "../lib/approvals";
+import { newApprovalToken, publicApproval, rotateApprovalLink } from "../lib/approvals";
 import { publicImageAddress } from "../app/r/[token]/media";
 
 async function main() {
@@ -36,6 +36,11 @@ async function main() {
     assert.equal((await fetch(`${base}${path}?media=7`)).status, 404);
     await db.update(posts).set({ mediaUrls: post.mediaUrls }).where(eq(posts.id, post.id));
     const get = () => fetch(base + path);
+    let approvalVersion = (await publicApproval(token))!.approvalVersion;
+    const submit = (decision: string, comment = "", currentToken = token, origin = base, version = approvalVersion) => fetch(`${base}/r/${currentToken}`, {
+      method: "POST", headers: { Origin: origin, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ reviewerName: "Anna", decision, comment, approvalVersion: version }),
+    });
     let response = await get();
     assert.equal(response.status, 200);
     assert.match(response.headers.get("x-robots-tag")!, /noindex/);
@@ -45,12 +50,16 @@ async function main() {
     assert(html.includes("Mastodon"));
     assert(html.includes("Europe/Berlin"));
     for (const privateValue of [userId, workspace.id, post.id, brand.id, channel.id, "credentialsEnc", token]) assert(!html.includes(privateValue), "No internal data or token outside path");
+    const staleVersion = approvalVersion;
+    await db.update(posts).set({ body: "Approval test revised after the client opened the page." }).where(eq(posts.id, post.id));
+    response = await submit("approved", "", token, base, staleVersion);
+    assert.equal(response.status, 409);
+    assert((await response.text()).includes("This post was changed while you were reviewing it. Please reload the page and review the new version."));
+    assert.equal((await db.select({ status: posts.status }).from(posts).where(eq(posts.id, post.id)))[0].status, "pending_approval");
+    assert((await (await get()).text()).includes("Approval test revised after the client opened the page."));
+    approvalVersion = (await publicApproval(token))!.approvalVersion;
     assert.equal((await fetch(base + "/r/falsch")).status, 404);
     assert.equal((await fetch(base + "/r/" + newApprovalToken())).status, 404);
-    const submit = (decision: string, comment = "", currentToken = token, origin = base) => fetch(`${base}/r/${currentToken}`, {
-      method: "POST", headers: { Origin: origin, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ reviewerName: "Anna", decision, comment }),
-    });
     assert.equal((await submit("approved", "", token, "https://evil.test")).status, 403);
     response = await submit("changes_requested");
     assert.equal(response.status, 400);

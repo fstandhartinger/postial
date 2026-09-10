@@ -3,6 +3,7 @@ import { and, eq, gt } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { users, workspaces, workspaceMembers, workspaceInvites } from '@/db/schema';
 import { workspaceEntitlements } from '@/lib/entitlements';
+import { normalizeEmail } from '@/lib/auth-email';
 export class TeamError extends Error {}
 export const hashInvite = (token: string) => createHash('sha256').update(token).digest('hex');
 export function inviteProblem(invite: typeof workspaceInvites.$inferSelect | undefined) {
@@ -27,8 +28,8 @@ export async function manageTeam(workspaceId: string, actor: string, action: str
     if (!members.some(m => m.userId === actor && m.role === 'owner')) throw new TeamError('Only owners can manage the team.');
     if (action === 'create') {
       if (role !== 'owner' && role !== 'editor') throw new TeamError('Invalid role.');
-      const email = invitedEmail.trim().toLowerCase();
-      if (!/^\S+@\S+\.\S+$/.test(email)) throw new TeamError('Enter a valid email address.');
+      let email: string;
+      try { email = normalizeEmail(invitedEmail); } catch { throw new TeamError('Enter a valid email address.'); }
       const access = await workspaceEntitlements(workspaceId);
       if (members.length >= access.seats) throw new TeamError('Seat limit reached. Upgrade to Agency to invite more members.');
       const recent = await tx.select({ id: workspaceInvites.id }).from(workspaceInvites).where(and(eq(workspaceInvites.workspaceId, workspaceId), gt(workspaceInvites.createdAt, new Date(Date.now() - 3600000))));
@@ -69,7 +70,9 @@ export async function acceptInvite(token: string, userId: string) {
     const problem = inviteProblem(invite);
     if (problem) throw new TeamError(problem);
     const [user] = await tx.select({ email: users.email }).from(users).where(eq(users.id, userId));
-    if (!user?.email || user.email.trim().toLowerCase() !== invite.invitedEmail.trim().toLowerCase()) throw new TeamError('This invitation was sent to a different email address.');
+    let userEmail: string;
+    try { userEmail = normalizeEmail(user?.email || ''); } catch { throw new TeamError('This invitation was sent to a different email address.'); }
+    if (userEmail !== invite.invitedEmail) throw new TeamError('This invitation was sent to a different email address.');
     const members = await tx.select().from(workspaceMembers).where(eq(workspaceMembers.workspaceId, invite.workspaceId));
     if (members.some(m => m.userId === userId)) throw new TeamError('You are already a member of this workspace.');
     if (members.length >= (await workspaceEntitlements(invite.workspaceId)).seats) throw new TeamError('This workspace has reached its seat limit. Ask an owner to upgrade.');

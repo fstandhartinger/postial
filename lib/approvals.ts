@@ -1,7 +1,7 @@
 import { visibleIdentifier, cleanText } from '@/lib/text-input';
 import { emit } from "@/lib/api/webhooks";
-import { createHmac, randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { approvalDecisions, approvalRateLimits, brands, channels, posts, postEvents, postTargets } from "@/db/schema";
@@ -11,9 +11,28 @@ export const approvalInput = z.object({
   reviewerName: z.string().trim().min(1, "Enter your name.").max(80, "Name must be at most 80 characters."),
   comment: z.string().trim().max(1000, "Comment must be at most 1000 characters."),
   decision: z.enum(["approved", "changes_requested"]),
+  approvalVersion: z.string().regex(/^[a-f0-9]{64}$/, "This post has changed. Please reload the page and review the new version."),
 }).refine((v) => v.decision !== "changes_requested" || v.comment.length > 0, {
   message: "Please describe the changes you need.", path: ["comment"],
 });
+type ApprovalVersionInput = {
+  body: string;
+  mediaUrls: string[];
+  mediaAlt: Record<string, string>;
+  linkUrl: string | null;
+  scheduledAt: Date | null;
+  targets: { provider: string; name: string }[];
+};
+export function approvalVersion(value: ApprovalVersionInput): string {
+  return createHash("sha256").update(JSON.stringify({
+    body: value.body,
+    mediaUrls: value.mediaUrls,
+    mediaAlt: Object.fromEntries(Object.entries(value.mediaAlt).sort(([a], [b]) => a.localeCompare(b))),
+    linkUrl: value.linkUrl,
+    scheduledAt: value.scheduledAt?.toISOString() ?? null,
+    targets: [...value.targets].sort((a, b) => `${a.provider}\0${a.name}`.localeCompare(`${b.provider}\0${b.name}`)),
+  })).digest("hex");
+}
 export function canReview(status: string) {
   return ["pending_approval", "changes_requested", "approved"].includes(status);
 }
@@ -30,14 +49,15 @@ export async function publicApproval(token: string) {
   if (!row) return null;
   const targets = await db.select({ provider: channels.provider, name: channels.displayName, status: postTargets.status, attempts: postTargets.attempts })
     .from(postTargets).innerJoin(channels, eq(channels.id, postTargets.channelId))
-    .where(eq(postTargets.postId, row.postId));
+    .where(eq(postTargets.postId, row.postId)).orderBy(asc(channels.provider), asc(channels.displayName));
   const [lastDecision] = await db.select({ decision: approvalDecisions.decision,
     comment: approvalDecisions.comment, name: approvalDecisions.reviewerName, at: approvalDecisions.createdAt })
     .from(approvalDecisions).where(eq(approvalDecisions.postId, row.postId))
     .orderBy(desc(approvalDecisions.createdAt)).limit(1);
   const { postId: internalId, ...visible } = row;
   void internalId;
-  return { ...visible, targets: targets.map(({ provider, name }) => ({ provider, name })), lastDecision,
+  const publicTargets = targets.map(({ provider, name }) => ({ provider, name }));
+  return { ...visible, approvalVersion: approvalVersion({ ...row, targets: publicTargets }), targets: publicTargets, lastDecision,
     reviewable: canReview(row.status) && targets.every((t) => t.status !== "publishing" && t.status !== "published" && t.attempts === 0) };
 }
 export type PublicApproval = NonNullable<Awaited<ReturnType<typeof publicApproval>>>;
@@ -53,6 +73,9 @@ export async function decideApproval(token: string, input: unknown, ip: string):
     const [post] = await tx.select().from(posts)
       .where(and(eq(posts.approvalToken, token), eq(posts.requiresApproval, true))).for("update");
     if (!post) return { status: 404 };
+    const currentTargets = await tx.select({ provider: channels.provider, name: channels.displayName, status: postTargets.status, attempts: postTargets.attempts })
+      .from(postTargets).innerJoin(channels, eq(channels.id, postTargets.channelId)).where(eq(postTargets.postId, post.id)).orderBy(asc(channels.provider), asc(channels.displayName));
+    const currentVersion = approvalVersion({ ...post, targets: currentTargets.map(({ provider, name }) => ({ provider, name })) });
     const key = digest(`${token}\0${ip}`);
     const [limit] = await tx.insert(approvalRateLimits).values({ key, postId: post.id, expiresAt: new Date(Date.now() + 3600000) })
       .onConflictDoUpdate({ target: approvalRateLimits.key, set: {
@@ -62,6 +85,8 @@ export async function decideApproval(token: string, input: unknown, ip: string):
     if (limit.attempts > 10) return { status: 429, error: "Too many decisions. Please try again in one hour." };
     const parsed = approvalInput.safeParse(input);
     if (!parsed.success) return { status: 400, error: parsed.error.issues[0].message };
+    if (parsed.data.approvalVersion !== currentVersion)
+      return { status: 409, error: "This post was changed while you were reviewing it. Please reload the page and review the new version." };
     // Worker locks targets when claiming. Lock them too before checking whether a
     // claim has begun, so a late review cannot revoke content already in flight.
     const targets = await tx.select().from(postTargets).where(eq(postTargets.postId, post.id)).for("update");

@@ -12,6 +12,6 @@ export async function submitApproval(token: string, form: FormData) {
   const forwarded = process.env.APPROVAL_TRUST_PROXY === "true" ? h.get("x-real-ip") : null;
   const ip = forwarded && isIP(forwarded) ? forwarded : "untrusted-peer";
   return decideApproval(token, {
-    reviewerName: form.get("reviewerName"), comment: form.get("comment"), decision: form.get("decision"),
+    reviewerName: form.get("reviewerName"), comment: form.get("comment"), decision: form.get("decision"), approvalVersion: form.get("approvalVersion"),
   }, ip);
 }

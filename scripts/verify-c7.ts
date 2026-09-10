@@ -15,6 +15,7 @@ import { GET as postGet } from '../app/api/v1/posts/[id]/route';
 import { POST as postCreate } from '../app/api/v1/posts/route';
 import { POST as webhook } from '../app/api/stripe/webhook/route';
 import { GET as approvalGet } from '../app/r/[token]/route';
+import { publicApproval } from '../lib/approvals';
 import { GET as mediaGet } from '../app/m/[id]/route';
 import { GET as health } from '../app/healthz/route';
 import { readBody } from '../lib/http/body';
@@ -63,7 +64,7 @@ async function main() {
       const base=process.env.C7_HTTP_URL, ip='2001:db8:'+randomBytes(2).toString('hex')+':'+randomBytes(2).toString('hex')+'::1';
       const readResponse=await fetch(base+'/api/v1/posts/'+postId,{headers:{authorization:'Bearer '+read.token}});
       assert.equal(readResponse.status,200);const safe=await readResponse.text();assert(!safe.includes(token));assert(!safe.includes('approval_url'));
-      const approved=await fetch(base+'/r/'+token,{method:'POST',headers:{origin:base,'content-type':'application/x-www-form-urlencoded','x-real-ip':ip},body:new URLSearchParams({decision:'approved',reviewerName:'C7 client',comment:''})});
+      const approved=await fetch(base+'/r/'+token,{method:'POST',headers:{origin:base,'content-type':'application/x-www-form-urlencoded','x-real-ip':ip},body:new URLSearchParams({decision:'approved',reviewerName:'C7 client',comment:'',approvalVersion:(await publicApproval(token))!.approvalVersion})});
       assert.equal(approved.status,200);assert.equal((await db.select().from(posts).where(eq(posts.id,postId)))[0].status,'approved');
       for(let i=1;i<=60;i++) {
         const r=await fetch(base+'/r/'+token,{headers:{'x-real-ip':ip}});

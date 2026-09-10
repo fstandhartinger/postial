@@ -9,6 +9,7 @@ import { ensureWorkspace } from '../lib/workspaces';
 import { encryptCredentials } from '../lib/crypto';
 import { tick } from '../lib/publishing';
 import { savePost } from '../lib/api/post-service';
+import { publicApproval } from '../lib/approvals';
 
 const base = process.env.VERIFY_BASE_URL!;
 const evidence = process.env.VERIFY_EVIDENCE_DIR! + '/approval-evidence';
@@ -51,7 +52,8 @@ async function main() {
     const approved = (await db.select().from(posts).where(eq(posts.id,post.id)))[0]; assert.equal(approved.status,'approved'); await ap.reload(); await ap.getByText('Approved').first().waitFor();
     await db.update(posts).set({ scheduledAt: new Date(Date.now()-1000) }).where(eq(posts.id,post.id)); await db.update(postTargets).set({ nextAttemptAt: new Date(Date.now()-1000) }).where(eq(postTargets.postId,post.id)); await tick();
     assert.equal((await db.select().from(posts).where(eq(posts.id,post.id)))[0].status,'published');
-    assert.equal((await (await fetch(fresh)).status),200); assert.equal((await fetch(fresh, {method:'POST',headers:{Origin:base,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({reviewerName:'Double',decision:'approved',comment:''})})).status,409);
+    const publishedApproval = await publicApproval(token); assert(publishedApproval);
+    assert.equal((await (await fetch(fresh)).status),200); assert.equal((await fetch(fresh, {method:'POST',headers:{Origin:base,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({reviewerName:'Double',decision:'approved',comment:'',approvalVersion:publishedApproval.approvalVersion})})).status,409);
     assert.equal((await fetch(`${base}/r/${token}`)).status,200); assert.equal((await fetch(`${base}/r/${token.slice(0,-1)+'x'}`)).status,404);
     const [a,b] = await Promise.all([fetch(fresh), fetch(fresh)]); assert.equal(a.status,200); assert.equal(b.status,200);
     assert.equal((await db.select().from(approvalDecisions).where(eq(approvalDecisions.postId,post.id))).length,2);

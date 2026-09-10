@@ -22,7 +22,9 @@ async function main() {
     await assert.rejects(manageTeam(ws.id, owner, 'role', owner, 'editor'), /one owner/);
     await db.insert(subscriptions).values({ workspaceId: ws.id, plan: 'agency', status: 'active', stripeSubscriptionId: `sub_team_${owner}`, currentPeriodEnd: new Date(Date.now() + 86400000) });
     await db.insert(sessions).values([{ sessionToken: ownerSession, userId: owner, expires: new Date(Date.now() + 3600000) }, { sessionToken: editorSession, userId: editor, expires: new Date(Date.now() + 3600000) }]);
-    const token = (await manageTeam(ws.id, owner, 'create', '', 'editor', `${editor}@example.invalid`))!;
+    const unicodeEditor = String.fromCodePoint(editor.charCodeAt(0) + 0xfee0) + editor.slice(1);
+    const token = (await manageTeam(ws.id, owner, 'create', '', 'editor', `  ${unicodeEditor}@EXAMPLE.INVALID  `))!;
+    assert.equal((await findInvite(token))?.invite.invitedEmail, `${editor}@example.invalid`);
     await assert.rejects(acceptInvite(token, other), /different email/);
     const publicResponse = await fetch(`${base}/join/${token}`); assert.equal(publicResponse.status, 200); assert.match(await publicResponse.text(), /Sign in to join/);
     const mod = process.env.PLAYWRIGHT_MODULE ?? 'playwright';
