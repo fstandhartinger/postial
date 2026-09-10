@@ -68,10 +68,8 @@ async function main() {
       .getByRole("heading", { name: "Overview", exact: true })
       .waitFor();
     assert.equal(await page.locator(".site-header, .site-footer").count(), 0);
-    assert.equal(
-      await page.getByRole("progressbar").getAttribute("aria-valuenow"),
-      "0",
-    );
+    assert.equal(await page.getByRole("list", { name: "Getting started" }).getByRole("listitem").count(), 3);
+    assert.equal(await page.getByText("0 of 3 steps complete", { exact: true }).count(), 1);
     await page.getByRole("link", { name: "Create brand", exact: true }).click();
     await page.getByLabel("Name", { exact: true }).fill("Maple Studio");
     await page
@@ -213,10 +211,7 @@ async function main() {
           name + " overflow",
         );
         if (name === "overview") {
-          assert.equal(
-            await page.getByRole("progressbar").getAttribute("aria-valuenow"),
-            "3",
-          );
+          assert.equal(await page.getByRole("list", { name: "Getting started" }).count(), 0);
           assert(
             await page
               .getByRole("link", { name: post.body, exact: true })
@@ -272,10 +267,7 @@ async function main() {
     await page.getByRole("button", { name: "Schedule", exact: true }).click();
     await page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/);
     await page.goto(base + "/app");
-    assert.equal(
-      await page.getByRole("progressbar").getAttribute("aria-valuenow"),
-      "3",
-    );
+    assert.equal(await page.getByRole("list", { name: "Getting started" }).count(), 0);
     await page.getByRole("button", { name: "Copy link", exact: true }).click();
     await page
       .getByRole("status")
@@ -302,7 +294,7 @@ async function main() {
       evidence + "/results.json",
       JSON.stringify(
         {
-          onboarding: "0/4 → 3/4 → hidden after copying approval link",
+          onboarding: "0/3 → hidden after brand, channel and post exist",
           invalidCredentialsPreserved: true,
           realProviderLogin: false,
           activeChannel: "synthetic DB fixture; no real publishing",
