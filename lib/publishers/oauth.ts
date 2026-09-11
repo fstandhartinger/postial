@@ -11,6 +11,7 @@ import { failure } from './http';
 import { callbackUrl, oauthConfig, type OAuthProvider } from './oauth-config';
 import { oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
 import { recordFunnelEvent } from '@/lib/funnel';
+import { clearChannelAlertLocks } from '@/lib/alert-mail';
 
 async function authorizeBrand(brandId: string, userId: string) {
   if (!isUuid(brandId)) throw failure('AUTH_EXPIRED', 'Brand not found.');
@@ -74,6 +75,8 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     const values = { brandId: saved.brandId, provider, credentialsEnc: encryptCredentials(credentials), externalId: account.externalId, displayName: visibleIdentifier(account.displayName,"Channel name"), url: account.url ? linkInput(account.url) : null, meta: account.meta ?? {}, status: 'active' as const, lastCheckedAt: new Date(), lastHealthError: null };
     if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
     else await tx.insert(channels).values(values);
+    // A reconnected channel is active again: its mail locks reset so future incidents mail.
+    if (existing) await clearChannelAlertLocks(tx, existing.id);
   });
   await recordFunnelEvent('channel_connected', { workspaceId });
   return saved.brandId;
