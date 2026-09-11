@@ -34,7 +34,8 @@ function lastLine(output) {
 function runStep(step) {
   return new Promise(resolveStep => {
     const started = performance.now();
-    const child = spawn(step.command, step.args, { cwd: root, env: process.env, shell: false });
+    // Name the tree explicitly: the supervisor must verify THIS directory, never a fixed one.
+    const child = spawn(step.command, step.args, { cwd: root, env: { ...process.env, VERIFY_TARGET_DIR: root }, shell: false });
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
@@ -52,7 +53,7 @@ async function git(args) {
   return stdout.trim();
 }
 
-const result = { timestamp: new Date().toISOString(), commit: '', clean: false, steps: {}, ok: false };
+const result = { timestamp: new Date().toISOString(), directory: root, commit: '', clean: false, steps: {}, ok: false };
 let ok = true;
 for (const step of steps) {
   if (!ok) {
