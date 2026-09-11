@@ -273,3 +273,13 @@ async function main() {
 }
 
 main().catch(error => { console.error('Alert mail verification failed:', error instanceof Error ? error.message : 'unknown'); process.exitCode = 1; });
+
+// The expiry mail must not imply that paused posts resume by themselves: a reconnect does
+// not requeue them, the person has to retry each one.
+{
+  const expiredCopy = alertMailContent('token_expired', 'Acme', 'mastodon', ['p1', 'p2']);
+  assert.match(expiredCopy.text, /need to be retried/);
+  assert.match(expiredCopy.text, /do not resume on their own/);
+  assert.doesNotMatch(expiredCopy.text, /will pause until/);
+  console.log('PASS alert mail: expiry notice does not promise an automatic resume');
+}

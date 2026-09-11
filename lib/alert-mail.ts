@@ -60,7 +60,7 @@ export function alertMailContent(kind: AlertMailKind, channelName: string, provi
     ? `Channel access expired: ${channelName}`
     : `Publishing failed on ${channelName}`;
   const paragraph = kind === 'token_expired'
-    ? `The connection between Postial and your ${name} channel "${channelName}" has expired.${count ? ` ${posts} could not be published because of this.` : ''} Posts for this channel will pause until the channel is reconnected; drafts and history remain available.`
+    ? `The connection between Postial and your ${name} channel "${channelName}" has expired.${count ? ` ${posts} could not be published because of this.` : ''} Nothing will be published to this channel until it is reconnected. Affected posts stay in your history and need to be retried once the channel works again; they do not resume on their own.`
     : `${posts} to your ${name} channel "${channelName}" could not be published and ${count === 1 ? 'has' : 'have'} stopped retrying. The affected ${count === 1 ? 'post remains' : 'posts remain'} in your history and can be retried manually after the cause is resolved.`;
   const text = `Hello,\n\n${paragraph}\n\n${label}:\n${url}\n\nPostial`;
   const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
