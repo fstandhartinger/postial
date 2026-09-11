@@ -27,14 +27,18 @@ function publicViewCap() {
 
 export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?: string; props?: Record<string, unknown> };
 
-export type SignInMethod = 'google' | 'email';
+export type SignInMethod = 'google' | 'email' | 'unknown';
 export type SignInFailureReason = 'verification' | 'oauth' | 'other';
 
+// Attribute a method only when the error names one. A failure we cannot place stays
+// 'unknown': guessing 'email' here would quietly bias every later comparison between
+// the two sign-in paths, which is the opposite of what this measurement exists for.
 export function signInFailureDetails(error: string | undefined): { method: SignInMethod; reason: SignInFailureReason } {
   const value = (error ?? '').toLowerCase();
   if (value.includes('verification')) return { method: 'email', reason: 'verification' };
+  if (value.includes('emailsignin')) return { method: 'email', reason: 'other' };
   if (value.includes('oauth') || value.includes('google')) return { method: 'google', reason: 'oauth' };
-  return { method: 'email', reason: 'other' };
+  return { method: 'unknown', reason: 'other' };
 }
 
 export async function recordFunnelEvent(event: string, options: FunnelOptions = {}): Promise<void> {

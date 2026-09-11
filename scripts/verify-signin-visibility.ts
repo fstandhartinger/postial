@@ -29,3 +29,11 @@ test('sign-in visibility records methods and coarse failure reasons without iden
   await getDb().delete(funnelEvents).where(and(eq(funnelEvents.path, marker), eq(funnelEvents.event, 'signin_failed')));
   console.log('PASS signin visibility: methods, coarse failure reason, no identity props');
 });
+
+// A failure whose cause we cannot place must not be attributed to a method:
+// guessing would bias every later comparison between the two sign-in paths.
+assert.deepEqual(signInFailureDetails('AccessDenied'), { method: 'unknown', reason: 'other' });
+assert.deepEqual(signInFailureDetails('EmailSignin'), { method: 'email', reason: 'other' });
+assert.deepEqual(signInFailureDetails(undefined), { method: 'unknown', reason: 'other' });
+assert.deepEqual(signInFailureDetails('OAuthCallback'), { method: 'google', reason: 'oauth' });
+console.log('PASS signin visibility: unattributable failures stay unknown');
