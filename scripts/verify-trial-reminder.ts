@@ -126,7 +126,11 @@ async function main() {
     await expectOk('payment replay', failedEvent);
     assert.equal(messages.length, 2);
     assert.match(messages[0]!, /trial ends on/);
-    assert.match(messages[0]!, /https:\/\/postial\.co\/app\/billing/);
+    // Decode quoted-printable before asserting: the transfer encoding inserts soft line
+    // breaks, so a longer subject can split the URL mid-string even though every mail client
+    // reassembles it. Assert what the recipient sees, not how it happened to be encoded.
+    const decoded = messages[0]!.replaceAll('=\r\n', '').replaceAll('=\n', '');
+    assert.match(decoded, /https:\/\/postial\.co\/app\/billing/);
     assert.match(messages[1]!, /could not process the payment/);
     assert.equal((await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, subscriptionId))).length, 1);
     assert.equal((await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, failedSubscriptionId))).length, 1);
@@ -225,4 +229,21 @@ main().catch(error => { console.error('Trial reminder verification failed:', err
     assert.match(copy.html, /If the button does not work/, `${kind} says why the plain link is there`);
   }
   console.log('PASS trial reminder: every notice survives a client that drops the button');
+}
+
+// Name the workspace. A person can own several, and "your trial has ended" alone does not
+// say which one stopped publishing. The name comes from the customer, so it must never
+// reach the HTML unescaped, and an absent name must not leave a dangling preposition.
+{
+  const hostile = 'Acme <script>alert(1)</script> & Co';
+  for (const kind of ['trial_started', 'trial_ended', 'trial_will_end', 'payment_failed'] as const) {
+    const named = subscriptionReminderContent(kind, new Date('2026-09-23T12:09:00Z'), hostile);
+    assert.match(named.subject, /Acme/, `${kind} names the workspace`);
+    assert.ok(!named.html.includes('<script>'), `${kind} escapes the name in the HTML`);
+    const plain = subscriptionReminderContent(kind, new Date('2026-09-23T12:09:00Z'));
+    assert.ok(!/ for\s*$/.test(plain.subject) && !plain.subject.includes(' for  '), `${kind} reads correctly without a name`);
+  }
+  const long = subscriptionReminderContent('trial_ended', null, 'x'.repeat(200));
+  assert.ok(long.subject.length < 120, 'a very long workspace name cannot bloat the subject');
+  console.log('PASS trial reminder: each notice names its workspace, escaped and bounded');
 }
