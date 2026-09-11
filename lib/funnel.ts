@@ -1,16 +1,22 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, gte, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { funnelEvents } from '@/db/schema';
 import { headers } from 'next/headers';
 
 export const FUNNEL_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
-  'signup_completed', 'workspace_created', 'channel_connected', 'post_scheduled',
+  'signup_completed', 'signin_failed', 'workspace_created', 'channel_connected', 'post_scheduled',
   'post_published', 'checkout_started', 'subscription_active',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
 export const CLIENT_CLASSES = ['browser', 'automated', 'unknown'] as const;
 export type ClientClass = typeof CLIENT_CLASSES[number];
+export const FUNNEL_SUCCESS_EVENTS = [
+  'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
+  'signup_completed', 'workspace_created', 'channel_connected', 'post_scheduled',
+  'post_published', 'checkout_started', 'subscription_active',
+] as const;
+export const FUNNEL_FAILURE_EVENTS = ['signin_failed'] as const;
 const allowed = new Set<string>(FUNNEL_EVENTS);
 const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view']);
 const automatedUserAgent = /bot|crawler|spider|slurp|headless|preview|curl|wget|python-requests|http-client|monitor|uptime|lighthouse|scanner/i;
@@ -27,6 +33,20 @@ export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?
 export function classifyUserAgent(userAgent: string | null | undefined): ClientClass {
   if (!userAgent) return 'automated';
   return automatedUserAgent.test(userAgent) ? 'automated' : 'browser';
+}
+
+export type SignInMethod = 'google' | 'email' | 'unknown';
+export type SignInFailureReason = 'verification' | 'oauth' | 'other';
+
+// Attribute a method only when the error names one. A failure we cannot place stays
+// 'unknown': guessing 'email' here would quietly bias every later comparison between
+// the two sign-in paths, which is the opposite of what this measurement exists for.
+export function signInFailureDetails(error: string | undefined): { method: SignInMethod; reason: SignInFailureReason } {
+  const value = (error ?? '').toLowerCase();
+  if (value.includes('verification')) return { method: 'email', reason: 'verification' };
+  if (value.includes('emailsignin')) return { method: 'email', reason: 'other' };
+  if (value.includes('oauth') || value.includes('google')) return { method: 'google', reason: 'oauth' };
+  return { method: 'unknown', reason: 'other' };
 }
 
 export async function recordFunnelEvent(event: string, options: FunnelOptions = {}): Promise<void> {

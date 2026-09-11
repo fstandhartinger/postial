@@ -25,8 +25,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return seoMetadata({ title: `${page.vendor} alternative for agency publishing · Postial`, description: `Compare Postial and ${page.vendor} for agency work across supported networks, approvals, pricing, and publishing status for client teams.`, path: `/compare/${page.slug}` });
 }
 export default async function ComparePage({ params }: Props) {
-  await recordPublicView('compare_view', '/compare');
-  const page = comparison((await params).slug);
+  const { slug } = await params;
+  // Record which comparison was read, not a fixed '/compare' for all of them.
+  await recordPublicView('compare_view', `/compare/${slug}`);
+  const page = comparison(slug);
   const networkText=networkSummary;
   const featureText=`Available today: ${availability.available.join('; ')}. ${availability.pending}. ${networkText}`;
   const faq=page.faq.map(f=>({...f,answer:/September.*rollout|rolling out|verify readiness/i.test(f.answer)?featureText:f.answer}));

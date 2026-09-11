@@ -13,8 +13,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return seoMetadata({ title: `${article.title} · Postial`, description: `${article.summary} Read the Postial help guide for practical workspace steps.`, path: `/docs/${slug}` });
 }
 export default async function HelpArticle({ params }: { params: Promise<{ slug: string }> }) {
-  await recordPublicView('docs_view', '/docs');
   const { slug } = await params;
+  // Record the article actually read. This used to report a fixed '/docs' for every
+  // sub-page, which made 93 views look like one page and hid what people come for.
+  await recordPublicView('docs_view', `/docs/${slug}`);
   const source = helpSource(slug);
   if (!source) notFound();
   return <article className="help-article"><HelpMarkdown source={source} /></article>;
