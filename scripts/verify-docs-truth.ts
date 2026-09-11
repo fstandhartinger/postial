@@ -133,3 +133,23 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   // that the request actually leaves the browser, and that pages without a beacon send none.
   console.log('PASS docs truth: the landing page measures whether a browser engine ran');
 }
+
+// The published n8n trigger (0.1.3) subscribes to exactly these event names and accepts one
+// of two signature headers. It runs in other people's installations and we cannot update it,
+// so renaming an event would silence their workflows without any error anywhere. Verified
+// against the published tarball on 2026-09-11. Adding new events is fine; losing one is not.
+{
+  const spec = readFileSync('public/openapi.json', 'utf8');
+  for (const event of ['post.published', 'post.failed', 'post.needs_review', 'approval.decided']) {
+    assert.ok(spec.includes(`"${event}"`), `the published n8n trigger subscribes to ${event}; the API must keep declaring it`);
+  }
+  // The delivery code sends both names during the rename, in mixed case. At least one of
+  // them must stay, or the published trigger rejects every delivery as unsigned.
+  const accepted = ['x-socialmint-signature', 'x-postial-signature'];
+  const sent = [...readFileSync('lib/api/webhooks.ts', 'utf8').matchAll(/['"]?(X-[A-Za-z]+-Signature)['"]?\s*:/g)]
+    .map(match => match[1].toLowerCase());
+  assert.ok(sent.length > 0, 'the delivery code names a signature header');
+  assert.ok(sent.some(header => accepted.includes(header)),
+    `the published trigger accepts ${accepted.join(' or ')}, the code sends ${sent.join(', ') || 'nothing'}`);
+  console.log('PASS docs truth: the published n8n trigger still matches our events and signature header');
+}
