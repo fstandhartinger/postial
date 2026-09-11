@@ -390,6 +390,7 @@ export const mediaTombstones = pgTable('media_tombstones', {
 export const funnelEvents = pgTable('funnel_events', {
   id: uuid('id').defaultRandom().primaryKey(),
   event: text('event').notNull(),
+  clientClass: text('client_class').notNull().default('unknown'),
   day: date('day', { mode: 'string' }).notNull(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
   workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),

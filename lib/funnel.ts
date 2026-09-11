@@ -9,8 +9,11 @@ export const FUNNEL_EVENTS = [
   'post_published', 'checkout_started', 'subscription_active',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
+export const CLIENT_CLASSES = ['browser', 'automated', 'unknown'] as const;
+export type ClientClass = typeof CLIENT_CLASSES[number];
 const allowed = new Set<string>(FUNNEL_EVENTS);
 const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view']);
+const automatedUserAgent = /bot|crawler|spider|slurp|headless|preview|curl|wget|python-requests|http-client|monitor|uptime|lighthouse|scanner/i;
 let publicViewDay = '';
 const publicViewCounts = new Map<string, number>();
 
@@ -19,7 +22,12 @@ function publicViewCap() {
   return Number.isFinite(configured) && configured >= 0 ? configured : 50000;
 }
 
-export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?: string; props?: Record<string, unknown> };
+export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?: string; props?: Record<string, unknown>; clientClass?: ClientClass };
+
+export function classifyUserAgent(userAgent: string | null | undefined): ClientClass {
+  if (!userAgent) return 'automated';
+  return automatedUserAgent.test(userAgent) ? 'automated' : 'browser';
+}
 
 export async function recordFunnelEvent(event: string, options: FunnelOptions = {}): Promise<void> {
   if (!allowed.has(event)) return;
@@ -34,7 +42,7 @@ export async function recordFunnelEvent(event: string, options: FunnelOptions = 
     }
     await getDb().insert(funnelEvents).values({
       event, day: now.toISOString().slice(0, 10), workspaceId: options.workspaceId,
-      path: options.path?.slice(0, 512), referrerHost: options.referrerHost?.slice(0, 255), props: options.props ?? {},
+      clientClass: options.clientClass ?? 'unknown', path: options.path?.slice(0, 512), referrerHost: options.referrerHost?.slice(0, 255), props: options.props ?? {},
     });
   } catch { /* Funnel measurement is strictly best effort. */ }
 }
@@ -47,7 +55,7 @@ export function recordPublicView(event: FunnelEvent, path: string): void {
   void (async () => {
     try {
       const h = await headers();
-      await recordFunnelEvent(event, { path, referrerHost: referrerHost(h.get('referer')) });
+      await recordFunnelEvent(event, { path, referrerHost: referrerHost(h.get('referer')), clientClass: classifyUserAgent(h.get('user-agent')) });
     } catch { /* Public rendering must never depend on measurement. */ }
   })();
 }
@@ -62,13 +70,20 @@ export function conversionRates(counts: Record<string, number>) {
 
 export async function funnelReport(days: number) {
   const since = new Date(Date.now() - Math.max(1, days) * 86400000).toISOString().slice(0, 10);
-  const rows = await getDb().select({ event: funnelEvents.event, day: funnelEvents.day, count: sql<number>`count(*)::int` })
-    .from(funnelEvents).where(gte(funnelEvents.day, since)).groupBy(funnelEvents.event, funnelEvents.day);
+  const rows = await getDb().select({ event: funnelEvents.event, day: funnelEvents.day, clientClass: funnelEvents.clientClass, count: sql<number>`count(*)::int` })
+    .from(funnelEvents).where(gte(funnelEvents.day, since)).groupBy(funnelEvents.event, funnelEvents.day, funnelEvents.clientClass);
   const refs = await getDb().select({ host: funnelEvents.referrerHost, count: sql<number>`count(*)::int` }).from(funnelEvents)
     .where(and(gte(funnelEvents.day, since), sql`${funnelEvents.referrerHost} is not null`)).groupBy(funnelEvents.referrerHost)
     .orderBy(sql`count(*) desc`).limit(10);
-  const totals: Record<string, number> = {}, byDay: Record<string, Record<string, number>> = {};
-  for (const row of rows) { totals[row.event] = (totals[row.event] ?? 0) + row.count; (byDay[row.day] ??= {})[row.event] = row.count; }
+  const clientClassTotals: Record<ClientClass, Record<string, number>> = { browser: {}, automated: {}, unknown: {} };
+  const clientClassByDay: Record<ClientClass, Record<string, Record<string, number>>> = { browser: {}, automated: {}, unknown: {} };
+  for (const row of rows) {
+    const clientClass = CLIENT_CLASSES.includes(row.clientClass as ClientClass) ? row.clientClass as ClientClass : 'unknown';
+    clientClassTotals[clientClass][row.event] = (clientClassTotals[clientClass][row.event] ?? 0) + row.count;
+    (clientClassByDay[clientClass][row.day] ??= {})[row.event] = row.count;
+  }
+  const totals = clientClassTotals.browser;
+  const byDay = clientClassByDay.browser;
   const workspaceRows = await getDb().select({ event: funnelEvents.event, count: sql<number>`count(distinct ${funnelEvents.workspaceId})::int` })
     .from(funnelEvents).where(and(gte(funnelEvents.day, since), sql`${funnelEvents.workspaceId} is not null`)).groupBy(funnelEvents.event);
   const workspaceTotals: Record<string, number> = {};
@@ -78,7 +93,7 @@ export async function funnelReport(days: number) {
     const previous = workspaceTotals[workspaceStages[i]] ?? 0, current = workspaceTotals[event] ?? 0;
     return [event, previous ? current / previous : null];
   }));
-  return { days, since, totals, byDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
+  return { days, since, totals, byDay, clientClassTotals, clientClassByDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
 }
 
 export function adminEmails(): string[] { return (process.env.ADMIN_EMAILS ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean); }
