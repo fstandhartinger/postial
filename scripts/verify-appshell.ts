@@ -124,7 +124,9 @@ async function main() {
         "A fresh look for your next chapter. Our new studio portfolio is coming soon.",
       );
     await page.getByLabel("Maple community", { exact: true }).check();
-    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Save draft", exact: true }).click()]);
+    // The anchored URL is the condition; networkidle used to be added here and only
+    // waits for half a second of quiet, so one late request held it to the timeout.
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/), page.getByRole("button", { name: "Save draft", exact: true }).click()]);
     await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+\/edit$/), page.getByRole("link", { name: "Edit post", exact: true }).click()]);
     const when = new Date(Date.now() + 86400000 * 2);
     await page
@@ -163,7 +165,7 @@ async function main() {
       });
     }
     await page.getByRole("button",{name:"Remove image 1",exact:true}).click();
-    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
     await page
       .getByRole("status")
       .filter({ hasText: "Post scheduled for" })
@@ -257,7 +259,7 @@ async function main() {
       .getByLabel("Date and time", { exact: false })
       .fill(inZone(when, brand.timezone));
     await page.getByLabel("Requires client approval", { exact: true }).check();
-    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
+    await Promise.all([page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/), page.getByRole("button", { name: "Schedule", exact: true }).click()]);
     await page.goto(base + "/app");
     assert.equal(await page.getByRole("list", { name: "Getting started" }).count(), 0);
     await page.getByRole("button", { name: "Copy link", exact: true }).click();

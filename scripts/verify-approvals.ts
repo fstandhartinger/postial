@@ -143,7 +143,7 @@ async function main() {
       await page.getByLabel("Date and time").fill("2030-01-15T12:00");
       await page.getByLabel("Requires client approval").check();
       await Promise.all([
-        page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/, { waitUntil: "networkidle" }),
+        page.waitForURL(/\/app\/posts\/[a-f0-9-]+$/),
         page.getByRole("button", { name: "Schedule", exact: true }).click(),
       ]);
       await page.getByLabel("Client approval link").waitFor();
