@@ -49,7 +49,10 @@ async function main() {
       // /\/app\/posts\// already matched that URL, so this wait resolved immediately and the
       // status assertion below raced a page that was still navigating. That is the timeout
       // seen in cycles 70 and 75.
-      ap.waitForURL(/\/app\/posts\/[^/]+$/, { waitUntil: 'networkidle' }),
+      // No networkidle: it is satisfied only when the network stays quiet for half a second,
+      // so any late request keeps it waiting until the timeout. The anchored URL is the real
+      // condition, and the status assertion below waits for the content on its own.
+      ap.waitForURL(/\/app\/posts\/[^/]+$/),
       ap.getByRole('button', {name:'Schedule'}).click(),
     ]);
     await ap.getByRole('status').filter({hasText:'Post saved for client approval'}).waitFor();
