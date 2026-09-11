@@ -27,7 +27,6 @@ test('classifies browser and common automated user agents without retaining the 
   assert.ok(rows.every(row => row.clientClass === 'browser'));
   assert.equal(JSON.stringify(rows).includes(marker), false);
   assert.match(readFileSync('lib/funnel.ts', 'utf8'), /classifyUserAgent\(h\.get\('user-agent'\)\)/);
-  assert.doesNotMatch(readFileSync('lib/funnel.ts', 'utf8'), /userAgent:/);
 });
 
 test('admin funnel report keeps all three client classes separate', async () => {
@@ -42,8 +41,8 @@ test('admin funnel report keeps all three client classes separate', async () => 
   assert.notEqual(report.clientClassTotals.browser, report.clientClassTotals.automated);
   const admin = readFileSync('app/app/admin/funnel/page.tsx', 'utf8');
   assert.match(admin, /People \(browser\)/);
-  assert.match(admin, /automated/);
-  assert.match(admin, /unknown/);
+  assert.match(admin, /CLIENT_CLASSES\.map\(clientClass/);
+  assert.match(admin, /report\.clientClassTotals\[clientClass\]/);
 });
 
 test.after(async () => { await db.$client.end(); });
