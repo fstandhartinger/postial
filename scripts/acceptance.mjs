@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import { spawn, execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve } from 'node:path';
@@ -18,7 +19,7 @@ function redact(value) {
   return String(value)
     .replace(/\b(?:postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?):\/\/[^\s]+/gi, '[REDACTED_CONNECTION]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi, 'Bearer [REDACTED]')
-    .replace(/\b(?:sk|pk|sm_live_|whsec_|gh[pousr]_)[A-Za-z0-9._-]+\b/gi, '[REDACTED_KEY]')
+    .replace(/\b(?:sk_|pk_|rk_|sm_live_|whsec_|gh[pousr]_)[A-Za-z0-9._-]+\b/gi, '[REDACTED_KEY]')
     .replace(/(["']?(?:authorization|cookie|token|secret|password|credential|signature|api[-_]?key|access[-_]?token|refresh[-_]?token)["']?\s*[:=]\s*["']?)[^,"'}\s]+/gi, '$1[REDACTED]')
     .replace(/\b(?:private\s+)?payload\b[^,}]*/gi, '[REDACTED_PAYLOAD]')
     .replace(/\b(?:body|content|text|message|caption|media|bytes|rawBody|requestBody)\b\s*[:=]\s*[^,}]+/gi, '$1=[REDACTED]')
@@ -40,11 +41,23 @@ function runStep(step) {
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
     child.on('error', error => resolveStep({ returnCode: 1, durationMs: Math.round(performance.now() - started), lastOutputLine: redact(error.message) }));
-    child.on('close', (code, signal) => resolveStep({
-      returnCode: code ?? 1,
-      durationMs: Math.round(performance.now() - started),
-      lastOutputLine: lastLine(output) || (signal ? `terminated by ${signal}` : ''),
-    }));
+    child.on('close', (code, signal) => {
+      const result = {
+        returnCode: code ?? 1,
+        durationMs: Math.round(performance.now() - started),
+        lastOutputLine: lastLine(output) || (signal ? `terminated by ${signal}` : ''),
+      };
+      // Keep the tail of a failing step. Only the last line survives in the summary, and on
+      // 2026-09-11 a browser verifier failed once, passed on the rerun, and left nothing to
+      // diagnose. A flaky red teaches people to rerun until green, which costs the gate its
+      // authority just as surely as a false green does.
+      if (result.returnCode !== 0) {
+        const tail = String(output).split(/\r?\n/).slice(-200).map(line => redact(line)).join('\n');
+        const file = resolve(root, `work/acceptance-${step.name.replace(/[^a-z0-9]+/gi, '-')}.log`);
+        try { writeFileSync(file, `${tail}\n`, { mode: 0o600 }); result.failureLog = file; } catch { /* diagnostics must never break the gate */ }
+      }
+      resolveStep(result);
+    });
   });
 }
 

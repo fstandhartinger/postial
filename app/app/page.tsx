@@ -55,18 +55,23 @@ export default async function Overview({
       action: "Create brand",
     },
     {
-      title: "Connect a channel",
-      benefit: "A connected channel is where a brand’s posts can be published.",
-      done: cs.length > 0,
-      href: brandUrl,
-      action: "Connect channel",
-    },
-    {
       title: "Plan your first post",
       benefit: "Create a post and choose when it should go out.",
       done: workspacePosts.length > 0,
       href: "/app/posts/new",
       action: "Plan post",
+    },
+    {
+      // Deliberately last: connecting means leaving Postial to create credentials on the
+      // network's own site, which is the hardest step and the one that can fail for reasons
+      // outside our product. Drafting and client approval work without it, so a new user
+      // reaches what makes us different before meeting that hurdle.
+      title: "Connect a channel",
+      benefit:
+        "Publishing needs a channel. You set this up on the network's own site, so allow a few minutes.",
+      done: cs.length > 0,
+      href: brandUrl,
+      action: "Connect channel",
     },
   ];
   const completed = steps.filter((s) => s.done).length;
