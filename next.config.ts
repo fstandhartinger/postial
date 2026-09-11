@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Frame-Options', value: 'DENY' },
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
-      { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.stripe.com; form-action 'self' https://accounts.google.com https://checkout.stripe.com https://billing.stripe.com https://x.com https://twitter.com https://api.twitter.com https://threads.net https://www.threads.net https://threads.com https://www.threads.com https://www.instagram.com https://www.facebook.com https://www.linkedin.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests" },
+      { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.stripe.com; form-action 'self' https://accounts.google.com https://checkout.stripe.com https://billing.stripe.com https://x.com https://twitter.com https://api.twitter.com https://threads.net https://www.threads.net https://threads.com https://www.threads.com https://www.instagram.com https://www.facebook.com https://www.linkedin.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
     ] }];
   },
 };

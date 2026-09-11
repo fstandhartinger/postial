@@ -31,8 +31,11 @@ try {
       assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
       // Only frame-ancestors was pinned, so the rest of the policy could be weakened without
       // anything noticing. These are the directives that carry the protection.
+      // upgrade-insecure-requests was tried and withdrawn: it buys almost nothing on an
+      // HTTPS-only site with HSTS, and it plausibly interferes with verification over
+      // http://localhost. Not worth the risk for the benefit.
       const csp = headers['content-security-policy'];
-      for (const directive of ["default-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "connect-src 'self' https://api.stripe.com", 'upgrade-insecure-requests']) {
+      for (const directive of ["default-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "connect-src 'self' https://api.stripe.com"]) {
         assert.ok(csp.includes(directive), `CSP must keep ${directive}`);
       }
       // script-src still carries 'unsafe-inline' because Next inlines its own hydration
