@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { helpIndex, helpSource } from '../../content';
 import { HelpMarkdown } from '../../_components/markdown';
 import { recordPublicView } from '@/lib/funnel';
+import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 import { seoMetadata } from '@/lib/seo';
 export const dynamicParams = false;
 export function generateStaticParams() { return helpIndex.map(({ slug }) => ({ slug })); }
@@ -20,5 +21,5 @@ export default async function HelpArticle({ params }: { params: Promise<{ slug: 
   // sub-page, which made 93 views look like one page and hid what people come for.
   // Recorded only after the article is known to exist, so probed URLs do not count.
   await recordPublicView('docs_view', `/docs/${slug}`);
-  return <article className="help-article"><HelpMarkdown source={source} /></article>;
+  return <><ClientBeacon path={`/docs/${slug}`} /><article className="help-article"><HelpMarkdown source={source} /></article></>;
 }

@@ -8,6 +8,7 @@ import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
 import styles from '../compare.module.css';
 import { recordPublicView } from '@/lib/funnel';
+import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 import { jsonLd, seoMetadata } from '@/lib/seo';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -45,6 +46,7 @@ export default async function ComparePage({ params }: Props) {
     })}</span>;
   }
   return <div className={styles.page}>
+    <ClientBeacon path={`/compare/${slug}`} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(schema) }} />
     <section className="hero">
       <p className="eyebrow">Postial comparisons · September 2026</p>

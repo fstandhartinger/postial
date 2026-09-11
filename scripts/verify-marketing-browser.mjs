@@ -38,11 +38,21 @@ import assert from 'node:assert/strict';
  assert.equal(requests.length,0,JSON.stringify(requests));
  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);assert.equal((await page.context().cookies()).length,0);
  console.log('PASS demo: direct + revision, keyboard, focus, validation, escaped feedback, cancel, repeat changes, retained failures, replay/reset; zero interaction requests/storage/cookies after lazy-load (browser favicon excluded)');
+ // A source-level check cannot tell whether the beacon is rendered: on 2026-09-11 two
+ // insertions landed as dead code after the return and as a bare top-level expression,
+ // and the typecheck accepted both. Assert that it actually fires, and only where meant.
+ const beaconHits=[];
+ page.on('request',request=>{ if(request.url().includes('/api/internal/client-ready')) beaconHits.push(new URL(request.url()).pathname); });
  for (const width of [320,1440]) {
   await page.setViewportSize({width,height:1000});
   for(const route of ['/','/pricing','/impressum','/privacy','/terms']){
+   const before=beaconHits.length;
    await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991')+route);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${route} overflow at ${width}`);
+   await page.waitForTimeout(300);
+   const fired=beaconHits.length-before;
+   if(route==='/'||route==='/pricing') assert.equal(fired,1,`${route} must report that a browser engine ran`);
+   else assert.equal(fired,0,`${route} must not report a client beacon`);
   }
  }
  await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991'));await page.setViewportSize({width:320,height:800});

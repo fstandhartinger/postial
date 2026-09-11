@@ -2,6 +2,7 @@ import Link from 'next/link';
 import spec from '@/public/openapi.json';
 import { seoMetadata } from '@/lib/seo';
 import { recordPublicView } from '@/lib/funnel';
+import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 export const metadata = seoMetadata({ title: 'Postial REST API v1 documentation', description: 'Connect Postial to n8n and other tools with API keys, signed webhooks, bulk posting, retries, approvals, and documented REST endpoints.', path: '/docs/api' });
 const example = {brand_id: '11111111-1111-4111-8111-111111111111', body: 'Hello from Postial', media_urls: [], channel_ids: ['22222222-2222-4222-8222-222222222222'], scheduled_at: 'now', requires_approval: true};
 const signatureExample = `import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -21,6 +22,7 @@ export default async function ApiDocs() {
   // This page recorded nothing at all before, so API interest was invisible.
   await recordPublicView('docs_view', '/docs/api');
   return <article className="legal"><h1>Postial REST API v1</h1><p><Link href="/docs">Help center</Link> · <Link href="/docs/n8n-postial">n8n workflow guide</Link> · <Link href="/docs/n8n">n8n overview</Link></p><p>Native n8n node (Agency): published on npm as n8n-nodes-socialmint 0.1.2 and shown as Postial in n8n. Use n8n HTTP Request and Webhook nodes when you prefer not to install the package.</p><p>Automate brand publishing with the Agency plan, including Agency trials. <Link href="/app/settings/api">Manage keys and webhooks</Link> · <a href="/openapi.json">Download OpenAPI 3.1</a></p>
+    <ClientBeacon path={'/docs/api'} />
     <h2>Authentication and scopes</h2><p>Create a named API key and copy it immediately. The key is shown once and stored as a SHA-256 hash. Send it over HTTPS in the Authorization header. Revocation is immediate. API access returns 403 if Agency access ends.</p>
     <pre className="overflow-x-auto">{'curl https://postial.co/api/v1/me \\\n  -H "Authorization: Bearer $POSTIAL_API_KEY"'}</pre>
     <p>Scopes: posts:read for lists and details, posts:write for creation, retry and deletion, brands:read for brands and channels, webhooks:manage for endpoint registration, listing, deletion, tests and delivery logs. Existing keys retain their scopes; create a new key with webhooks:manage when needed. A posts:read-only key never receives an approval URL. Workspaces allow at most 20 active keys; revoke one before creating another. GET /me accepts any valid key and returns workspace, plan, limits and scopes.</p>

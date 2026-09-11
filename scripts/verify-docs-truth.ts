@@ -125,6 +125,11 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   const route = readFileSync('app/api/internal/client-ready/route.ts', 'utf8');
   assert.match(route, /classifyUserAgent/, 'the route classifies the same way a page view does');
   assert.doesNotMatch(route, /user-agent['"]\s*\)\s*[,;]\s*$/m, 'the raw user agent is never stored');
-  assert.match(readFileSync('app/page.tsx', 'utf8'), /<ClientBeacon \/>/, 'the landing page renders it');
+  for (const page of ['app/page.tsx', 'app/pricing/page.tsx', 'app/compare/page.tsx', 'app/compare/[slug]/page.tsx',
+                      'app/docs/api/page.tsx', 'app/docs/(help)/page.tsx', 'app/docs/(help)/[slug]/page.tsx']) {
+    assert.match(readFileSync(page, 'utf8'), /<ClientBeacon path=/, `${page} renders the beacon`);
+  }
+  // Source alone proves nothing about rendering: scripts/verify-marketing-browser.mjs asserts
+  // that the request actually leaves the browser, and that pages without a beacon send none.
   console.log('PASS docs truth: the landing page measures whether a browser engine ran');
 }

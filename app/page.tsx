@@ -24,7 +24,7 @@ export default async function Home() {
   const schema = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Postial', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: siteUrl, description, offers: Object.values(plans).map(plan => ({ '@type': 'Offer', name: plan.name, price: String(plan.monthlyEuro), priceCurrency: 'EUR', url: `${siteUrl}/pricing` })) };
   const faqSchema = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqEntries().map(entry => ({ '@type': 'Question', name: entry.question, acceptedAnswer: { '@type': 'Answer', text: entry.answer } })) };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(schema) }} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(faqSchema) }} />
-    <ClientBeacon />
+    <ClientBeacon path={'/'} />
     <section className="hero"><p className="eyebrow">{words('Hero', 'Eyebrow')}</p><h1>{words('Hero', 'H1')}</h1><p className="hero-sub">{words('Hero', 'Sub')}</p><div className="actions"><Link prefetch={false} className="primary" href="/login">{words('Hero', 'Primary CTA → /signup')}</Link><DemoLink>{words('Hero', 'Secondary CTA → #demo')}</DemoLink></div><SignInNotice /><p className="note">{words('Hero', 'Trial note')}</p><p className="note">{words('Hero', 'Plan note')}</p></section>
     <aside className="audience"><strong>{words('Social-proof alternative', 'Statement')}</strong><p>{words('Social-proof alternative', 'Supporting label')}</p></aside>
     <AccessStatus />
