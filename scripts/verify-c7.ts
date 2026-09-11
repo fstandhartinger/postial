@@ -2,7 +2,7 @@
 if (process.env.VERIFY_BASE_URL) process.env.C7_HTTP_URL = process.env.VERIFY_BASE_URL;
 import { stripe } from '../lib/stripe';
 import { actionBodyLimit } from '../lib/http/action-limit';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, mkdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createCipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -178,7 +178,17 @@ async function main() {
     }
 
     const h=await health(request('/healthz',{headers:{'x-real-ip':'198.51.100.253'}}));assert.equal(h.status,200);
-    const healthData=await h.json();assert(healthData.migrations.applied>=20);assert.match(healthData.migrations.latest,/0020/);assert('lastTickAt' in healthData.worker);assert(!('errorsLastHour' in healthData));
+    const healthData=await h.json();assert(healthData.migrations.applied>=20);
+    // The newest applied migration must be the highest-numbered file on disk. A hard-coded
+    // number here passed on 2026-09-11 while migration 0021 carried a journal timestamp
+    // older than 0020: it sorted second-to-last, was therefore never applied, and two
+    // deployments failed before anyone noticed. Compare against the files instead.
+    {
+      const files=readdirSync('drizzle').filter(name=>name.endsWith('.sql')).sort();
+      const newest=files[files.length-1]!.replace(/\.sql$/,'');
+      assert.equal(healthData.migrations.latest,newest,`newest migration on disk is ${newest} but ${healthData.migrations.latest} is applied; check the journal order`);
+    }
+    assert('lastTickAt' in healthData.worker);assert(!('errorsLastHour' in healthData));
     const oldWorker=workerState.lastTickAt, oldEnabled=process.env.WORKER_ENABLED;
     process.env.WORKER_ENABLED='true';workerState.lastTickAt=ago(1).toISOString();assert.equal((await health()).status,503);
     process.env.WORKER_ENABLED='false';assert.equal((await health()).status,200);workerState.lastTickAt=oldWorker;
