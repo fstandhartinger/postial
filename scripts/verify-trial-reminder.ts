@@ -213,3 +213,16 @@ main().catch(error => { console.error('Trial reminder verification failed:', err
   }
   console.log('PASS trial reminder: every notice leads to one place, and the button agrees with the text');
 }
+
+// A notice must remain usable when the button does not render. The sign-in mail has always
+// shown the full link as text beside its button; the notices did not, so a client that
+// strips anchors left the recipient with nothing to click and no address to copy.
+{
+  for (const kind of ['trial_started', 'trial_ended', 'trial_will_end', 'payment_failed'] as const) {
+    const copy = subscriptionReminderContent(kind, new Date('2026-09-23T12:09:00Z'));
+    const url = copy.text.match(/https:\/\/\S+/)![0];
+    assert.ok(copy.html.includes(`<code>${url}</code>`), `${kind} shows the full link as text as well`);
+    assert.match(copy.html, /If the button does not work/, `${kind} says why the plain link is there`);
+  }
+  console.log('PASS trial reminder: every notice survives a client that drops the button');
+}
