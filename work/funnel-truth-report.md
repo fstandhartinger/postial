@@ -1,40 +1,20 @@
-# Funnel truth report
+# Funnel client classification
 
-## Ergebnis
+## GELIEFERT
 
-Der echte Browser-Weg erzeugt in einer isolierten Datenbank die Kette lückenlos und je einmal. Der Formularpfad zum Kanalverbinden hatte zuvor kein `channel_connected`; das wurde minimal ergänzt und nur beim erstmaligen Einfügen eines Kanals ausgelöst. Reconnect/Update erzeugt damit kein zweites Funnel-Ereignis.
+- Migration `0020_funnel_client_class.sql` adds `funnel_events.client_class` with the allowed values `browser`, `automated`, and `unknown`; existing rows receive `unknown`.
+- `recordPublicView` classifies only the request User-Agent header. The header is never persisted or logged; missing headers are `automated`.
+- Admin funnel totals are separated into browser (People), automated, and unknown classes.
+- Added `scripts/verify-funnel-client-class.ts` to the database verification suite. Updated the migration-health verifier from 0019 to the new latest migration 0020.
 
-| Schritt | erwartetes Ereignis | tatsächlich | Bewertung | Korrektur |
-|---|---|---|---|---|
-| Startseite | `landing_view` | 1 | PASS | keine |
-| Preisseite | `pricing_view` | 1 | PASS | keine |
-| Magic-Link-Formular absenden | `signup_started` | 1 | PASS | keine |
-| Magic Link einlösen | `signup_completed` | 1 | PASS | keine |
-| App-Erstzugriff | `workspace_created` | 1, richtige Workspace-ID | PASS | keine |
-| Marke anlegen / Kanalformular absenden | `channel_connected` | 1, richtige Workspace-ID | PASS nach Korrektur | `app/app/actions.ts`: Event nach erfolgreichem Insert |
-| Beitrag planen | `post_scheduled` | 1, richtige Workspace-ID | PASS | keine |
-| Beitrag veröffentlichen (Provider-Attrappe) | `post_published` | 1, richtige Workspace-ID | PASS | keine |
+## VERIFIZIERT WIE
 
-Der neue Browser-Regresstest ist `scripts/verify-funnel-browser.ts`; ohne die Korrektur schlägt er am Kanal-Schritt fehl, weil der Formularpfad kein `channel_connected` schreibt.
+- Supervisor line: `run-verification: verifying /tmp/postial-funnel at ae41b4c`
+- Final `work/acceptance.json`: `ok: true`, `clean: true`, `commit: ae41b4cc8d60de8fb819d00facf2fbf620c35372`, `directory: /tmp/postial-funnel`.
+- Step return values: `tsc --noEmit=0`, `next build=0`, `verify:all=0`, `verify:http=0`.
+- The dedicated verifier passed browser and automated User-Agent cases, missing-header behavior, stored-record absence of the synthetic User-Agent marker, and separated admin class totals.
+- No production database, deploy, push, or secret output was used.
 
-## Readout-Fallen
+## OFFEN
 
-- Fünf Reloads der Startseite erzeugen fünf `landing_view`-Rows (die technische Messung zählt Seitenaufrufe, nicht eindeutige Menschen). Das ist als Traffic-/View-Zahl korrekt, aber als Zahl „Menschen im Funnel“ irreführend. Das Admin-Readout benennt die Darstellung deshalb ausdrücklich als „raw event counts“; die Zahl wurde nicht verfälscht.
-- Ein abgebrochener Signup lässt `signup_started` ohne `signup_completed` stehen. Das ist der ehrliche Zustand: Die Rate fällt, und der Readout stellt keinen Abschluss her, der nicht stattgefunden hat. Die Konversionsrate wird aus den Rohereignissen der jeweils vorherigen Stufe berechnet.
-
-## Verifikation
-
-- `npx tsc --noEmit`: rc 0
-- `npm run build`: erfolgreich
-- `npm run verify:all`: `PASS verify:all`
-- `npm run verify:http`: `PASS verify:http`
-- Browser-Regresstest: `PASS funnel browser journey: eight events exactly once`
-- Keine Produktionsdatenbank, echten Mails oder externen Provider verwendet; der Lauf nutzte die isolierte Suite-Datenbank und eine lokale Provider-Attrappe.
-
-## GELIEFERT / VERIFIZIERT WIE / OFFEN
-
-**GELIEFERT:** Minimaler Funnel-Fix für das UI-Kanalformular, Browser-End-to-End-Regresstest und dieser Bericht.
-
-**VERIFIZIERT WIE:** Isolierte `verify-suite`-DB, echter Chromium-Browser, UI-Schritte, DB-Abgleich nach den Stufen, vollständige TypeScript-, Build-, DB- und HTTP-Verifier.
-
-**OFFEN:** Keine technische Abweichung. `landing_view` bleibt bewusst eine View-Metrik und kein Unique-User-Zähler.
+- User-Agent classification is intentionally heuristic; unrecognized non-empty headers are classified as `browser` and can be reviewed if traffic evidence later warrants new patterns.
