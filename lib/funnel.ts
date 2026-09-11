@@ -7,6 +7,10 @@ export const FUNNEL_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
   'signup_completed', 'signin_failed', 'workspace_created', 'channel_connected', 'post_scheduled',
   'post_published', 'checkout_started', 'subscription_active',
+  // Recorded by the browser itself, not during render: a crawler that sends a browser
+  // user agent still does not execute JavaScript, so comparing this against landing_view
+  // is what turns 'browser' from an upper bound into a measurement.
+  'client_ready',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
 export const CLIENT_CLASSES = ['browser', 'automated', 'unknown'] as const;
@@ -18,7 +22,7 @@ export const FUNNEL_SUCCESS_EVENTS = [
 ] as const;
 export const FUNNEL_FAILURE_EVENTS = ['signin_failed'] as const;
 const allowed = new Set<string>(FUNNEL_EVENTS);
-const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view']);
+const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view', 'client_ready']);
 const automatedUserAgent = /bot|crawler|spider|slurp|headless|preview|curl|wget|python-requests|http-client|monitor|uptime|lighthouse|scanner/i;
 let publicViewDay = '';
 const publicViewCounts = new Map<string, number>();

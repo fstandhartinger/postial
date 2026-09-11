@@ -114,3 +114,17 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   assert.match(channelsPage, /This is an automated account/, 'the warning names the setting the person has to change');
   console.log('PASS docs truth: Mastodon channels warn when the account is not marked automated');
 }
+
+// The landing page fires a client-side beacon so we can tell a person from a crawler that
+// sends a browser user agent. Server-side counts cannot make that distinction, and five
+// cycles of conversion questions stalled on it. Nothing beyond the coarse class is stored.
+{
+  const beacon = readFileSync('components/marketing/ClientBeacon.tsx', 'utf8');
+  assert.match(beacon, /'use client'/, 'the beacon has to run in the browser');
+  assert.match(beacon, /\/api\/internal\/client-ready/, 'the beacon calls its route');
+  const route = readFileSync('app/api/internal/client-ready/route.ts', 'utf8');
+  assert.match(route, /classifyUserAgent/, 'the route classifies the same way a page view does');
+  assert.doesNotMatch(route, /user-agent['"]\s*\)\s*[,;]\s*$/m, 'the raw user agent is never stored');
+  assert.match(readFileSync('app/page.tsx', 'utf8'), /<ClientBeacon \/>/, 'the landing page renders it');
+  console.log('PASS docs truth: the landing page measures whether a browser engine ran');
+}
