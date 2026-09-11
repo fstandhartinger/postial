@@ -31,7 +31,20 @@ function content(kind: ReminderKind, trialEnd: Date | null): { subject: string; 
 export async function sendSubscriptionReminder(subscriptionId: string, kind: ReminderKind): Promise<void> {
   const db = getDb();
   const reserved = await db.insert(subscriptionReminderEmails).values({ subscriptionId, kind }).onConflictDoNothing().returning({ subscriptionId: subscriptionReminderEmails.subscriptionId });
-  if (!reserved.length) return;
+  if (!reserved.length) {
+    // A row already exists. Skip only when the mail actually went out: reserving before
+    // sending means one transient SMTP failure would otherwise silence the reminder
+    // forever, and this is the single message that turns a card-less trial into revenue.
+    // While sent_at is null a previous attempt failed, so let Stripe's own redelivery
+    // (bounded, over about three days) try again.
+    const [existing] = await db.select({ sentAt: subscriptionReminderEmails.sentAt })
+      .from(subscriptionReminderEmails)
+      .where(and(eq(subscriptionReminderEmails.subscriptionId, subscriptionId), eq(subscriptionReminderEmails.kind, kind)))
+      .limit(1);
+    if (existing?.sentAt) return;
+    await db.update(subscriptionReminderEmails).set({ attemptedAt: new Date(), error: null })
+      .where(and(eq(subscriptionReminderEmails.subscriptionId, subscriptionId), eq(subscriptionReminderEmails.kind, kind)));
+  }
   try {
     const [row] = await db.select({ email: users.email, trialEnd: subscriptions.trialEnd })
       .from(subscriptions)

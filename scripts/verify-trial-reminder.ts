@@ -8,6 +8,7 @@ import { users, workspaces, subscriptions } from '../db/schema';
 import { stripe, requiredEnv } from '../lib/stripe';
 import { POST } from '../app/api/stripe/webhook/route';
 import { subscriptionReminderEmails } from '../db/billing-schema';
+import { sendSubscriptionReminder } from '../lib/trial-reminder';
 
 const db = getDb();
 let client: Stripe;
@@ -130,3 +131,25 @@ async function main() {
 }
 
 main().catch(error => { console.error('Trial reminder verification failed:', error instanceof Error ? error.message : 'unknown'); process.exitCode = 1; });
+
+// A failed attempt must not silence the reminder forever: the reservation row is written
+// before the send, so only a recorded delivery may block a later attempt.
+{
+  const retryId = `sub_fixture_${crypto.randomUUID()}`;
+  await db.insert(subscriptionReminderEmails).values({ subscriptionId: retryId, kind: 'trial_will_end', error: 'earlier failure' });
+  const [seeded] = await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  assert.equal(seeded.sentAt, null, 'a failed attempt leaves sent_at empty');
+  const firstAttempt = seeded.attemptedAt.getTime();
+  await new Promise(resolve => setTimeout(resolve, 5));
+  await sendSubscriptionReminder(retryId, 'trial_will_end');
+  const [after] = await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  assert.ok(after.attemptedAt.getTime() > firstAttempt, 'a failed reminder is attempted again instead of being skipped forever');
+  await db.update(subscriptionReminderEmails).set({ sentAt: new Date() }).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  const [delivered] = await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  const deliveredAt = delivered.attemptedAt.getTime();
+  await sendSubscriptionReminder(retryId, 'trial_will_end');
+  const [again] = await db.select().from(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  assert.equal(again.attemptedAt.getTime(), deliveredAt, 'a delivered reminder is never attempted again');
+  await db.delete(subscriptionReminderEmails).where(eq(subscriptionReminderEmails.subscriptionId, retryId));
+  console.log('PASS trial reminder: failed attempt retried, delivered one never repeated');
+}
