@@ -80,3 +80,22 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   }
   console.log(`PASS docs truth: every page states n8n package ${manifest[0]}`);
 }
+
+// The published n8n node (0.1.3) sends exactly these wire field names when creating a post.
+// It is installed in other people's n8n instances and cannot be updated by us, so renaming
+// one of these in the API would break every installation silently. Verified against the
+// published tarball on 2026-09-11: the node maps its camelCase inputs to these keys.
+{
+  const spec = JSON.parse(readFileSync('public/openapi.json', 'utf8'));
+  const create = spec.paths?.['/posts']?.post;
+  const schemaRef = create?.requestBody?.content?.['application/json']?.schema;
+  const schema = schemaRef?.$ref
+    ? spec.components.schemas[String(schemaRef.$ref).split('/').pop()!]
+    : schemaRef;
+  const properties = Object.keys(schema?.properties ?? {});
+  for (const field of ['brand_id', 'body', 'channel_ids', 'media_urls', 'link_url', 'requires_approval', 'scheduled_at']) {
+    assert.ok(properties.includes(field), `the published n8n node sends ${field}; POST /posts must keep accepting it`);
+  }
+  assert.deepEqual(schema?.required, ['brand_id', 'body'], 'the node only guarantees brand_id and body; requiring more would break it');
+  console.log('PASS docs truth: POST /posts still accepts every field the published n8n node sends');
+}
