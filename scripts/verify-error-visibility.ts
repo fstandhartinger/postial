@@ -36,3 +36,17 @@ async function verify() {
   console.log('error visibility: API+worker, redaction, best-effort path, cap PASS');
 }
 verify().catch(error => { console.error(error instanceof Error ? error.message : 'verification failed'); process.exit(1); });
+
+// A frame outside our own code must still name a file. On 2026-09-10 a burst of eight
+// landing-page errors was recorded as "fallback:<anonymous>:103", which identifies nothing,
+// and the container logs had already rotated by the time anyone looked. Only the last two
+// path segments are kept, so a full deployment path never reaches the record.
+{
+  const foreign = new Error('from a bundle');
+  foreign.stack = 'Error: from a bundle\n    at <anonymous> (https://postial.co/_next/static/chunks/app-abc123.js:103:7)';
+  const location = extractSourceLocation(foreign);
+  assert.match(location, /chunks\/app-abc123\.js:103/, 'the fallback names the file it came from');
+  assert.ok(!location.includes('https://'), 'the origin is not part of the record');
+  assert.ok(!location.includes('/_next/'), 'only the last two path segments are kept');
+  console.log('PASS error visibility: a foreign frame is still identifiable');
+}

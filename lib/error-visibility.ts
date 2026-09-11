@@ -58,7 +58,13 @@ function formatOwnFrame(frame: StackFrame, projectRoot: string): string {
 
 function formatFallbackFrame(frame: StackFrame | undefined): string {
   if (!frame) return 'fallback:unknown';
-  return `fallback:${frame.functionName.slice(0, 160)}:${frame.line}`;
+  // Keep a trimmed file reference. A burst of eight landing-page errors on 2026-09-10 was
+  // recorded as "fallback:<anonymous>:103" and stayed unexplainable, because an anonymous
+  // function and a line number identify nothing on their own. Only the last two path
+  // segments are kept, so a full deployment path never reaches the record.
+  const file = frame.fileName.split('?')[0].split('/').filter(Boolean).slice(-2).join('/');
+  const where = file ? file.slice(0, 120) : 'unknown';
+  return `fallback:${where}:${frame.line} (${frame.functionName.slice(0, 120)})`;
 }
 
 export function extractSourceLocation(error: unknown): string {
