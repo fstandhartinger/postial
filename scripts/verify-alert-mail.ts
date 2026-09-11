@@ -283,3 +283,18 @@ main().catch(error => { console.error('Alert mail verification failed:', error i
   assert.doesNotMatch(expiredCopy.text, /will pause until/);
   console.log('PASS alert mail: expiry notice does not promise an automatic resume');
 }
+
+// The same four properties the billing notices are held to. An incident mail is read by
+// someone whose publishing has just stopped, so it has to stay usable in a client that
+// drops the button, and it must never let a channel name reach the HTML as markup.
+{
+  for (const kind of ['token_expired', 'failed'] as const) {
+    const copy = alertMailContent(kind, 'Acme <b>x</b>', 'mastodon', ['p1', 'p2']);
+    const url = copy.text.match(/https:\/\/\S+/)![0];
+    assert.ok(copy.html.includes(`<code>${url}</code>`), `${kind} shows the full link as text as well`);
+    assert.match(copy.html, /If the button does not work/, `${kind} says why the plain link is there`);
+    assert.equal((copy.html.match(/<a href=/g) ?? []).length, 1, `${kind} offers exactly one link`);
+    assert.ok(!copy.html.includes('<b>x</b>'), `${kind} escapes the channel name`);
+  }
+  console.log('PASS alert mail: usable without the button, one link, channel name escaped');
+}
