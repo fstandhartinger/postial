@@ -19,7 +19,7 @@ export interface PublishInput {
   /** Stable id of the post target; adapters may use it as an idempotency key where the provider supports one. */
   idempotencyKey: string;
   signal?: AbortSignal;
-  meta?: { maxTextLength?: number };
+  meta?: { maxTextLength?: number; automated?: boolean };
 }
 
 export interface PublishResult {
@@ -30,7 +30,7 @@ export interface PublishResult {
 }
 
 export interface AccountInfo {
-  meta?: { maxTextLength?: number };
+  meta?: { maxTextLength?: number; automated?: boolean };
   /** Provider-side account/channel identifier. */
   externalId: string;
   /** What we show the user: @handle, channel title, instance handle. */

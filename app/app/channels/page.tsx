@@ -11,7 +11,7 @@ export default async function ChannelsPage() {
   const {db,workspace} = await coreContext();
   const access = await workspaceEntitlements(workspace);
   const rows = await db.select({id:channels.id,brandId:brands.id,brand:brands.name,provider:channels.provider,
-    name:channels.displayName,status:channels.status,checkedAt:channels.lastCheckedAt,healthError:channels.lastHealthError,
+    name:channels.displayName,status:channels.status,checkedAt:channels.lastCheckedAt,healthError:channels.lastHealthError,meta:channels.meta,
     publishedAt:sql<string|null>`(select max(t.published_at) from post_targets t where t.channel_id = ${channels.id})`,
     publishErrorAt:sql<string|null>`(select t.updated_at from post_targets t where t.channel_id = ${channels.id} and t.last_error_human is not null order by t.updated_at desc limit 1)`,
     publishError:sql<string|null>`(select t.last_error_human from post_targets t where t.channel_id = ${channels.id} and t.last_error_human is not null order by t.updated_at desc limit 1)`
@@ -20,6 +20,15 @@ export default async function ChannelsPage() {
     {!rows.length && <Card><h2>No channels yet</h2><p>Connect your first account from a brand.</p><Link className="underline" href="/app/brands">Choose a brand</Link></Card>}
     <div className="grid gap-4 lg:grid-cols-2">{rows.map(c=><Card key={c.id} className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2"><ProviderBadge provider={c.provider}/><ChannelStatusBadge status={c.status}/></div>
+      {c.provider==='mastodon' && c.meta?.automated===false && (
+        /* Our own test account was suspended two days after it began posting unattended
+           without this flag set, which ends publishing for that account for good. */
+        <p className="mt-2 text-sm text-amber-800">
+          Mastodon does not list this account as automated. Many instances require that for
+          unattended posting and may suspend accounts that do not. You can set it under
+          Preferences → Profile → This is an automated account.
+        </p>
+      )}
       <h2 className="break-words">{c.name}</h2><Link className="underline" href={`/app/brands/${c.brandId}`}>{c.brand}</Link>
       <p>Last successful post: {c.publishedAt ? new Date(c.publishedAt).toLocaleString('en-GB',{timeZone:'UTC'})+' UTC' : 'No successful posts yet'}</p>
       <p className="break-words">Last error: {(c.healthError && (!c.publishErrorAt || !c.checkedAt || +c.checkedAt >= +new Date(c.publishErrorAt)) ? c.healthError : c.publishError) || 'No errors recorded'}</p>

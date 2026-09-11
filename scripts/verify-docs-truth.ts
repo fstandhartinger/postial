@@ -99,3 +99,18 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   assert.deepEqual(schema?.required, ['brand_id', 'body'], 'the node only guarantees brand_id and body; requiring more would break it');
   console.log('PASS docs truth: POST /posts still accepts every field the published n8n node sends');
 }
+
+// Mastodon returns a bot flag on verify_credentials. Our own test account was suspended two
+// days after it began posting unattended without that flag, which ends publishing for that
+// account permanently. Warn at the moment of connecting, and only when Mastodon says the
+// account is explicitly not automated: a loose truthy check would also nag for accounts
+// whose state we simply do not know.
+{
+  const adapter = readFileSync('lib/publishers/mastodon.ts', 'utf8');
+  assert.match(adapter, /bot\?: boolean/, 'the Mastodon adapter reads the bot flag');
+  assert.match(adapter, /automated: account\.bot === true/, 'the flag is mapped strictly');
+  const channelsPage = readFileSync('app/app/channels/page.tsx', 'utf8');
+  assert.match(channelsPage, /c\.meta\?\.automated===false/, 'the warning shows only for an explicitly non-automated account');
+  assert.match(channelsPage, /This is an automated account/, 'the warning names the setting the person has to change');
+  console.log('PASS docs truth: Mastodon channels warn when the account is not marked automated');
+}

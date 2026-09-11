@@ -170,7 +170,7 @@ export const channels = pgTable("channels", {
   externalId: text("external_id").notNull(),
   url: text("url"),
   credentialsEnc: text("credentials_enc").notNull(),
-  meta: jsonb("meta").$type<{ maxTextLength?: number }>().notNull().default({}),
+  meta: jsonb("meta").$type<{ maxTextLength?: number; automated?: boolean }>().notNull().default({}),
   status: channelStatus("status").notNull().default("active"),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
   lastHealthError: text("last_health_error"),

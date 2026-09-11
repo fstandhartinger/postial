@@ -25,9 +25,9 @@ export const mastodon: Publisher = {
     if (process.env.VERIFY_MODE === '1' && credentials.instanceUrl.startsWith('https://fixture.invalid'))
       return { externalId: 'verify-account', displayName: '@verify@fixture.invalid', url: 'https://fixture.invalid/@verify', meta: { maxTextLength: 500 } };
     const origin = httpsOrigin(credentials.instanceUrl);
-    const account = await json<{ id: string; acct: string; url: string }>('Mastodon', `${origin}/api/v1/accounts/verify_credentials`, { headers: { Authorization: `Bearer ${credentials.accessToken}` } });
+    const account = await json<{ id: string; acct: string; url: string; bot?: boolean }>('Mastodon', `${origin}/api/v1/accounts/verify_credentials`, { headers: { Authorization: `Bearer ${credentials.accessToken}` } });
     const maxTextLength = await textLimit(origin);
-    return { externalId: account.id, displayName: `@${account.acct.includes('@') ? account.acct : `${account.acct}@${new URL(origin).host}`}`, url: account.url, meta: { maxTextLength } };
+    return { externalId: account.id, displayName: `@${account.acct.includes('@') ? account.acct : `${account.acct}@${new URL(origin).host}`}`, url: account.url, meta: { maxTextLength, automated: account.bot === true } };
   }); },
   publish(credentials, input) { return publishingDeadline(() => guarded('Mastodon', async () => {
     if (process.env.VERIFY_MODE === '1' && credentials.instanceUrl.startsWith('https://fixture.invalid'))
