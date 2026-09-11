@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Do not announce the framework to every visitor. Production served
+  // "x-powered-by: Next.js" on every page, which tells an attacker what stack to
+  // target for nothing in return.
+  poweredByHeader: false,
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || process.env.DEPLOYMENT_VERSION || process.env.GIT_SHA,
   experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {

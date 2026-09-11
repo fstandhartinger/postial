@@ -22,6 +22,9 @@ try {
       const headers = response.headers();
       assert.equal(headers['strict-transport-security'], 'max-age=31536000; includeSubDomains');
       assert.equal(headers['x-content-type-options'], 'nosniff');
+      // The framework must not name itself: production shipped x-powered-by until
+      // 2026-09-11, and a required-headers check cannot see a header that should be absent.
+      assert.equal(headers['x-powered-by'], undefined, 'no x-powered-by header');
       assert.equal(headers['x-frame-options'], 'DENY');
       assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
       assert.ok(headers['permissions-policy']);
