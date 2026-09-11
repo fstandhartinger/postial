@@ -29,6 +29,16 @@ try {
       assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
       assert.ok(headers['permissions-policy']);
       assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
+      // Only frame-ancestors was pinned, so the rest of the policy could be weakened without
+      // anything noticing. These are the directives that carry the protection.
+      const csp = headers['content-security-policy'];
+      for (const directive of ["default-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "connect-src 'self' https://api.stripe.com", 'upgrade-insecure-requests']) {
+        assert.ok(csp.includes(directive), `CSP must keep ${directive}`);
+      }
+      // script-src still carries 'unsafe-inline' because Next inlines its own hydration
+      // payload; removing it needs a per-request nonce and dynamic rendering everywhere,
+      // which is its own cycle. 'unsafe-eval' must never appear.
+      assert.ok(!csp.includes("'unsafe-eval'"), 'CSP must never allow unsafe-eval');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
       if (route === '/' || route === '/pricing') assert.ok(await page.getByText('Early access', { exact: true }).count());
       if (route === '/pricing') assert.ok(await page.getByText(/Available today:/).count());
