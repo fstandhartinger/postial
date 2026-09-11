@@ -3,7 +3,7 @@
  * registered in lib/publishers/index.ts. The publishing worker (lib/publishing) only
  * depends on this file.
  */
-export type Provider = "bluesky" | "mastodon" | "telegram" | "x" | "threads" | "linkedin";
+export type Provider = "bluesky" | "mastodon" | "telegram" | "x" | "threads" | "linkedin" | "facebook";
 
 /** Provider-specific credentials, stored encrypted at rest. Never logged. */
 export type Credentials = Record<string, string>;

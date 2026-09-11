@@ -3,7 +3,7 @@ import { configuredProviders } from '@/lib/auth-providers';
 import { isOAuthProvider, oauthConfig } from '@/lib/publishers/oauth-config';
 import { NetworkWaitlist } from './NetworkWaitlist';
 
-export const networkSummary = 'Live: Bluesky, Mastodon, Telegram. X, Threads and LinkedIn connections are Early access when configured; publishing is subject to provider conditions. Instagram and Facebook are planned; platform review required, with no confirmed release date.';
+export const networkSummary = 'Live: Bluesky, Mastodon, Telegram. X, Threads, LinkedIn and Facebook connections are Early access when configured; publishing is subject to provider conditions. Instagram is planned; platform review required, with no confirmed release date.';
 
 export function NetworkAvailability({ source }: { source?: 'pricing' | 'roadmap' }) {
   return <div>{(['live', 'preparation', 'planned'] as const).map(status => <section className="my-6" key={status}><h3>{status === 'live' ? 'Live' : status === 'preparation' ? 'Early access connections' : 'Planned'}</h3><div className="marketing-grid three">{availability.networks.filter(network => network.status === status).map(network => {

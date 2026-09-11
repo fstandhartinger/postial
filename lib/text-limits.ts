@@ -7,7 +7,7 @@ export function postText(input: { text: string; linkUrl?: string }) {
   return input.linkUrl && !input.text.includes(input.linkUrl) ? `${input.text}\n${input.linkUrl}` : input.text;
 }
 export function channelTextLimit(channel: { provider: string; meta?: { maxTextLength?: number } }) {
-  return channel.provider === 'mastodon' ? channel.meta?.maxTextLength ?? 500 : channel.provider === 'bluesky' ? 300 : channel.provider === 'telegram' ? 4096 : channel.provider === 'x' ? 280 : channel.provider === 'threads' ? 500 : channel.provider === 'linkedin' ? 3000 : 0;
+  return channel.provider === 'mastodon' ? channel.meta?.maxTextLength ?? 500 : channel.provider === 'bluesky' ? 300 : channel.provider === 'telegram' ? 4096 : channel.provider === 'x' ? 280 : channel.provider === 'threads' ? 500 : channel.provider === 'linkedin' ? 3000 : channel.provider === 'facebook' ? 63206 : 0;
 }
 
 /** Official weighted counting includes t.co URLs, Unicode and emoji sequences. */

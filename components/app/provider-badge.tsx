@@ -4,6 +4,8 @@ const colors: Record<string, string> = {
   telegram: "#086b96",
   x: "#09090b",
   threads: "#09090b",
+  linkedin: "#0a66c2",
+  facebook: "#1877f2",
 };
 export function ProviderBadge({ provider }: { provider: string }) {
   return (

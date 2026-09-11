@@ -7,6 +7,7 @@ import { afterEach, test } from 'node:test';
 import { availableProviders, getPublisher, PublishError, type Credentials } from '../lib/publishers';
 import { validateConnection } from '../lib/publishers/connection';
 import { json } from '../lib/publishers/http';
+import { FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
 
 beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
 const originalFetch = globalThis.fetch;
@@ -200,6 +201,44 @@ test('LinkedIn: long text is rejected before HTTP and refresh without token is n
   const adapter = getPublisher('linkedin'); const calls = mock();
   await assert.rejects(adapter.publish(credentials.linkedin, { text: 'x'.repeat(3001), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
   assert.equal(calls.length, 0); assert.equal(await adapter.refreshCredentials?.({ accessToken: 'test-secret', expiresAt: '1' }), null);
+});
+test('Facebook: validate Page, text-only feed publish and media warning', async () => {
+  const calls = mock((url, init) => {
+    if (url.includes('/me?fields=id,name')) {
+      assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+      return response({ id: 'page-1', name: 'Test Page' });
+    }
+    const parsed = new URL(url);
+    assert.equal(parsed.pathname, '/v21.0/page-1/feed');
+    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+    assert.equal(new URLSearchParams(String(init?.body)).get('message'), 'hello');
+    return response({ id: 'post-1' });
+  });
+  const adapter = getPublisher('facebook');
+  const c = { accessToken: 'test-secret', externalId: 'page-1' };
+  const account = await adapter.validate(c);
+  assert.equal(account.externalId, 'page-1');
+  assert.equal(account.displayName, 'Test Page');
+  assert.equal(account.url, 'https://www.facebook.com/page-1');
+  const result = await adapter.publish(c, { text: 'hello', mediaUrls: ['https://image.test/x'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'post-1');
+  assert.equal(result.url, 'https://www.facebook.com/post-1');
+  assert.equal(result.warnings?.length, 1);
+  assert.equal(calls.length, 2);
+});
+test('Facebook: 401, 429 Retry-After, 5xx, long text and missing Page mappings', async () => {
+  const adapter = getPublisher('facebook');
+  const c = { accessToken: 'test-secret', externalId: 'page-1' };
+  mock(() => response({ error: { message: 'expired' } }, 401));
+  await assert.rejects(adapter.validate(c), errorCode('AUTH_EXPIRED', false));
+  mock(() => response({ error: 'busy' }, 429, { 'Retry-After': '17' }));
+  await assert.rejects(adapter.publish(c, { text: 'hello', idempotencyKey: 'k' }), errorCode('RATE_LIMITED', true, 17));
+  mock(() => response({ error: 'down' }, 503));
+  await assert.rejects(adapter.publish(c, { text: 'hello', idempotencyKey: 'k' }), errorCode('PROVIDER_DOWN', true));
+  const calls = mock();
+  await assert.rejects(adapter.publish(c, { text: 'x'.repeat(FACEBOOK_TEXT_LIMIT + 1), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0);
+  await assert.rejects(adapter.publish({ accessToken: 'test-secret' }, { text: 'hello', idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
 });
 test('Mastodon 404 instance fallback and duplicate mapping', async () => {
   mock(url => url.endsWith('/instance') ? response({}, 404) : url.endsWith('/statuses') ? response({ error: 'duplicate idempotency key' }, 422) : ok(url));
@@ -411,7 +450,7 @@ test('Threads refresh extends long-lived tokens and refuses expired ones', async
   await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
 });
 
-for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
+for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin','facebook'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
   const adapter = getPublisher(provider), limit = adapter.maxMediaBytes;
   const {downloadImage} = await import('../lib/publishers/http');
   mock(() => new Response(new Uint8Array(limit),{headers:{'content-type':'image/png'}}));

@@ -494,8 +494,10 @@ starting a standalone worker. Both remove their fixtures.
 Migration 0012 adds shared workspace notifications, versioned DPA acceptances,
 image alt-text storage and an endpoint kind for team alerts. Availability on the
 landing page, FAQ, pricing and comparisons comes from `content/availability.json`.
-Bluesky, Mastodon and Telegram are available; X, Threads, LinkedIn and
-Instagram/Facebook await platform approval without a date. Sign-in remains gated.
+Bluesky, Mastodon and Telegram are available; X, Threads, LinkedIn and Facebook
+are Early access when the operator configures the developer app, publishing still
+subject to each platform's conditions; Instagram awaits approval without a date.
+Sign-in remains gated.
 
 The shell warns during the last 72 hours of a trial, shows browser-local date,
 time and timezone, and shows held-post counts after expiry. Billing names the
@@ -795,7 +797,7 @@ supplied automatically by the suite; direct execution must provide required valu
 | `verify-marketing-browser.mjs` | Interactive demo keyboard flow and responsive marketing | Yes | `MARKETING_TEST_URL` |
 | `verify-marketing.mjs` | Public copy, schema, pricing and legal metadata | Yes | `MARKETING_TEST_URL` |
 | `verify-media.ts` | Upload decoding, limits, tenancy, API, cache and SSRF regressions | Yes | `DB`, `MEDIA_ALLOW_LOOPBACK`, `MEDIA_HTTP_URL`, `NEXT_PUBLIC_APP_URL` |
-| `verify-oauth.ts` | Local OAuth mocks, state/cookies, refresh locking and callback errors | No | `DB`, `APP_ENCRYPTION_KEY`, `APP_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `THREADS_API_BASE_URL`, `THREADS_APP_ID`, `THREADS_APP_SECRET`, `X_API_BASE_URL`, `X_CLIENT_ID`, `X_CLIENT_SECRET` |
+| `verify-oauth.ts` | Local OAuth mocks, state/cookies, refresh locking and callback errors | No | `DB`, `APP_ENCRYPTION_KEY`, `APP_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `FACEBOOK_API_BASE_URL`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `LINKEDIN_API_BASE_URL`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `THREADS_API_BASE_URL`, `THREADS_APP_ID`, `THREADS_APP_SECRET`, `X_API_BASE_URL`, `X_CLIENT_ID`, `X_CLIENT_SECRET` |
 | `verify-pilot.ts` | Channel health, approval groups, duplication and retention | No | `DB` |
 | `verify-publishers.ts` | Mock adapter errors, SSRF, deadlines and provider semantics | No | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
 | `verify-retention.ts` | Media retention fixture and maintenance state cleanup | No | `DB` |

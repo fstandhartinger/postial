@@ -1,8 +1,12 @@
-export type OAuthProvider = 'x' | 'threads' | 'linkedin';
-export function isOAuthProvider(value: string): value is OAuthProvider { return value === 'x' || value === 'threads' || value === 'linkedin'; }
+export type OAuthProvider = 'x' | 'threads' | 'linkedin' | 'facebook';
+export function isOAuthProvider(value: string): value is OAuthProvider { return value === 'x' || value === 'threads' || value === 'linkedin' || value === 'facebook'; }
+/** Graph API version shared by the Facebook adapter and its OAuth exchange. */
+export const FACEBOOK_GRAPH_VERSION = process.env.FACEBOOK_GRAPH_VERSION || 'v21.0';
 export function oauthConfig(provider: OAuthProvider) {
-  const id = process.env[provider === 'x' ? 'X_CLIENT_ID' : provider === 'threads' ? 'THREADS_APP_ID' : 'LINKEDIN_CLIENT_ID'];
-  const secret = process.env[provider === 'x' ? 'X_CLIENT_SECRET' : provider === 'threads' ? 'THREADS_APP_SECRET' : 'LINKEDIN_CLIENT_SECRET'];
+  const [id, secret] = provider === 'x' ? [process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET]
+    : provider === 'threads' ? [process.env.THREADS_APP_ID, process.env.THREADS_APP_SECRET]
+    : provider === 'facebook' ? [process.env.FACEBOOK_APP_ID, process.env.FACEBOOK_APP_SECRET]
+    : [process.env.LINKEDIN_CLIENT_ID, process.env.LINKEDIN_CLIENT_SECRET];
   return id && secret ? { id, secret } : null;
 }
 export function appOrigin() {
@@ -11,6 +15,7 @@ export function appOrigin() {
   return url.origin;
 }
 export function callbackUrl(provider: OAuthProvider) { return `${appOrigin()}/api/oauth/${provider}/callback`; }
+const oauthBase: Record<OAuthProvider, string> = { x: 'https://api.x.com', threads: 'https://graph.threads.net', linkedin: 'https://api.linkedin.com', facebook: 'https://graph.facebook.com' };
 /** Literal loopback overrides are exclusively for the local HTTP verification harness. */
 export function oauthEndpoint(provider: OAuthProvider, path: string) {
   const override = process.env[`${provider.toUpperCase()}_API_BASE_URL`];
@@ -19,5 +24,5 @@ export function oauthEndpoint(provider: OAuthProvider, path: string) {
     if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password) throw new Error('Invalid test endpoint');
     return `${url.origin}${path}`;
   }
-  return `${provider === 'x' ? 'https://api.x.com' : provider === 'threads' ? 'https://graph.threads.net' : 'https://api.linkedin.com'}${path}`;
+  return `${oauthBase[provider]}${path}`;
 }

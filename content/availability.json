@@ -14,7 +14,7 @@
     "Telegram"
   ],
   "planned": [
-    "Instagram/Facebook"
+    "Instagram"
   ],
   "pending": "n8n node (Agency): n8n-nodes-socialmint 0.1.3 is published on npm and appears as “Postial” in n8n; the package name retains the former brand",
   "signIn": "Google sign-in and magic links are available",
@@ -81,8 +81,8 @@
     {
       "id": "facebook",
       "name": "Facebook",
-      "status": "planned",
-      "dependency": "Platform review required; no confirmed release date."
+      "status": "preparation",
+      "dependency": "Connect available (Early access) for Pages. Publishing supports text posts; images and videos are not attached yet. The app is in Development Mode pending Meta review."
     }
   ]
 }

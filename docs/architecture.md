@@ -14,7 +14,7 @@ Runtime configuration is validated before serving traffic.
 | In-process worker | `instrumentation.ts`, `lib/publishing/`: starts a 30-second timer in each enabled Node process; also callable through secret-authenticated `/api/internal/tick` |
 | PostgreSQL | `db/`, `drizzle/`: tenants, sessions, channels, posts, claims, entitlements, idempotency, limits and outboxes; Drizzle queries, shared five-connection client, prepared statements disabled for PgBouncer |
 | Stripe | `lib/stripe*`, billing/checkout services and `/api/stripe/*`: Checkout, Portal and signed webhook reconciliation; provider events, not success redirects, establish access |
-| Provider adapters | `lib/publishers/`: Bluesky, Mastodon, Telegram, X and Threads; normalized validation/errors, deadlines, refresh locking and provider-specific idempotency. X/Threads require approved app credentials; UI availability is configuration-dependent |
+| Provider adapters | `lib/publishers/`: Bluesky, Mastodon, Telegram, X, Threads, LinkedIn and Facebook; normalized validation/errors, deadlines, refresh locking and provider-specific idempotency. X, Threads, LinkedIn and Facebook require approved app credentials; UI availability is configuration-dependent |
 | Webhook outbox | `lib/api/webhooks.ts`: transactionally recorded technical events, signed bounded dispatch, leases, retries and paused disabled endpoints. Approval names/comments are excluded |
 | Notifications | In-app notifications and opt-in Slack/Discord/Mattermost alert webhooks; bounded dispatch and encrypted secrets |
 | Media storage | `db/media-schema.ts`, `lib/media/`: normalized image bytes in PostgreSQL `bytea`, metadata, quotas, conditional GET and capability URLs under `/m/`; no separate object bucket or local upload volume |

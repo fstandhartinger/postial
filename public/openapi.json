@@ -2070,7 +2070,9 @@
               "mastodon",
               "telegram",
               "x",
-              "threads"
+              "threads",
+              "linkedin",
+              "facebook"
             ]
           },
           "display_name": {
