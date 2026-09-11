@@ -26,9 +26,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function ComparePage({ params }: Props) {
   const { slug } = await params;
-  // Record which comparison was read, not a fixed '/compare' for all of them.
-  await recordPublicView('compare_view', `/compare/${slug}`);
   const page = comparison(slug);
+  // Record which comparison was read, not a fixed '/compare' for all of them, and only
+  // after the slug is known to exist so probed URLs cannot inflate the count.
+  await recordPublicView('compare_view', `/compare/${slug}`);
   const networkText=networkSummary;
   const featureText=`Available today: ${availability.available.join('; ')}. ${availability.pending}. ${networkText}`;
   const faq=page.faq.map(f=>({...f,answer:/September.*rollout|rolling out|verify readiness/i.test(f.answer)?featureText:f.answer}));

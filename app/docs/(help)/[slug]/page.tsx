@@ -14,10 +14,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 export default async function HelpArticle({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  // Record the article actually read. This used to report a fixed '/docs' for every
-  // sub-page, which made 93 views look like one page and hid what people come for.
-  await recordPublicView('docs_view', `/docs/${slug}`);
   const source = helpSource(slug);
   if (!source) notFound();
+  // Record the article actually read. This used to report a fixed '/docs' for every
+  // sub-page, which made 93 views look like one page and hid what people come for.
+  // Recorded only after the article is known to exist, so probed URLs do not count.
+  await recordPublicView('docs_view', `/docs/${slug}`);
   return <article className="help-article"><HelpMarkdown source={source} /></article>;
 }
