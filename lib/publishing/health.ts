@@ -1,4 +1,5 @@
 import { notifyLinkedInExpiring, notifyWorkspace } from '@/lib/notifications';
+import { clearChannelAlertLocks, recordChannelAlert, sendPendingChannelAlertMail } from '@/lib/alert-mail';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { brands, channels } from '@/db/schema';
@@ -45,6 +46,7 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         error = healthErrorMessage(code);
         console.warn('Channel health check failed', {provider: c.provider, code});
       }
+      const expired = status === 'token_expired' && c.status !== 'token_expired';
       await getDb().transaction(async tx => {
         const warningCredentials = c.provider === 'linkedin' ? decryptCredentials(refreshedEnc) : null;
         const expiresAt = Number(warningCredentials?.expiresAt);
@@ -52,8 +54,13 @@ export async function checkChannelHealth(id?: string, workspaceId?: string) {
         const warning = expiring ? await notifyLinkedInExpiring(tx, ownerWorkspace, c.id, new Date(expiresAt)) : null;
         const updated = await tx.update(channels).set({status,credentialsEnc:refreshedEnc,lastHealthError:warning || error})
           .where(and(eq(channels.id,c.id),eq(channels.lastCheckedAt,claimedAt),eq(channels.credentialsEnc,c.credentialsEnc),eq(channels.status,c.status))).returning({id:channels.id});
-        if(updated.length && status==='token_expired' && c.status!=='token_expired') await notifyWorkspace(tx,ownerWorkspace,'token_expired');
+        if(updated.length && expired) await notifyWorkspace(tx,ownerWorkspace,'token_expired');
+        if(updated.length && expired) await recordChannelAlert(tx, ownerWorkspace, c.id, 'token_expired');
+        // A channel back in connected state may alert again immediately.
+        if(updated.length && status === 'active' && c.status !== 'active') await clearChannelAlertLocks(tx, c.id);
       });
+      // Mail leaves only after the health-update transaction has committed.
+      if (expired) await sendPendingChannelAlertMail(ownerWorkspace, c.id, 'token_expired');
     }
     return {checked: rows.length};
 }

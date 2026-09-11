@@ -351,6 +351,18 @@ export const notifications = pgTable('notifications', {
   readAt: timestamp('read_at',{withTimezone:true}),
   createdAt: timestamp('created_at',{withTimezone:true}).defaultNow().notNull(),
 }, t=>[index('notifications_workspace_unread').on(t.workspaceId,t.readAt,t.createdAt)]);
+// Durable 24h dedupe for operational incident mails, one window per (workspace, kind, channel).
+export const channelAlertEmails = pgTable('channel_alert_emails', {
+  workspaceId: uuid('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+  channelId: uuid('channel_id').notNull().references(()=>channels.id,{onDelete:'cascade'}),
+  kind: text('kind').notNull(),
+  postIds: jsonb('post_ids').$type<string[]>().notNull().default([]),
+  pending: boolean('pending').notNull().default(true),
+  attemptedAt: timestamp('attempted_at',{withTimezone:true}),
+  sentAt: timestamp('sent_at',{withTimezone:true}),
+  error: text('error'),
+}, t=>[primaryKey({columns:[t.workspaceId,t.channelId,t.kind]})]);
+
 export const dpaAcceptances = pgTable('dpa_acceptances', {
   id: uuid('id').defaultRandom().primaryKey(),
   workspaceId: uuid('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),

@@ -2,6 +2,7 @@ import { workerState } from './state';
 import { checkChannelHealth } from "./health";
 import { mediaRetentionTick } from "@/lib/media/retention";
 import { notifyWorkspace } from '@/lib/notifications';
+import { recordChannelAlert, sendPendingChannelAlertMail, type AlertMailKind } from '@/lib/alert-mail';
 import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
 function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads', 'linkedin'].includes(provider); }
@@ -53,11 +54,13 @@ export async function tick() {
   );
 
   // Claims are committed before network IO. Attempt numbers fence late responses.
+  const recoveredAlerts: { workspaceId: string; channelId: string; kind: AlertMailKind }[] = [];
   await db.transaction(async (tx) => {
     const abandoned = await tx
-      .select({ target: postTargets })
+      .select({ target: postTargets, workspaceId: brands.workspaceId })
       .from(postTargets)
       .innerJoin(posts, eq(posts.id, postTargets.postId))
+      .innerJoin(brands, eq(brands.id, posts.brandId))
       .where(
         and(
           eq(postTargets.status, "publishing"),
@@ -66,7 +69,7 @@ export async function tick() {
       )
       .for("no key update", { of: posts, skipLocked: true })
       .limit(10);
-    for (const { target: t } of abandoned) {
+    for (const { target: t, workspaceId } of abandoned) {
       const [channel] = await tx.select().from(channels).where(eq(channels.id, t.channelId));
       // A lease expiry does not prove that the provider did not accept the request.
       // Stop for human/provider confirmation rather than risking a duplicate post.
@@ -89,9 +92,15 @@ export async function tick() {
         message,
       });
       if (status === "needs_review") await emit(tx, t.postId, "post.needs_review", {target_id: t.id});
+      if (status === "failed") {
+        await recordChannelAlert(tx, workspaceId, t.channelId, 'failed', t.postId);
+        recoveredAlerts.push({ workspaceId, channelId: t.channelId, kind: 'failed' });
+      }
       await derivePostStatus(tx, t.postId);
     }
   });
+  // Mail leaves only after the recovery transaction has committed.
+  for (const alert of recoveredAlerts) await sendPendingChannelAlertMail(alert.workspaceId, alert.channelId, alert.kind);
   const held = await db.select({ target: postTargets, workspaceId: brands.workspaceId, brandId: brands.id, scheduledAt: posts.scheduledAt }).from(postTargets)
     .innerJoin(posts, eq(posts.id, postTargets.postId)).innerJoin(brands, eq(brands.id, posts.brandId))
     .where(and(eq(postTargets.status, "held"), inArray(posts.status, ["scheduled", "approved", "publishing"]), lt(postTargets.attempts, 5)));
@@ -204,6 +213,7 @@ export async function tick() {
       }
       clearInterval(heartbeat);
       clearTimeout(deadline);
+      const alertMails: { workspaceId: string; channelId: string; kind: AlertMailKind }[] = [];
       const finalStatus = await db.transaction(async (tx) => {
         // Lock the post first to serialize aggregate status updates across its targets.
         await tx
@@ -269,6 +279,11 @@ export async function tick() {
             })
             .where(eq(postTargets.id, t.id));
           if (error.code === "AUTH_EXPIRED") await notifyWorkspace(tx,brand.workspaceId,"token_expired",p.id);
+          // Incident mails are recorded in the same transaction and sent after commit.
+          if (error.code === "AUTH_EXPIRED") await recordChannelAlert(tx, brand.workspaceId, c.id, 'token_expired', p.id);
+          if (error.code === "AUTH_EXPIRED") alertMails.push({ workspaceId: brand.workspaceId, channelId: c.id, kind: 'token_expired' });
+          if (!uncertain && !retry) await recordChannelAlert(tx, brand.workspaceId, c.id, 'failed', p.id);
+          if (!uncertain && !retry) alertMails.push({ workspaceId: brand.workspaceId, channelId: c.id, kind: 'failed' });
           if (error.code === "AUTH_EXPIRED")
             await tx
               .update(channels)
@@ -287,6 +302,8 @@ export async function tick() {
         const status = await derivePostStatus(tx, p.id);
         return status;
       });
+      // Mail leaves only after the status transaction has committed; it never fails publishing.
+      for (const alert of alertMails) await sendPendingChannelAlertMail(alert.workspaceId, alert.channelId, alert.kind);
       if (finalStatus === 'published') await recordFunnelEvent('post_published', { workspaceId: brand.workspaceId });
     }),
   );
