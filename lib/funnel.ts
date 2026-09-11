@@ -1,14 +1,20 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, gte, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { funnelEvents } from '@/db/schema';
 import { headers } from 'next/headers';
 
 export const FUNNEL_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
-  'signup_completed', 'workspace_created', 'channel_connected', 'post_scheduled',
+  'signup_completed', 'signin_failed', 'workspace_created', 'channel_connected', 'post_scheduled',
   'post_published', 'checkout_started', 'subscription_active',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
+export const FUNNEL_SUCCESS_EVENTS = [
+  'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
+  'signup_completed', 'workspace_created', 'channel_connected', 'post_scheduled',
+  'post_published', 'checkout_started', 'subscription_active',
+] as const;
+export const FUNNEL_FAILURE_EVENTS = ['signin_failed'] as const;
 const allowed = new Set<string>(FUNNEL_EVENTS);
 const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view']);
 let publicViewDay = '';
@@ -20,6 +26,16 @@ function publicViewCap() {
 }
 
 export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?: string; props?: Record<string, unknown> };
+
+export type SignInMethod = 'google' | 'email';
+export type SignInFailureReason = 'verification' | 'oauth' | 'other';
+
+export function signInFailureDetails(error: string | undefined): { method: SignInMethod; reason: SignInFailureReason } {
+  const value = (error ?? '').toLowerCase();
+  if (value.includes('verification')) return { method: 'email', reason: 'verification' };
+  if (value.includes('oauth') || value.includes('google')) return { method: 'google', reason: 'oauth' };
+  return { method: 'email', reason: 'other' };
+}
 
 export async function recordFunnelEvent(event: string, options: FunnelOptions = {}): Promise<void> {
   if (!allowed.has(event)) return;

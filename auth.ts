@@ -33,7 +33,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       ...(enabled.email ? [(() => { const provider = Nodemailer({ name: 'Postial', normalizeIdentifier: normalizeEmail, server: process.env.SMTP_URL, from: process.env.EMAIL_FROM, maxAge: SIGN_IN_LINK_MAX_AGE_SECONDS }); provider.sendVerificationRequest = sendPostialVerificationRequest; return provider; })()] : []),
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
-    events: { async createUser({ user }) { await recordFunnelEvent('signup_completed', { props: { has_email: Boolean(user.email) } }); } },
+    events: { async signIn({ account, isNewUser }) {
+      if (isNewUser) await recordFunnelEvent('signup_completed', { props: { method: account?.provider === 'google' ? 'google' : 'email' } });
+    } },
     logger: { error() { console.error("Authentication request failed"); } },
   };
 });
