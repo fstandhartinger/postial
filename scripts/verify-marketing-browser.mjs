@@ -45,13 +45,13 @@ import assert from 'node:assert/strict';
  page.on('request',request=>{ if(request.url().includes('/api/internal/client-ready')) beaconHits.push(new URL(request.url()).pathname); });
  for (const width of [320,1440]) {
   await page.setViewportSize({width,height:1000});
-  for(const route of ['/','/pricing','/impressum','/privacy','/terms']){
+  for(const route of ['/','/pricing','/docs','/compare','/impressum','/privacy','/terms']){
    const before=beaconHits.length;
    await page.goto((process.env.VERIFY_BASE_URL || process.env.MARKETING_TEST_URL || 'http://localhost:3991')+route);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${route} overflow at ${width}`);
    await page.waitForTimeout(300);
    const fired=beaconHits.length-before;
-   if(route==='/'||route==='/pricing') assert.equal(fired,1,`${route} must report that a browser engine ran`);
+   if(['/','/pricing','/docs','/compare'].includes(route)) assert.equal(fired,1,`${route} must report that a browser engine ran`);
    else assert.equal(fired,0,`${route} must not report a client beacon`);
   }
  }
