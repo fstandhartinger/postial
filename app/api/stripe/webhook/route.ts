@@ -11,6 +11,7 @@ import { isPlan, plans, type Plan } from '@/lib/plans';
 import { lockWorkspace } from '@/lib/billing';
 import { recordFunnelEvent } from '@/lib/funnel';
 import { recordError } from '@/lib/error-visibility';
+import { sendSubscriptionReminder } from '@/lib/trial-reminder';
 export const runtime = 'nodejs';
 function id(value: string | { id: string } | null | undefined): string | undefined {
   return typeof value === 'string' ? value : value?.id;
@@ -20,7 +21,8 @@ function subscriptionId(event: Stripe.Event): string | undefined {
     case 'checkout.session.completed': return id(event.data.object.subscription);
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
-    case 'customer.subscription.deleted': return event.data.object.id;
+    case 'customer.subscription.deleted':
+    case 'customer.subscription.trial_will_end': return event.data.object.id;
     case 'invoice.paid':
     case 'invoice.payment_failed': {
       const invoice = event.data.object;
@@ -124,7 +126,12 @@ export async function POST(request: Request) {
   catch { return Response.json({ error: 'Invalid signature' }, { status: 400 }); }
   try {
     const target = subscriptionId(event);
-    if (target) await reconcile(event, target);
+    if (target) {
+      await reconcile(event, target);
+      if (event.type === 'customer.subscription.trial_will_end' || event.type === 'invoice.payment_failed') {
+        await sendSubscriptionReminder(target, event.type === 'customer.subscription.trial_will_end' ? 'trial_will_end' : 'payment_failed');
+      }
+    }
     return Response.json({ received: true });
   } catch (error) {
     void recordError(error, { route: '/api/stripe/webhook', status: 500, authenticated: false });

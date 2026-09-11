@@ -44,7 +44,7 @@ try {
     APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
   });
   mkdirSync(env.VERIFY_EVIDENCE_DIR, { recursive: true });
-  const db = ['funnel', 'funnel-client-class', 'entitlements', 'workspace', 'webhook', 'publishers', 'ssrf-boundary', 'core', 'api', 'openapi', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'deletion-sweep', 'signin-ratelimit', 'signin-visibility.ts', 'fixer3-migration', 'worker-drain', 'trial-end', 'error-visibility', 'deployment-skew.tsx', 'trial-handoff.tsx'];
+  const db = ['funnel', 'funnel-client-class', 'entitlements', 'workspace', 'webhook', 'publishers', 'ssrf-boundary', 'core', 'api', 'openapi', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'deletion-sweep', 'signin-ratelimit', 'signin-visibility.ts', 'fixer3-migration', 'worker-drain', 'trial-end', 'trial-reminder', 'error-visibility', 'deployment-skew.tsx', 'trial-handoff.tsx'];
   const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media', 'funnel-browser',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'first-run-browser', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
     'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'approval-e2e'];

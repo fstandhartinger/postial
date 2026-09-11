@@ -148,6 +148,13 @@
       "when": 1789123200000,
       "tag": "0020_funnel_client_class",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789092243265,
+      "tag": "0021_subscription-reminder-emails",
+      "breakpoints": true
     }
   ]
 }
