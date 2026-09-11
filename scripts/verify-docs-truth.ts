@@ -49,3 +49,13 @@ assert.match(billingPage, /Manage payment method, plan and cancellation/);
 assert.match(billingPage, /View invoice history/);
 
 console.log('PASS docs-truth: five guides, provider adapters, plan limits, rendered labels and state guards');
+
+// The Mastodon guide must keep warning about instance rules on automated posting.
+// Our own test account on a general-purpose instance was suspended two days after it
+// started posting unattended, which ends publishing for good; a customer must be told
+// to settle this before connecting.
+const mastodonGuideText = JSON.parse(readFileSync('content/help/index.json', 'utf8'))
+  .find((article: { slug: string }) => article.slug === 'connect-mastodon').keywords as string;
+assert.match(mastodonGuideText, /rules on automated posting/);
+assert.match(mastodonGuideText, /This is an automated account/);
+console.log('PASS docs truth: Mastodon guide warns about instance automation rules');
