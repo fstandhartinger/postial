@@ -45,7 +45,11 @@ async function main() {
     await ap.reload(); await ap.getByRole('status').filter({hasText:'Changes requested'}).first().waitFor(); await ap.getByText('Please shorten the opening.').first().waitFor();
     await Promise.all([ap.waitForURL(/\/app\/posts\/.+\/edit$/), ap.getByRole('link', {name:'Edit post'}).click()]); await ap.getByLabel('Post text').fill('Maple Studio launch — approved revision.');
     await Promise.all([
-      ap.waitForURL(/\/app\/posts\//, { waitUntil: 'networkidle' }),
+      // Anchored on purpose: we click from /app/posts/<id>/edit, and the loose pattern
+      // /\/app\/posts\// already matched that URL, so this wait resolved immediately and the
+      // status assertion below raced a page that was still navigating. That is the timeout
+      // seen in cycles 70 and 75.
+      ap.waitForURL(/\/app\/posts\/[^/]+$/, { waitUntil: 'networkidle' }),
       ap.getByRole('button', {name:'Schedule'}).click(),
     ]);
     await ap.getByRole('status').filter({hasText:'Post saved for client approval'}).waitFor();
