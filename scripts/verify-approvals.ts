@@ -112,6 +112,14 @@ async function main() {
       await rotateApprovalLink(post.id, workspace.id);
       [updated] = await db.select().from(posts).where(eq(posts.id, post.id));
       await page.goto(`${base}/r/${updated.approvalToken}`);
+      // Wait for the image instead of sampling it once: goto resolves on load, but decoding
+      // can still be in flight, which made this assertion fail intermittently with a bare
+      // "false !== true" on 2026-09-11. A gate that flakes red teaches people to rerun until
+      // green, which costs it the same authority as a false green.
+      await page.waitForFunction(() => {
+        const image = document.querySelector("img") as HTMLImageElement | null;
+        return !!image && image.complete && image.naturalWidth > 0;
+      });
       assert.equal(await page.locator("img").evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), true);
       await page.getByLabel("Name (required)").focus();
       await page.keyboard.type("Keyboard reviewer");

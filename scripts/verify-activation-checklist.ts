@@ -37,6 +37,16 @@ async function main() {
     await capture("01-fresh-open");
 
     await page.getByRole("link", { name: "Create brand" }).click();
+    // Connecting a channel means leaving Postial to create credentials on the network's own
+    // site, and it can fail for reasons outside our product. Drafting and client approval need
+    // no channel, so that hurdle belongs last: a new user must reach what makes us different
+    // before meeting it. Assert the rendered order so this cannot be undone by accident.
+    const titles = (await checklist.innerText()).split("\n").map(line => line.trim());
+    const position = (needle: string) => titles.findIndex(line => line.startsWith(needle));
+    assert.ok(position("Create a brand") >= 0, "the checklist lists the brand step");
+    assert.ok(position("Plan your first post") > position("Create a brand"), "the first post comes after the brand");
+    assert.ok(position("Connect a channel") > position("Plan your first post"), "connecting a channel stays last");
+
     await page.getByRole("heading", { name: "Create your first brand" }).waitFor();
     await page.getByLabel("Name").fill("Activation fixture brand");
     await Promise.all([page.waitForURL(/\/app\/brands\/[0-9a-f-]+/), page.getByRole("button", { name: "Create brand" }).click()]);
