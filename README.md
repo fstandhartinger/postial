@@ -98,7 +98,7 @@ included explicitly alongside the standalone Next.js output.
 Foundation: workspace ownership, auth and billing are implemented.
 Marketing: landing, pricing, legal pages and the interactive approval demo are implemented.
 Product: brands, channel connections, composer, calendar and publishing worker are
-implemented, including public customer approval links. Public API v1 is implemented; the native n8n node is published on npm as `n8n-nodes-socialmint` 0.1.2 and appears as Postial in n8n.
+implemented, including public customer approval links. Public API v1 is implemented; the native n8n node is published on npm as `n8n-nodes-socialmint` 0.1.3 and appears as Postial in n8n.
 The owner must verify company registration details. The DPA is available at `/legal/dpa` with owner acceptance in `/app/settings/legal`. Google/SMTP credentials enable their
 respective providers; no mail or external login is exercised by the smoke checks.
 The Sandy deployment is documented below. External provider approvals/sign-in and
@@ -337,7 +337,7 @@ Post detail includes `approvals[]` with decision, reviewer_name, comment and
 created_at (`decided_at` retained for compatibility). When requires_approval is
 true and the key also has `posts:write`, `approval_url` contains the link, or null for a draft without a token. Keys with only `posts:read` receive status/history without an approval URL.
 The docs include registration, every event payload and Node signature verification.
-n8n community node: `n8n-nodes-socialmint` 0.1.2 is published on npm and appears as Postial in n8n; only the package name retains the former brand.
+n8n community node: `n8n-nodes-socialmint` 0.1.3 is published on npm and appears as Postial in n8n; only the package name retains the former brand.
 
 The API verifier additionally checks management scopes, signed test events, safe lists,
 tenancy, SSRF rejection, concurrent endpoint limits and cancellation through HTTP.

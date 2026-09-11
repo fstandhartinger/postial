@@ -59,3 +59,24 @@ const mastodonGuideText = JSON.parse(readFileSync('content/help/index.json', 'ut
 assert.match(mastodonGuideText, /rules on automated posting/);
 assert.match(mastodonGuideText, /This is an automated account/);
 console.log('PASS docs truth: Mastodon guide warns about instance automation rules');
+
+// Every customer-facing claim about the published n8n package must state one and the same
+// version. On 2026-09-11 the landing page, the comparisons and the help article still said
+// 0.1.2 while npm already served 0.1.3, so a prospect checking npm would have found our
+// pages stale. availability.json is the single source; the changelog keeps history and is
+// deliberately excluded.
+{
+  const versionOf = (text: string) => {
+    const found = [...text.matchAll(/n8n-nodes-socialmint[`\s]*,?\s*(?:version\s*`?)?(\d+\.\d+\.\d+)/g)].map(m => m[1]);
+    return [...new Set(found)];
+  };
+  const manifest = versionOf(readFileSync('content/availability.json', 'utf8'));
+  assert.equal(manifest.length, 1, `availability.json must state exactly one package version, found ${manifest.join(', ') || 'none'}`);
+  for (const file of ['content/landing.json', 'content/compare.json', 'content/help/n8n-postial.md', 'content/help/index.json']) {
+    const stated = versionOf(readFileSync(file, 'utf8'));
+    for (const version of stated) {
+      assert.equal(version, manifest[0], `${file} claims n8n package ${version} but availability.json says ${manifest[0]}`);
+    }
+  }
+  console.log(`PASS docs truth: every page states n8n package ${manifest[0]}`);
+}

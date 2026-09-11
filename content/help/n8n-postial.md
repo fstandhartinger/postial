@@ -17,7 +17,7 @@ The API checks Agency access before the scope check. The API key is sent as `Aut
 
 ## The native community node
 
-The product availability manifest identifies the package as `n8n-nodes-socialmint`, version `0.1.2`. In n8n it appears as **Postial** and **Postial Trigger**. The package name still carries the earlier SocialMint brand.
+The product availability manifest identifies the package as `n8n-nodes-socialmint`, version `0.1.3`. In n8n it appears as **Postial** and **Postial Trigger**. The package name still carries the earlier SocialMint brand.
 
 In an n8n installation that permits community packages, install `n8n-nodes-socialmint`. Create the credential type **Postial API**. Its fields are **Base URL** (default `https://postial.co`) and **API Key**. The credential adds the Bearer header and tests `GET /api/v1/me`.
 

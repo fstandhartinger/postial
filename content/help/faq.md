@@ -30,7 +30,7 @@ No. Network copies remain there; shared workspace content also survives account 
 
 ## Can I install the n8n package now?
 
-The native package n8n-nodes-socialmint 0.1.2 is published on npm and appears as Postial in n8n. Use n8n HTTP Request and Webhook nodes with the API guide when you prefer not to install the package.
+The native package n8n-nodes-socialmint 0.1.3 is published on npm and appears as Postial in n8n. Use n8n HTTP Request and Webhook nodes with the API guide when you prefer not to install the package.
 
 ## Related
 
