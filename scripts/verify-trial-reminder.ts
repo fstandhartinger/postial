@@ -8,6 +8,7 @@ import { users, workspaces, subscriptions } from '../db/schema';
 import { stripe, requiredEnv } from '../lib/stripe';
 import { POST } from '../app/api/stripe/webhook/route';
 import { subscriptionReminderEmails } from '../db/billing-schema';
+import { subscriptionReminderContent } from '../lib/trial-reminder';
 import { sendSubscriptionReminder } from '../lib/trial-reminder';
 
 const db = getDb();
@@ -155,3 +156,15 @@ async function main() {
 }
 
 main().catch(error => { console.error('Trial reminder verification failed:', error instanceof Error ? error.message : 'unknown'); process.exitCode = 1; });
+
+// A card-less trial that simply runs out must reach the owner, because publishing stops at
+// that moment. The same Stripe event fires when a paying customer cancels on purpose, and a
+// win-back note to them would be tactless, so the rule is strict and silence wins any doubt.
+{
+  const copy = subscriptionReminderContent('trial_ended', new Date('2026-09-23T12:09:00Z'));
+  assert.match(copy.text, /nothing further will be published/);
+  assert.match(copy.text, /do not go out on their own/, 'never promise that paused posts resume');
+  assert.match(copy.text, /\/app\/billing/, 'the mail links to billing');
+  assert.doesNotMatch(copy.subject, /payment could not/i);
+  console.log('PASS trial reminder: the end of a card-less trial has its own honest notice');
+}

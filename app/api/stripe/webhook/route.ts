@@ -33,6 +33,14 @@ function subscriptionId(event: Stripe.Event): string | undefined {
     default: return undefined;
   }
 }
+/** True only for a trial that ran out with no payment method and no cancellation request. */
+function lapsedWithoutPayment(subscription: Stripe.Subscription): boolean {
+  if (!subscription.trial_end) return false;
+  if (subscription.default_payment_method) return false;
+  const reason = subscription.cancellation_details?.reason;
+  if (reason === 'cancellation_requested') return false;
+  return subscription.trial_end * 1000 <= Date.now() + 60_000;
+}
 async function resolvePlan(subscription: Stripe.Subscription): Promise<Plan> {
   if (subscription.items.data.length !== 1) throw new Error('Unexpected subscription items');
   const item = subscription.items.data[0]!;
@@ -130,6 +138,13 @@ export async function POST(request: Request) {
       await reconcile(event, target);
       if (event.type === 'customer.subscription.trial_will_end' || event.type === 'invoice.payment_failed') {
         await sendSubscriptionReminder(target, event.type === 'customer.subscription.trial_will_end' ? 'trial_will_end' : 'payment_failed');
+      }
+      // A card-less trial ends in silence otherwise: Stripe simply cancels, publishing stops
+      // and the person hears nothing at the moment the consequence becomes real. The same
+      // event fires when a paying customer deliberately cancels, and sending them a
+      // win-back note would be tactless, so anything short of certainty stays quiet.
+      if (event.type === 'customer.subscription.deleted' && lapsedWithoutPayment(event.data.object)) {
+        await sendSubscriptionReminder(target, 'trial_ended');
       }
     }
     return Response.json({ received: true });
