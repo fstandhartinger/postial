@@ -143,6 +143,12 @@ export async function POST(request: Request) {
       // and the person hears nothing at the moment the consequence becomes real. The same
       // event fires when a paying customer deliberately cancels, and sending them a
       // win-back note would be tactless, so anything short of certainty stays quiet.
+      // Until now the only mail a trial user ever got was a warning that it is ending.
+      // Stripe sends nothing for a zero-amount trial, so the start was silent. One factual
+      // notice, once per subscription through the same lock as the others.
+      if (event.type === 'customer.subscription.created' && event.data.object.status === 'trialing') {
+        await sendSubscriptionReminder(target, 'trial_started');
+      }
       if (event.type === 'customer.subscription.deleted' && lapsedWithoutPayment(event.data.object)) {
         await sendSubscriptionReminder(target, 'trial_ended');
       }

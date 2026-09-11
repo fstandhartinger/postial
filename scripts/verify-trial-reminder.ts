@@ -168,3 +168,16 @@ main().catch(error => { console.error('Trial reminder verification failed:', err
   assert.doesNotMatch(copy.subject, /payment could not/i);
   console.log('PASS trial reminder: the end of a card-less trial has its own honest notice');
 }
+
+// The start of a trial was the one transition without a word from us, so the whole mail
+// relationship consisted of warnings. The notice must stay factual and must not claim that
+// publishing works before a channel is connected.
+{
+  const copy = subscriptionReminderContent('trial_started', new Date('2026-09-23T12:09:00Z'));
+  assert.match(copy.text, /running until/);
+  assert.match(copy.text, /No card is needed/);
+  assert.match(copy.text, /without connecting a channel/, 'say what works before a channel exists');
+  assert.match(copy.text, /only when a post should actually go out/, 'and what needs one');
+  assert.doesNotMatch(copy.text, /publish now|start publishing/i, 'never imply publishing works yet');
+  console.log('PASS trial reminder: the start of a trial says what works without a channel');
+}
