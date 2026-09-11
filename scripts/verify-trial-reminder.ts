@@ -181,3 +181,19 @@ main().catch(error => { console.error('Trial reminder verification failed:', err
   assert.doesNotMatch(copy.text, /publish now|start publishing/i, 'never imply publishing works yet');
   console.log('PASS trial reminder: the start of a trial says what works without a channel');
 }
+
+// Every sentence of a notice must survive into the HTML that most mail clients display.
+// The HTML used to render only the first block after the greeting, which silently dropped
+// the actionable sentence from the trial-start notice on the day it shipped.
+{
+  for (const kind of ['trial_started', 'trial_ended', 'trial_will_end', 'payment_failed'] as const) {
+    const copy = subscriptionReminderContent(kind, new Date('2026-09-23T12:09:00Z'));
+    const blocks = copy.text.split('\n\n').slice(1, -2).filter(block => block.trim());
+    assert.ok(blocks.length > 0, `${kind} has a body`);
+    for (const block of blocks) {
+      const needle = block.slice(0, 40).replaceAll('&', '&amp;');
+      assert.ok(copy.html.includes(needle), `${kind}: the HTML drops "${block.slice(0, 40)}"`);
+    }
+  }
+  console.log('PASS trial reminder: no notice loses a sentence in its HTML version');
+}
