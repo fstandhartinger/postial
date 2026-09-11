@@ -33,8 +33,14 @@ function content(kind: ReminderKind, trialEnd: Date | null): { subject: string; 
   const blocks = text.split('\n\n').slice(1, -2).filter(block => block.trim());
   const safeParagraph = blocks.map(escapeHtml).join('</p><p style="margin:0 0 24px;">');
   const safeHeading = heading.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-  const safeUrl = billingUrl.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px;"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e4e4e7;"><tr><td style="padding:32px;"><p style="margin:0 0 24px;font-size:24px;font-weight:bold;color:#18181b;">Postial</p><h1 style="font-size:20px;">${safeHeading}</h1><p style="margin:0 0 24px;">${safeParagraph}</p><p style="margin:0;"><a href="${safeUrl}" style="display:inline-block;background:#047857;color:#ffffff;padding:12px 20px;text-decoration:none;font-weight:bold;border-radius:4px;">Update billing</a></p></td></tr></table></td></tr></table></body></html>`;
+  // The button has to lead where the text says. A trial that just started has nothing to
+  // pay, and sending someone to a billing page as their first step after signing up is both
+  // the wrong destination and a poor first impression.
+  const target = kind === 'trial_started'
+    ? { url: new URL('/app', appUrl()).toString(), label: 'Open Postial' }
+    : { url: billingUrl, label: kind === 'trial_ended' ? 'Start a plan' : 'Update billing' };
+  const safeUrl = target.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px;"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e4e4e7;"><tr><td style="padding:32px;"><p style="margin:0 0 24px;font-size:24px;font-weight:bold;color:#18181b;">Postial</p><h1 style="font-size:20px;">${safeHeading}</h1><p style="margin:0 0 24px;">${safeParagraph}</p><p style="margin:0;"><a href="${safeUrl}" style="display:inline-block;background:#047857;color:#ffffff;padding:12px 20px;text-decoration:none;font-weight:bold;border-radius:4px;">${escapeHtml(target.label)}</a></p></td></tr></table></td></tr></table></body></html>`;
   return { subject: heading, text, html };
 }
 

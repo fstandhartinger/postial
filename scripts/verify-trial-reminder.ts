@@ -197,3 +197,19 @@ main().catch(error => { console.error('Trial reminder verification failed:', err
   }
   console.log('PASS trial reminder: no notice loses a sentence in its HTML version');
 }
+
+// The button must lead where the text says. The trial-start notice pointed its text at the
+// app and its button at billing, which would have sent someone who just started a card-free
+// trial straight to a payment page as their first step.
+{
+  for (const kind of ['trial_started', 'trial_ended', 'trial_will_end', 'payment_failed'] as const) {
+    const copy = subscriptionReminderContent(kind, new Date('2026-09-23T12:09:00Z'));
+    const anchors = [...copy.html.matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)];
+    assert.equal(anchors.length, 1, `${kind} offers exactly one link`);
+    const inText = copy.text.match(/https:\/\/\S+/);
+    assert.ok(inText, `${kind} names its link in the text too`);
+    assert.equal(anchors[0]![1], inText![0], `${kind}: button and text must lead to the same place`);
+    assert.ok(anchors[0]![2]!.trim().length > 0, `${kind} labels its button`);
+  }
+  console.log('PASS trial reminder: every notice leads to one place, and the button agrees with the text');
+}
