@@ -18,4 +18,5 @@
 ## OFFEN
 
 - Keine durch den Code belegte Abweichung in den fünf geprüften Seiten.
-- Vollständiger Acceptance-Lauf und Commit-Nachweis folgen nach dem letzten Commit.
+- Vollständiger Acceptance-Lauf nach dem letzten Commit: `work/acceptance.json` meldet `ok: true`, `clean: true`, `commit: add5b3b9d56ac16d08632ad2fe14a359ca148696`, `directory: /tmp/postial-docs`. `tsc --noEmit`, `next build`, `verify:all` und `verify:http` meldeten jeweils `returnCode: 0`; letzte Ausgaben waren für die Verifikationen `PASS verify:all` und `PASS verify:http`.
+- Der Supervisor bestätigte danach: `run-verification: verifying /tmp/postial-docs at add5b3b`.
