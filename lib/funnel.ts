@@ -122,7 +122,16 @@ export const OWN_REFERRER_HOSTS: readonly string[] = [
   'postial.co', 'www.postial.co', 'postial.net', 'www.postial.net', 'socialmint.app.mintapis.com',
 ];
 export function isOwnReferrer(host: string | null | undefined): boolean {
-  return Boolean(host && OWN_REFERRER_HOSTS.includes(host.trim().toLowerCase()));
+  const value = host?.trim().toLowerCase();
+  if (!value) return false;
+  if (OWN_REFERRER_HOSTS.includes(value)) return true;
+  // Also the host this instance is actually served from. Without it the list silently misses a
+  // new domain, and it counted the verification host as an external arrival: the rendered readout
+  // reported localhost among the sites people came from. A hard-coded list cannot know where it
+  // runs; the configured app URL can.
+  const configured = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!configured) return false;
+  try { return new URL(configured).hostname.toLowerCase() === value; } catch { return false; }
 }
 
 export async function funnelReport(days: number) {

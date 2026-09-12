@@ -66,6 +66,13 @@ test('own redirect hops are not counted as arrivals', () => {
   assert.equal(isOwnReferrer(' postial.co '), true, 'a padded host is still ours');
   assert.equal(isOwnReferrer('news.ycombinator.com'), false, 'the one external referrer stays external');
   assert.equal(isOwnReferrer('notpostial.co'), false, 'a lookalike host is not ours');
+  const previousAppUrl = process.env.APP_URL;
+  process.env.APP_URL = 'https://staging.example.test:8443';
+  assert.equal(isOwnReferrer('staging.example.test'), true, 'the host we are served from counts as ours');
+  assert.equal(isOwnReferrer('example.test'), false, 'a parent domain of our host is not ours');
+  process.env.APP_URL = 'not a url';
+  assert.equal(isOwnReferrer('staging.example.test'), false, 'an unparseable app url admits nobody');
+  if (previousAppUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = previousAppUrl;
   assert.equal(isOwnReferrer(null), false);
   assert.equal(isOwnReferrer(''), false);
 });

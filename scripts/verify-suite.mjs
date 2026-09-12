@@ -40,6 +40,7 @@ try {
     STRIPE_PORTAL_CONFIG: 'bpc_fixture', WORKER_ENABLED: 'false', AUTH_TRUST_HOST: 'true',
     SMTP_URL: 'smtp://127.0.0.1:1', EMAIL_FROM: 'Postial <verify@example.invalid>',
     APPROVAL_TRUST_PROXY: 'true', PLAYWRIGHT_MODULE: env.PLAYWRIGHT_MODULE || 'playwright', VERIFY_MODE: '1',
+    ADMIN_EMAILS: 'admin-fixture@example.invalid',
     VERIFY_EVIDENCE_DIR: resolve(process.env.VERIFY_EVIDENCE_DIR || '../work/verification'),
     APP_URL: 'http://localhost:3992', AUTH_URL: 'http://localhost:3992', NEXT_PUBLIC_APP_URL: 'http://localhost:3992',
   });
@@ -47,7 +48,7 @@ try {
   const db = ['timezone.ts', 'funnel', 'funnel-client-class', 'entitlements', 'workspace', 'webhook', 'publishers', 'docs-truth', 'ssrf-boundary', 'core', 'api', 'openapi', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'deletion-sweep', 'signin-ratelimit', 'signin-visibility.ts', 'fixer3-migration', 'worker-drain', 'trial-end', 'trial-reminder', 'alert-mail.ts', 'error-visibility', 'deployment-skew.tsx', 'trial-handoff.tsx'];
   const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media', 'funnel-browser',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'first-run-browser', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
-    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'approval-e2e'];
+    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'admin-funnel-browser', 'approval-e2e'];
   async function run(name) {
     controller.signal.throwIfAborted();
     const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
