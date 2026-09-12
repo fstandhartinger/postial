@@ -1,3 +1,4 @@
+import { SEARCH_DESCRIPTION_LIMIT, searchDescription } from '../lib/seo';
 // Shared origin takes precedence; historical per-script variables remain supported.
 if (process.env.VERIFY_BASE_URL) process.env.DOCS_HTTP_URL = process.env.VERIFY_BASE_URL;
 import assert from 'node:assert/strict';
@@ -69,3 +70,23 @@ console.log(`PASS: ${expected.length} documentation/legal pages, ${seen.size} lo
 
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : "Docs verification failed"); process.exitCode = 1; });
+
+// A meta description is built from the article's opening paragraph, which is body text and may
+// carry Markdown links. Until 2026-09-12 that paragraph was used raw, so /docs/n8n advertised
+// itself in search results with "[n8n workflow guide](/docs/n8n-postial)" spelled out, at 322
+// characters. Both properties are asserted here rather than spot-checked on one page.
+{
+  const suffix = 'Read the Postial help guide for practical workspace steps.';
+  for (const article of index) {
+    const description = searchDescription(article.summary, suffix);
+    assert.ok(description.length > 0, `${article.slug} has an empty description`);
+    assert.ok(description.length <= SEARCH_DESCRIPTION_LIMIT,
+      `${article.slug} description is ${description.length} characters and would be truncated in results`);
+    assert.doesNotMatch(description, /\]\(|\[[^\]]+\]|[*_`]/, `${article.slug} description carries Markdown syntax`);
+  }
+  // The helper itself must be able to fail, so pin both jobs on a known input.
+  assert.equal(searchDescription('See the [guide](/docs/x) first.'), 'See the guide first.');
+  assert.ok(searchDescription('word '.repeat(80)).length <= SEARCH_DESCRIPTION_LIMIT);
+  assert.match(searchDescription('word '.repeat(80)), /…$/);
+  console.log(`PASS docs: ${index.length} meta descriptions are plain text within ${SEARCH_DESCRIPTION_LIMIT} characters`);
+}
