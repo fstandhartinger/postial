@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { conversionRates, FUNNEL_EVENTS, recordFunnelEvent, adminEmails, isAdminEmail } from '@/lib/funnel';
+import { conversionRates, FUNNEL_EVENTS, recordFunnelEvent, adminEmails, isAdminEmail, OWN_REFERRER_HOSTS, isOwnReferrer } from '@/lib/funnel';
 
 test('allowlist rejects unknown events and write failures are best effort', async () => {
   assert.equal(FUNNEL_EVENTS.includes('not_a_funnel_event' as never), false);
@@ -55,4 +55,17 @@ test('funnel fix regression guards cover all six findings', () => {
   assert.match(layout, /isAdminEmail\(session\?\.user\?\.email\)/);
   assert.match(admin, /Event conversion rates \(raw event counts\)/);
   assert.match(funnel, /workspaceConversions/);
+});
+
+test('own redirect hops are not counted as arrivals', () => {
+  // Every referrer host the funnel has ever recorded is ours except one. Reading the page-view
+  // total as a visitor count therefore overstates reach by whatever the redirects contribute:
+  // 40 of 84 browser-shaped landing views in the twelve hours to 2026-09-12 10:00.
+  for (const host of OWN_REFERRER_HOSTS) assert.equal(isOwnReferrer(host), true, host);
+  assert.equal(isOwnReferrer('POSTIAL.NET'), true, 'host comparison is case-insensitive');
+  assert.equal(isOwnReferrer(' postial.co '), true, 'a padded host is still ours');
+  assert.equal(isOwnReferrer('news.ycombinator.com'), false, 'the one external referrer stays external');
+  assert.equal(isOwnReferrer('notpostial.co'), false, 'a lookalike host is not ours');
+  assert.equal(isOwnReferrer(null), false);
+  assert.equal(isOwnReferrer(''), false);
 });

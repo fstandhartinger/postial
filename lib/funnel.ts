@@ -111,6 +111,20 @@ export function conversionRates(counts: Record<string, number>) {
   }));
 }
 
+/**
+ * Our own hosts. A visit that arrives through postial.net or the www variants is redirected to
+ * postial.co, and the hop is recorded as a page view of its own with our host as the referrer.
+ * In the twelve hours to 2026-09-12 10:00, 40 of 84 browser-shaped landing views were such hops.
+ * Counting them as arrivals overstates reach, so the report separates them instead of hiding
+ * them in a referrer list nobody totals up.
+ */
+export const OWN_REFERRER_HOSTS: readonly string[] = [
+  'postial.co', 'www.postial.co', 'postial.net', 'www.postial.net', 'socialmint.app.mintapis.com',
+];
+export function isOwnReferrer(host: string | null | undefined): boolean {
+  return Boolean(host && OWN_REFERRER_HOSTS.includes(host.trim().toLowerCase()));
+}
+
 export async function funnelReport(days: number) {
   const since = new Date(Date.now() - Math.max(1, days) * 86400000).toISOString().slice(0, 10);
   const rows = await getDb().select({ event: funnelEvents.event, day: funnelEvents.day, clientClass: funnelEvents.clientClass, count: sql<number>`count(*)::int` })
@@ -136,7 +150,9 @@ export async function funnelReport(days: number) {
     const previous = workspaceTotals[workspaceStages[i]] ?? 0, current = workspaceTotals[event] ?? 0;
     return [event, previous ? current / previous : null];
   }));
-  return { days, since, totals, byDay, clientClassTotals, clientClassByDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
+  const ownReferralViews = refs.filter(row => isOwnReferrer(row.host)).reduce((sum, row) => sum + row.count, 0);
+  const externalReferralViews = refs.filter(row => !isOwnReferrer(row.host)).reduce((sum, row) => sum + row.count, 0);
+  return { days, since, ownReferralViews, externalReferralViews, totals, byDay, clientClassTotals, clientClassByDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
 }
 
 export function adminEmails(): string[] { return (process.env.ADMIN_EMAILS ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean); }
