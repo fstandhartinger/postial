@@ -24,6 +24,22 @@ export const FUNNEL_FAILURE_EVENTS = ['signin_failed'] as const;
 const allowed = new Set<string>(FUNNEL_EVENTS);
 const publicViewEvents = new Set(['landing_view', 'pricing_view', 'docs_view', 'compare_view', 'client_ready']);
 const automatedUserAgent = /bot|crawler|spider|slurp|headless|preview|curl|wget|python-requests|http-client|monitor|uptime|lighthouse|scanner/i;
+// Which search engine, if any, is crawling us. Our only self-directed acquisition channel is
+// search, and since cycle 73 there has been no way to tell whether it is being crawled at
+// all. This records the engine family only, never the user agent itself, and only for
+// programs that identify themselves as crawlers.
+const searchEngines: ReadonlyArray<readonly [string, RegExp]> = [
+  ['google', /googlebot|google-inspectiontool|storebot-google/i],
+  ['bing', /bingbot|adidxbot/i],
+  ['duckduckgo', /duckduckbot/i],
+  ['yandex', /yandexbot/i],
+  ['apple', /applebot/i],
+  ['ai', /gptbot|claudebot|perplexitybot|ccbot|bytespider/i],
+];
+export function searchEngine(userAgent: string | null | undefined): string | undefined {
+  if (!userAgent) return undefined;
+  return searchEngines.find(([, pattern]) => pattern.test(userAgent))?.[0];
+}
 let publicViewDay = '';
 const publicViewCounts = new Map<string, number>();
 
@@ -79,7 +95,10 @@ export function recordPublicView(event: FunnelEvent, path: string): void {
   void (async () => {
     try {
       const h = await headers();
-      await recordFunnelEvent(event, { path, referrerHost: referrerHost(h.get('referer')), clientClass: classifyUserAgent(h.get('user-agent')) });
+      const agent = h.get('user-agent');
+      const engine = searchEngine(agent);
+      await recordFunnelEvent(event, { path, referrerHost: referrerHost(h.get('referer')),
+        clientClass: classifyUserAgent(agent), ...(engine ? { props: { crawler: engine } } : {}) });
     } catch { /* Public rendering must never depend on measurement. */ }
   })();
 }
