@@ -169,3 +169,15 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   assert.match(newest, /^20\d\d-\d\d-\d\d$/, 'every changelog entry carries a usable date');
   console.log(`PASS docs truth: the sitemap dates itself from the changelog (${newest})`);
 }
+
+// Structured data must state the prices the page itself shows, or it violates the search
+// engines' own guidelines. Both come from lib/plans.ts, so they cannot drift apart, and the
+// figures are the ones verified against Stripe in cycle 66.
+{
+  const pricingSource = readFileSync('app/pricing/page.tsx', 'utf8');
+  assert.match(pricingSource, /'@type': 'Product'/, 'the pricing page carries offer data');
+  assert.match(pricingSource, /plans\[key\]\.monthlyEuro/, 'and takes the price from the plan definition');
+  assert.doesNotMatch(pricingSource, /price: '(?:19|49)'/, 'never a hand-typed price in the markup');
+  assert.match(pricingSource, /valueAddedTaxIncluded: true/, 'and states that VAT is included, as the page does');
+  console.log('PASS docs truth: the pricing page states its offers from the plan definition');
+}
