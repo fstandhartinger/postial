@@ -5,8 +5,8 @@ import { notifyWorkspace } from '@/lib/notifications';
 import { recordChannelAlert, sendPendingChannelAlertMail, type AlertMailKind } from '@/lib/alert-mail';
 import { emit, emitPublishing } from "@/lib/api/webhooks";
 import { workspaceEntitlements } from '@/lib/entitlements';
-function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads', 'linkedin', 'facebook'].includes(provider); }
-function reviewMessage(provider: string) { return provider === 'telegram' ? TELEGRAM_REVIEW : `We couldn't confirm whether ${provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : provider === 'facebook' ? 'Facebook' : 'LinkedIn'} received this post. Check the account, then retry or skip.`; }
+function uncertainProvider(provider: string) { return ['telegram', 'x', 'threads', 'linkedin', 'facebook', 'instagram'].includes(provider); }
+function reviewMessage(provider: string) { return provider === 'telegram' ? TELEGRAM_REVIEW : `We couldn't confirm whether ${provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : provider === 'facebook' ? 'Facebook' : provider === 'instagram' ? 'Instagram' : 'LinkedIn'} received this post. Check the account, then retry or skip.`; }
 export const TELEGRAM_REVIEW = "We couldn't confirm whether Telegram received this post. Check the channel, then retry or skip.";
 export const UNKNOWN_FAILED_MESSAGE = "Unexpected error while publishing. Our team has been notified; you can retry manually.";
 import { and, eq, inArray, lte, lt, sql } from "drizzle-orm";

@@ -1,7 +1,7 @@
 import { failure, guarded, jsonResponse, responseError } from './http';
 import { FACEBOOK_GRAPH_VERSION, oauthConfig, oauthEndpoint, type OAuthProvider } from './oauth-config';
 import type { Credentials } from './types';
-const oauthDisplay: Record<OAuthProvider, string> = { x: 'X', threads: 'Threads', linkedin: 'LinkedIn', facebook: 'Facebook' };
+const oauthDisplay: Record<OAuthProvider, string> = { x: 'X', threads: 'Threads', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' };
 export async function oauthJson<T>(provider: OAuthProvider, path: string, init: RequestInit = {}): Promise<T> {
   return (await oauthJsonResponse<T>(provider, path, init)).body;
 }
@@ -36,11 +36,11 @@ export async function linkedinToken(body: Record<string, string>) {
   if (!config) throw failure('AUTH_EXPIRED', 'LinkedIn connection is not configured.');
   return oauthJson<TokenResponse>('linkedin', '/oauth/v2/accessToken', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ ...body, client_id: config.id, client_secret: config.secret }) });
 }
-/** Facebook exchanges both the code and the short token via the same GET endpoint, distinguished by query. */
-export async function facebookToken(query: Record<string, string>) {
-  const config = oauthConfig('facebook');
-  if (!config) throw failure('AUTH_EXPIRED', 'Facebook connection is not configured.');
-  return oauthJson<TokenResponse>('facebook', `/${FACEBOOK_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({ ...query, client_id: config.id, client_secret: config.secret })}`);
+/** Facebook exchanges both the code and the short token via the same GET endpoint, distinguished by query. Instagram reuses the same app and endpoint. */
+export async function facebookToken(query: Record<string, string>, provider: 'facebook' | 'instagram' = 'facebook') {
+  const config = oauthConfig(provider);
+  if (!config) throw failure('AUTH_EXPIRED', `${oauthDisplay[provider]} connection is not configured.`);
+  return oauthJson<TokenResponse>(provider, `/${FACEBOOK_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({ ...query, client_id: config.id, client_secret: config.secret })}`);
 }
 /** Facebook publishes as a Page: resolve the first manageable Page and keep its long-lived Page token. */
 export async function facebookPageToken(userToken: string) {
@@ -48,4 +48,11 @@ export async function facebookPageToken(userToken: string) {
   const page = r.data?.[0];
   if (!page?.id || !page.access_token) throw failure('AUTH_EXPIRED', 'No Facebook Page was found for this account. Grant the app access to a Page and reconnect.');
   return { accessToken: page.access_token, externalId: page.id, pageName: page.name ?? page.id };
+}
+/** Instagram Business publishing uses the Page token of the first manageable Page that has a linked Instagram account. */
+export async function facebookInstagramToken(userToken: string) {
+  const r = await oauthJson<{ data?: Array<{ id?: string; name?: string; access_token?: string; instagram_business_account?: { id?: string; username?: string } }> }>('instagram', `/${FACEBOOK_GRAPH_VERSION}/me/accounts?${new URLSearchParams({ fields: 'id,name,access_token,instagram_business_account{id,username}', access_token: userToken })}`);
+  const page = r.data?.find(entry => entry.access_token && entry.instagram_business_account?.id);
+  if (!page?.access_token || !page.instagram_business_account?.id) throw failure('AUTH_EXPIRED', 'No Instagram Business account linked to a Facebook Page was found. Connect a Page that has an Instagram Business account and reconnect.');
+  return { accessToken: page.access_token, externalId: page.instagram_business_account.id, username: page.instagram_business_account.username ?? page.name ?? page.id };
 }

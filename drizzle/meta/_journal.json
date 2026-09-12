@@ -169,6 +169,13 @@
       "when": 1789170122657,
       "tag": "0023_channel-provider-facebook",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789170222657,
+      "tag": "0024_channel-provider-instagram",
+      "breakpoints": true
     }
   ]
 }

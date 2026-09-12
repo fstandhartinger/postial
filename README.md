@@ -494,10 +494,10 @@ starting a standalone worker. Both remove their fixtures.
 Migration 0012 adds shared workspace notifications, versioned DPA acceptances,
 image alt-text storage and an endpoint kind for team alerts. Availability on the
 landing page, FAQ, pricing and comparisons comes from `content/availability.json`.
-Bluesky, Mastodon and Telegram are available; X, Threads, LinkedIn and Facebook
-are Early access when the operator configures the developer app, publishing still
-subject to each platform's conditions; Instagram awaits approval without a date.
-Sign-in remains gated.
+Bluesky, Mastodon and Telegram are available; X, Threads, LinkedIn, Facebook and
+Instagram are Early access when the operator configures the developer app,
+publishing still subject to each platform's conditions (Instagram publishes to a
+Business account linked to a Facebook Page). Sign-in remains gated.
 
 The shell warns during the last 72 hours of a trial, shows browser-local date,
 time and timezone, and shows held-post counts after expiry. Billing names the

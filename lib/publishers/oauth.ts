@@ -9,7 +9,7 @@ import { ownBrand, isUuid } from '@/lib/core';
 import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, FACEBOOK_GRAPH_VERSION, oauthConfig, type OAuthProvider } from './oauth-config';
-import { facebookPageToken, facebookToken, oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import { facebookInstagramToken, facebookPageToken, facebookToken, oauthJson, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
 import { recordFunnelEvent } from '@/lib/funnel';
 import { clearChannelAlertLocks } from '@/lib/alert-mail';
 
@@ -35,9 +35,9 @@ export async function createAuth(provider: OAuthProvider, brandId: string, userI
   const db = getDb();
   await db.delete(oauthStates).where(lt(oauthStates.expiresAt, new Date()));
   await db.insert(oauthStates).values({ state, codeVerifier: encryptCredentials({ verifier }), brandId, userId, provider, expiresAt: new Date(Date.now() + 600000) });
-  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : provider === 'threads' ? 'https://www.threads.com/oauth/authorize' : provider === 'facebook' ? `https://www.facebook.com/${FACEBOOK_GRAPH_VERSION}/dialog/oauth` : 'https://www.linkedin.com/oauth/v2/authorization');
+  const url = new URL(provider === 'x' ? 'https://x.com/i/oauth2/authorize' : provider === 'threads' ? 'https://www.threads.com/oauth/authorize' : provider === 'facebook' || provider === 'instagram' ? `https://www.facebook.com/${FACEBOOK_GRAPH_VERSION}/dialog/oauth` : 'https://www.linkedin.com/oauth/v2/authorization');
   url.search = new URLSearchParams({ client_id: config.id, redirect_uri: callbackUrl(provider), response_type: 'code', state,
-    scope: provider === 'x' ? 'tweet.read tweet.write users.read offline.access media.write' : provider === 'threads' ? 'threads_basic,threads_content_publish' : provider === 'facebook' ? 'pages_show_list,pages_read_engagement,pages_manage_posts' : 'openid profile email w_member_social',
+    scope: provider === 'x' ? 'tweet.read tweet.write users.read offline.access media.write' : provider === 'threads' ? 'threads_basic,threads_content_publish' : provider === 'instagram' ? 'pages_show_list,instagram_basic,instagram_content_publish' : provider === 'facebook' ? 'pages_show_list,pages_read_engagement,pages_manage_posts' : 'openid profile email w_member_social',
     // Threads does not document PKCE support. Its confidential code exchange uses app_secret.
     ...(provider === 'x' ? { code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256' } : {}),
   }).toString();
@@ -59,22 +59,29 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   const config = oauthConfig(provider);
   if (!config) throw new OAuthCallbackError('provider_error', saved.brandId);
   let token: TokenResponse;
+  let discoveredExternalId: string | undefined;
   if (provider === 'x') token = await xToken({ grant_type: 'authorization_code', code, code_verifier: decryptCredentials(saved.codeVerifier).verifier, redirect_uri: callbackUrl(provider) });
   else if (provider === 'threads') {
     const short = await oauthJson<TokenResponse>('threads', '/oauth/access_token', { method: 'POST', body: new URLSearchParams({ client_id: config.id, client_secret: config.secret, grant_type: 'authorization_code', redirect_uri: callbackUrl(provider), code }) });
     if (!short.access_token) throw failure('AUTH_EXPIRED', 'Threads did not issue a token.');
     token = await oauthJson<TokenResponse>('threads', `/access_token?${new URLSearchParams({ grant_type: 'th_exchange_token', client_secret: config.secret, access_token: short.access_token })}`);
-  } else if (provider === 'facebook') {
-    const short = await facebookToken({ redirect_uri: callbackUrl(provider), code });
-    if (!short.access_token) throw failure('AUTH_EXPIRED', 'Facebook did not issue a token.');
-    const long = await facebookToken({ grant_type: 'fb_exchange_token', fb_exchange_token: short.access_token });
+  } else if (provider === 'facebook' || provider === 'instagram') {
+    const meta: 'facebook' | 'instagram' = provider === 'instagram' ? 'instagram' : 'facebook';
+    const display = meta === 'instagram' ? 'Instagram' : 'Facebook';
+    const short = await facebookToken({ redirect_uri: callbackUrl(provider), code }, meta);
+    if (!short.access_token) throw failure('AUTH_EXPIRED', `${display} did not issue a token.`);
+    const long = await facebookToken({ grant_type: 'fb_exchange_token', fb_exchange_token: short.access_token }, meta);
+    const longToken = long.access_token || short.access_token;
     // Keep the long-lived Page token; it does not expire while the user token stays valid, so no refresh is needed.
-    const page = await facebookPageToken(long.access_token || short.access_token);
-    token = { access_token: page.accessToken, expires_in: long.expires_in };
+    if (meta === 'instagram') {
+      const ig = await facebookInstagramToken(longToken);
+      token = { access_token: ig.accessToken, expires_in: long.expires_in };
+      discoveredExternalId = ig.externalId;
+    } else token = { access_token: (await facebookPageToken(longToken)).accessToken, expires_in: long.expires_in };
   } else token = await linkedinToken({ grant_type: 'authorization_code', code, redirect_uri: callbackUrl(provider) });
-  const issuedCredentials = tokenCredentials(token);
+  const issuedCredentials = discoveredExternalId ? { ...tokenCredentials(token), externalId: discoveredExternalId } : tokenCredentials(token);
   const account = await getPublisher(provider).validate(issuedCredentials);
-  const credentials = { ...issuedCredentials, ...(provider === 'linkedin' || provider === 'facebook' ? { externalId: account.externalId } : {}) };
+  const credentials = { ...issuedCredentials, ...(provider === 'linkedin' || provider === 'facebook' || provider === 'instagram' ? { externalId: account.externalId } : {}) };
   workspaceId = await authorizeBrand(saved.brandId, userId);
   await db.transaction(async tx => {
     await tx.select().from(brands).where(eq(brands.id, saved.brandId)).for('update');

@@ -8,6 +8,8 @@ import { ownBrand } from "@/lib/core";
 import { availableProviders, getPublisher } from "@/lib/publishers";
 import { ActionForm, ConnectForm } from "@/components/core/forms";
 import { Card } from "@/components/ui/card";
+const oauthProviders = ["x", "threads", "linkedin", "facebook", "instagram"] as const;
+const oauthProviderNames: Record<(typeof oauthProviders)[number], string> = { x: "X", threads: "Threads", linkedin: "LinkedIn", facebook: "Facebook", instagram: "Instagram" };
 export default async function BrandPage({
   params, searchParams,
 }: {
@@ -91,22 +93,22 @@ export default async function BrandPage({
             </p>
           </details>
         </div>
-        {(["x", "threads", "linkedin", "facebook"] as const).map(provider => (
+        {oauthProviders.map(provider => (
           <div key={provider} className="mb-4">
             {writable && availableProviders().includes(provider) ? (
               <form action={`/api/oauth/${provider}/start`} method="post">
                 <input type="hidden" name="brandId" value={brand.id} />
-                <button className="rounded border px-4 py-2" type="submit">Connect {provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : provider === 'facebook' ? 'Facebook' : 'LinkedIn'}</button>
+                <button className="rounded border px-4 py-2" type="submit">Connect {oauthProviderNames[provider]}</button>
               </form>
             ) : !availableProviders().includes(provider) ? (
-              <p>{provider === 'x' ? 'X' : provider === 'threads' ? 'Threads' : provider === 'facebook' ? 'Facebook' : 'LinkedIn'} — coming soon. The operator must configure the developer app before connections are available.</p>
+              <p>{oauthProviderNames[provider]} — coming soon. The operator must configure the developer app before connections are available.</p>
             ) : null}
           </div>
         ))}
         {writable && availableProviders().length ? (
           <ConnectForm
             brandId={brand.id}
-          options={availableProviders().filter(p => p !== "x" && p !== "threads" && p !== "linkedin" && p !== "facebook").map((provider) => ({
+          options={availableProviders().filter(p => !oauthProviders.includes(p as (typeof oauthProviders)[number])).map((provider) => ({
               provider,
               fields: getPublisher(provider).credentialFields,
             }))}

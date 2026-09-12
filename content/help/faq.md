@@ -20,9 +20,9 @@ Yes, Agency approval links work without a client account and do not use team sea
 
 Check for pending approval, held subscription access, an inactive channel or a target error. For needs review, check the actual channel before retrying.
 
-## Can I use X, Threads or LinkedIn?
+## Can I use X, Threads, LinkedIn, Facebook or Instagram?
 
-They are in preparation, as are Instagram/Facebook. Bluesky, Mastodon and Telegram are available. No launch dates are promised.
+They are in preparation and appear as Early access when the operator has configured the developer app: Facebook publishes to a Page, and Instagram publishes to a Business account linked to a Facebook Page. Bluesky, Mastodon and Telegram are available. No launch dates are promised.
 
 ## Does deleting my account delete published posts?
 

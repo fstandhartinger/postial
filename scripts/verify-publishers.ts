@@ -8,6 +8,7 @@ import { availableProviders, getPublisher, PublishError, type Credentials } from
 import { validateConnection } from '../lib/publishers/connection';
 import { json } from '../lib/publishers/http';
 import { FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
+import { INSTAGRAM_TEXT_LIMIT } from '../lib/publishers/instagram';
 
 beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
 const originalFetch = globalThis.fetch;
@@ -240,6 +241,74 @@ test('Facebook: 401, 429 Retry-After, 5xx, long text and missing Page mappings',
   assert.equal(calls.length, 0);
   await assert.rejects(adapter.publish({ accessToken: 'test-secret' }, { text: 'hello', idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
 });
+test('Instagram: validate Business account and single-image publish', async () => {
+  const calls = mock((url, init) => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    if (url.includes('/ig-account?')) {
+      assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+      return response({ id: 'ig-account', username: 'postial.test' });
+    }
+    if (url.includes('/ig-account/media') && !url.includes('media_publish')) {
+      const body = new URLSearchParams(String(init?.body));
+      assert.equal(body.get('image_url'), 'https://image.test/one.png');
+      assert.equal(body.get('caption'), 'hello');
+      return response({ id: 'container-1' });
+    }
+    if (url.includes('/container-1?fields=status_code')) return response({ status_code: 'FINISHED' });
+    if (url.endsWith('/ig-account/media_publish')) {
+      assert.equal(new URLSearchParams(String(init?.body)).get('creation_id'), 'container-1');
+      return response({ id: 'media-9' });
+    }
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const adapter = getPublisher('instagram');
+  const c = { accessToken: 'test-secret', externalId: 'ig-account' };
+  const account = await adapter.validate(c);
+  assert.equal(account.externalId, 'ig-account');
+  assert.equal(account.displayName, '@postial.test');
+  assert.equal(account.url, 'https://www.instagram.com/postial.test/');
+  const result = await adapter.publish(c, { text: 'hello', mediaUrls: ['https://image.test/one.png'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'media-9');
+  assert.equal(calls.filter(call => call.url.endsWith('/ig-account/media')).length, 1);
+});
+test('Instagram: carousel children then parent, and text-only is rejected', async () => {
+  const created: { body: URLSearchParams }[] = [];
+  mock((url, init) => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    if (url.includes('/media_publish')) return response({ id: 'media-carousel' });
+    if (url.includes('/media')) { created.push({ body: new URLSearchParams(String(init?.body)) }); return response({ id: `container-${created.length}` }); }
+    if (url.includes('fields=status_code')) return response({ status_code: 'FINISHED' });
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const adapter = getPublisher('instagram');
+  const c = { accessToken: 'test-secret', externalId: 'ig-account' };
+  const result = await adapter.publish(c, { text: 'album', mediaUrls: ['https://image.test/a.png', 'https://image.test/b.png'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'media-carousel');
+  assert.equal(created[0].body.get('is_carousel_item'), 'true');
+  assert.equal(created[0].body.get('caption'), null);
+  const parent = created.at(-1)!;
+  assert.equal(parent.body.get('media_type'), 'CAROUSEL');
+  assert.equal(parent.body.get('caption'), 'album');
+  assert.equal(parent.body.get('children'), 'container-1,container-2');
+  const calls = mock();
+  await assert.rejects(adapter.publish(c, { text: 'no image', idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0);
+});
+test('Instagram: 401, 429 Retry-After, 5xx, long caption and missing Business account mappings', async () => {
+  const adapter = getPublisher('instagram');
+  const c = { accessToken: 'test-secret', externalId: 'ig-account' };
+  const imageOnly = (status: number, headers: HeadersInit = {}) => mock((url: string) => url.includes('image.test') ? new Response('image', { headers: { 'content-type': 'image/png' } }) : response({ error: 'x' }, status, headers));
+  mock(() => response({ error: { message: 'expired' } }, 401));
+  await assert.rejects(adapter.validate(c), errorCode('AUTH_EXPIRED', false));
+  imageOnly(429, { 'Retry-After': '17' });
+  await assert.rejects(adapter.publish(c, { text: 'hello', mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), errorCode('RATE_LIMITED', true, 17));
+  imageOnly(503);
+  await assert.rejects(adapter.publish(c, { text: 'hello', mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), errorCode('PROVIDER_DOWN', true));
+  const calls = mock();
+  await assert.rejects(adapter.publish(c, { text: 'x'.repeat(INSTAGRAM_TEXT_LIMIT + 1), mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0);
+  await assert.rejects(adapter.publish({ accessToken: 'test-secret' }, { text: 'hello', mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
+});
 test('Mastodon 404 instance fallback and duplicate mapping', async () => {
   mock(url => url.endsWith('/instance') ? response({}, 404) : url.endsWith('/statuses') ? response({ error: 'duplicate idempotency key' }, 422) : ok(url));
   await assert.rejects(getPublisher('mastodon').publish(credentials.mastodon, { text: 'hi', idempotencyKey: 'k' }), errorCode('DUPLICATE', false));
@@ -450,7 +519,7 @@ test('Threads refresh extends long-lived tokens and refuses expired ones', async
   await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
 });
 
-for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin','facebook'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
+for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin','facebook','instagram'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
   const adapter = getPublisher(provider), limit = adapter.maxMediaBytes;
   const {downloadImage} = await import('../lib/publishers/http');
   mock(() => new Response(new Uint8Array(limit),{headers:{'content-type':'image/png'}}));

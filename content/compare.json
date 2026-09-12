@@ -41,9 +41,9 @@
       "slug": "hootsuite-alternative",
       "vendor": "Hootsuite",
       "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads and LinkedIn connect in Early access.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads and LinkedIn connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
+      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Standard: from $99/user/month, annual billing; 10 social accounts. Taxes extra.",
@@ -111,7 +111,7 @@
         },
         {
           "question": "Should an Instagram-focused agency switch now?",
-          "answer": "Postial’s Instagram, Facebook and LinkedIn support depends on platform approval. Keep workflows that require those networks in a supported tool until availability is confirmed."
+          "answer": "Postial connects Instagram Business accounts linked to a Facebook Page in Early access when the operator has configured the Meta app, alongside Facebook and LinkedIn. Publishing stays subject to provider conditions and Meta review for public use, so keep a workflow that needs guaranteed Instagram coverage in a supported tool until then."
         },
         {
           "question": "Do both trials require a credit card?",
@@ -143,9 +143,9 @@
       "slug": "postiz-alternative",
       "vendor": "Postiz",
       "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads and LinkedIn connect in Early access.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads and LinkedIn connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. LinkedIn, Instagram and Facebook are planned and depend on platform reviews, with no release date. Keep those workflows with a provider that supports them today.",
+      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
+      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Cloud Standard: $29/month, 5 channels, unlimited posts. Team: $39/month, 10 channels, unlimited team members.",

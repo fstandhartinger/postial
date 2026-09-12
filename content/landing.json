@@ -74,7 +74,7 @@
     },
     {
       "label": "Supporting label",
-      "text": "Start with those client workflows today. X and Threads are built and awaiting developer approvals. LinkedIn, Instagram and Facebook remain planned, depend on platform reviews, and have no release date."
+      "text": "Start with those client workflows today. X, Threads, LinkedIn, Facebook and Instagram connect in Early access once the operator configures the developer app, subject to each provider's conditions."
     }
   ],
   "Pain points": [
@@ -224,11 +224,11 @@
     },
     {
       "label": "Roadmap label",
-      "text": "Next and planned networks"
+      "text": "Networks in Early access"
     },
     {
       "label": "Roadmap body",
-      "text": "X, Threads and LinkedIn can be connected in Early access, with publishing subject to provider conditions. Instagram and Facebook are planned and depend on platform review; no release date is confirmed."
+      "text": "X, Threads, LinkedIn, Facebook and Instagram can be connected in Early access once the operator configures the developer app, with publishing subject to provider conditions. Instagram publishes to a Business account linked to a Facebook Page. No further network has a confirmed release date."
     }
   ],
   "Pricing": [
@@ -424,7 +424,7 @@
     },
     {
       "label": "Answer 4",
-      "text": "Bluesky, Mastodon and Telegram are live. X, Threads and LinkedIn can be connected in Early access; publishing is subject to provider conditions. Instagram and Facebook are planned and depend on platform reviews, with no confirmed release date. See /roadmap for current status."
+      "text": "Bluesky, Mastodon and Telegram are live. X, Threads, LinkedIn, Facebook and Instagram can be connected in Early access once the operator configures the developer app; publishing is subject to provider conditions. Instagram publishes to a Business account linked to a Facebook Page. See /roadmap for current status."
     },
     {
       "label": "Question 5",

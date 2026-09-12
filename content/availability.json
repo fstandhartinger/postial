@@ -13,9 +13,7 @@
     "Mastodon",
     "Telegram"
   ],
-  "planned": [
-    "Instagram"
-  ],
+  "planned": [],
   "pending": "n8n node (Agency): n8n-nodes-socialmint 0.1.3 is published on npm and appears as “Postial” in n8n; the package name retains the former brand",
   "signIn": "Google sign-in and magic links are available",
   "starter": [
@@ -75,8 +73,8 @@
     {
       "id": "instagram",
       "name": "Instagram",
-      "status": "planned",
-      "dependency": "Platform review required; no confirmed release date."
+      "status": "preparation",
+      "dependency": "Connect available (Early access) for Instagram Business accounts linked to a Facebook Page. Publishing supports a single image or a carousel of up to ten images; text-only posts are rejected because Instagram has no text-only feed post. The app is in Development Mode pending Meta review."
     },
     {
       "id": "facebook",
