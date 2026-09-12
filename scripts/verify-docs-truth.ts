@@ -153,3 +153,19 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
     `the published trigger accepts ${accepted.join(' or ')}, the code sends ${sent.join(', ') || 'nothing'}`);
   console.log('PASS docs truth: the published n8n trigger still matches our events and signature header');
 }
+
+// The sitemap must date itself from the newest changelog entry, not from a constant. It sat
+// frozen at 2026-09-09 while content changed afterwards, so a search engine trusting lastmod
+// had no reason to look again. Search is the only acquisition channel we direct ourselves.
+{
+  const sitemapSource = readFileSync('app/sitemap.ts', 'utf8');
+  assert.doesNotMatch(sitemapSource, /new Date\('20\d\d-\d\d-\d\d'\)\s*,\s*changeFrequency/,
+    'the sitemap must not hard-code a modification date');
+  assert.match(sitemapSource, /changelog/, 'and derives the date from the changelog instead');
+  const entries = JSON.parse(readFileSync('content/changelog.json', 'utf8')) as ReadonlyArray<{ date: string }>;
+  const newest = [...entries.map(entry => entry.date)].sort().at(-1)!;
+  // No minimum date here on purpose: a check that fails as the calendar advances rather than
+  // when something breaks would go red on a quiet week and teach everyone to ignore it.
+  assert.match(newest, /^20\d\d-\d\d-\d\d$/, 'every changelog entry carries a usable date');
+  console.log(`PASS docs truth: the sitemap dates itself from the changelog (${newest})`);
+}

@@ -1,5 +1,20 @@
 [
   {
+    "date": "2026-09-12",
+    "title": "Notices for every billing step",
+    "body": "A trial now sends one factual notice when it starts, another three days before it ends, and one when it lapses without a payment method. Each names the workspace it concerns and links to the page it talks about."
+  },
+  {
+    "date": "2026-09-11",
+    "title": "Channel problems reach you by email",
+    "body": "An expired channel token or a post that has stopped retrying now sends the workspace owner an email instead of waiting to be noticed in the app. At most one per channel and kind per day, naming how many posts are affected."
+  },
+  {
+    "date": "2026-09-11",
+    "title": "Mastodon instance rules",
+    "body": "Connecting a Mastodon account now warns when the account is not marked as automated. Many instances require that for unattended posting and suspend accounts that are not."
+  },
+  {
     "date": "2026-09-09",
     "title": "Renamed to Postial",
     "body": "Product renamed to Postial (formerly known under a different name). API paths and webhook compatibility unchanged."
