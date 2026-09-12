@@ -4,11 +4,25 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 const origin = process.env.MARKETING_TEST_URL ?? 'http://localhost:3991';
 const copy = JSON.parse(await readFile(new URL('../content/landing.json', import.meta.url), 'utf8'));
+// Read out of the source rather than imported: this file is .mjs and cannot load a .tsx module.
+const plansSource = await readFile(new URL('../components/marketing/Plans.tsx', import.meta.url), 'utf8');
+const displayName = plansSource.match(/STRIPE_ACCOUNT_DISPLAY_NAME = '([^']+)'/)?.[1];
+assert.ok(displayName, 'Plans.tsx no longer declares STRIPE_ACCOUNT_DISPLAY_NAME');
 for (const route of ['/', '/pricing', '/impressum', '/privacy', '/terms', '/sitemap.xml', '/robots.txt']) {
   const response = await fetch(new URL(route, origin));
   assert.equal(response.status, 200, route);
   const html = await response.text();
   assert.ok(!html.includes('CHECK'), `${route}: unresolved marker`);
+  if (route === '/pricing') {
+    // A prospect who clicks through lands on a Stripe page headed by a company name that appears
+    // nowhere else on this site. Saying so beforehand is the part we control, so it has to be
+    // rendered, not merely present in the source: five of seven ClientBeacon insertions once
+    // rendered nothing while tsc stayed green.
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    assert.match(text, /Payment is handled by Stripe\./, '/pricing: no note on who handles payment');
+    assert.match(text, new RegExp(`receipt show our company account name,\\s*${displayName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*,\\s*rather than Postial`),
+      '/pricing: the disclosed account name is not the one the code carries');
+  }
   if (route === '/') {
     const headings = [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/gs)].map(match => match[1]);
     assert.deepEqual(headings, [copy.Hero.find(item => item.label === 'H1').text]);
