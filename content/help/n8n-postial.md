@@ -24,7 +24,7 @@ In an n8n installation that permits community packages, install `n8n-nodes-posti
 ### Three steps to the first scheduled post
 
 1. Install `n8n-nodes-postial` under **Settings → Community Nodes**, then restart n8n if requested.
-2. Add **Postial API** credentials with the Postial base URL and an Agency API key containing `brands:read`, `posts:write`, and `webhooks:manage` where required by the workflow.
+2. Add **Postial API** credentials with the Postial base URL and an Agency API key containing `brands:read` and `posts:write`.
 3. Add **Postial**, choose **Post → Create**, select a brand and channel, enter the text, choose **Scheduled Time**, and provide a future date. Execute the workflow and confirm the returned post status in Postial.
 
 ### Create and schedule a post
@@ -48,6 +48,10 @@ A practical workflow is: source record → Postial Create (`Draft`, `Requires Ap
 
 The node also exposes Post operations `Get`, `Get Many`, `Retry` and `Delete`, plus `Brand` and `Channel` with `Get Many`. `Get Many` can filter posts by brand and status; with **Return All** it follows the API cursor. Its **Limit** defaults to 50 when Return All is off.
 
+### Import the examples
+
+After importing `examples/create-scheduled-post.json`, assign a Postial API credential to its Postial node before running the workflow. After importing `examples/approval-to-slack.json`, assign a Postial API credential to its Postial Trigger and a Slack credential to its Slack node before activating the workflow.
+
 ### What the trigger returns
 
 Add **Postial Trigger**, select one or more of these event values, and activate the workflow:
@@ -59,7 +63,7 @@ Add **Postial Trigger**, select one or more of these event values, and activate 
 
 In **Automatic** registration, the node creates the Postial webhook endpoint when the workflow is activated and deletes it on deactivation. This requires the `webhooks:manage` scope. In **Manual (Paste Secret)** mode, register the node’s production URL yourself and paste the endpoint signing secret into **Signing Secret**.
 
-The trigger verifies the raw request bytes and the `X-Postial-Signature` header (the deprecated `X-SocialMint-Signature` header is also accepted), rejects a timestamp outside five minutes, returns HTTP 401 for an invalid signature, parses JSON, and emits one n8n item only when the event is one of the selected values. The item’s JSON is the complete event body, with this shape:
+The trigger requires the `webhooks:manage` scope for automatic registration. It verifies the raw request bytes and the `X-Postial-Signature` header (the deprecated `X-SocialMint-Signature` header is also accepted), rejects a timestamp outside five minutes, returns HTTP 401 for an invalid signature, parses JSON, and emits one n8n item only when the event is one of the selected values. The item’s JSON is the complete event body, with this shape:
 
 ```json
 {
@@ -123,7 +127,7 @@ Publishing has separate provider behavior: temporary retryable failures use the 
 
 The current live adapters registered by the service are Bluesky, Mastodon, Telegram, X, Threads and LinkedIn. The public availability manifest marks Bluesky, Mastodon and Telegram as live. X, Threads and LinkedIn are preparation/early-access connections with stated platform conditions, so do not assume that a workflow can publish there. Instagram and Facebook are planned, not connected publishing targets.
 
-Postial does not publish to every network, does not guarantee delivery at the scheduled minute, and does not turn an approval into a successful network publication. It does not provide video upload in the current media flow. Check each target’s status and warnings after publication; one channel may succeed while another fails.
+Postial does not publish to every network, does not guarantee delivery at the scheduled minute, and does not turn an approval into a successful network publication. Instagram and Facebook are preparation connections with Connect available in Early Access; their publishing conditions and limitations are described in the availability manifest. It does not provide video upload in the current media flow. Check each target’s status and warnings after publication; one channel may succeed while another fails.
 
 ## Related
 
