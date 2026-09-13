@@ -83,7 +83,7 @@ export default async function ComparePage({ params }: Props) {
         </table>
       </div>
     </section>
-    <section className="section"><h2>Postial’s network reality</h2><p>{networkText}</p><p>Available today: {availability.available.join('; ')}. {availability.pending}</p><p><Link className="text-link" href="/pricing">See the full pricing and availability matrix</Link> · <Link className="text-link" href="/docs">Read the help center</Link> · <Link className="text-link" href={`/compare/${copy.pages.find(other => other.slug !== page.slug)!.slug}`}>Compare the other alternative</Link></p></section>
+    <section className="section"><h2>Postial’s network reality</h2><p>{networkText}</p><p>Available today: {availability.available.join('; ')}. {availability.pending}</p><p><Link className="text-link" href="/pricing">See the full pricing and availability matrix</Link> · <Link className="text-link" href="/docs">Read the help center</Link> · <Link className="text-link" href="/compare">See all comparisons</Link></p></section>
     <section className="section"><div className="marketing-grid two">
       <article className="panel"><h2>Where Postial fits better</h2><p>{hydrate(page.fits)}</p></article>
       <article className="panel"><h2>Where {page.vendor} fits better</h2><p>{hydrate(page.vendorFits)} {citations(page.vendorFitSources)}</p></article>
@@ -102,7 +102,7 @@ export default async function ComparePage({ params }: Props) {
     <section className={`section ${styles.sources}`} aria-labelledby="sources-heading"><h2 id="sources-heading">Sources and pricing notes</h2><p>{copy.priceFootnote}</p><p className="note">Vendor terms can change. Every vendor statement on this page points to a public source below, with retrieval date also recorded in <code>work/compare-sources.md</code>. Postial facts describe the early-access offer; this is a comparison published by Postial.</p>
       <ol>{page.sources.map((source, index) => <li id={`source-${source.id}`} key={source.id}><a className="text-link" href={source.url}>[{index + 1}] {source.title}</a><span className="note"> — retrieved <time dateTime={source.checkedAt}>{source.checkedAt}</time></span></li>)}</ol>
       <p className="note">{page.vendor} is named for comparison only. No affiliation or endorsement is implied.</p>
-      <p><Link className="text-link" href={`/compare/${copy.pages.find(other => other.slug !== page.slug)!.slug}`}>Also compare {page.vendor === 'Hootsuite' ? 'Postiz' : 'Hootsuite'} →</Link></p>
+      <p><Link className="text-link" href="/compare">Also compare the other tools →</Link></p>
     </section>
     <section className="section final-cta"><h2>Try one client workflow first</h2><p>Check the available networks and approval flow before moving your agency’s schedule.</p><Link className="primary" href="/login">Start free — no card needed</Link><SignInNotice /></section>
   </div>;

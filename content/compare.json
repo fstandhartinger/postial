@@ -238,6 +238,203 @@
           "checkedAt": "2026-09-13"
         }
       ]
+    },
+    {
+      "slug": "buffer-alternative",
+      "vendor": "Buffer",
+      "title": "Buffer alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Buffer for agency work on {liveNetworkNames}: approvals, per-channel prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "vendorCells": [
+        {
+          "text": "Free plan: $0 for up to 3 channels with 10 scheduled posts per channel. Essentials: $5 per channel/month on annual billing, one user account.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Team: $10 per channel/month on annual billing with unlimited team members. {agencyBrands} brands with one channel each cost $150/month; calculated, not a listed bundle — Buffer bills per channel, not per brand, and several accounts per brand raise the total. Taxes not clarified on the page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Content approval workflows listed on the Team plan: manage who can draft and approve posts across your team. Login-free external reviewer links not confirmed on the checked page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "A visible per-post publishing error and retry workflow was not established by the checked pricing page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "API access on every plan, including Free with 1 key and 3,000 requests per 30 days; Team lists 5 keys and 15,000 requests per 30 days. n8n is listed among Buffer’s integrations.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Buffer documents channels including Bluesky, Mastodon, Facebook, Instagram, LinkedIn, X, TikTok, YouTube, Threads, Pinterest and Google Business Profile. Capabilities vary by channel and profile type.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Hosting region not established by the pricing source; request contractual residency details.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "14-day trial listed on Essentials and Team; a card requirement is not stated on the checked page. The free plan needs no purchase.",
+          "sources": [
+            "pricing"
+          ]
+        }
+      ],
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with login-free client review and REST API/webhooks available today, and a native n8n node shown as “Postial” in n8n. One monthly price does not grow when a client adds a profile. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, if you rely on Buffer’s free plan or its per-channel flexibility across many accounts, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer a free tier, Buffer’s broad documented channel catalogue, or its per-channel billing model, and the monthly price stays the same whether or not that model would have been cheaper. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
+      "vendorFits": "Buffer is the stronger fit when you need its listed Bluesky and Mastodon channels alongside Instagram, TikTok, YouTube and more, a permanent free plan, or per-channel billing that scales one account at a time. Team adds approval workflows and unlimited team members. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
+      "vendorFitSources": [
+        "pricing"
+      ],
+      "faq": [
+        {
+          "question": "Is Postial cheaper than Buffer for a multi-brand agency?",
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Buffer bills per channel: {agencyBrands} brands with one channel each on Team would cost $150/month on annual billing, and more with several accounts per brand. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+        },
+        {
+          "question": "Can Buffer clients approve posts without a login?",
+          "answer": "The checked pricing page lists content approval workflows for team members on the Team plan, but does not establish login-free external approval links. Confirm that workflow with Buffer. Postial provides login-free Agency client links today."
+        },
+        {
+          "question": "Does Buffer have a free plan Postial does not match?",
+          "answer": "Yes. Buffer lists a free plan for up to 3 channels with 10 scheduled posts per channel. Postial’s entry point is the {trialDays}-day trial without a card; there is no permanent free tier."
+        },
+        {
+          "question": "Do both tools automate with n8n?",
+          "answer": "Buffer lists n8n among its integrations and API access on every plan. Postial Agency includes REST API and webhooks today, and the native n8n node is on npm as n8n-nodes-postial 0.2.0 and appears as “Postial” inside n8n."
+        }
+      ],
+      "sources": [
+        {
+          "id": "pricing",
+          "title": "Buffer per-channel pricing, plans, API and supported channels",
+          "url": "https://buffer.com/pricing",
+          "checkedAt": "2026-09-13"
+        }
+      ]
+    },
+    {
+      "slug": "planable-alternative",
+      "vendor": "Planable",
+      "title": "Planable alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Planable for agency work on {liveNetworkNames}: client approvals, per-workspace prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "vendorCells": [
+        {
+          "text": "Basic: $33 per workspace/month; 60 posts per workspace/month, unlimited users, 4 social pages per workspace. Prices are in USD and exclude taxes.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Pro: $49 per workspace/month with 150 posts and 10 social pages. Planable recommends one workspace per client; {agencyBrands} client workspaces on Pro would cost $735/month — calculated, not a listed bundle; a volume discount for 5+ workspaces is available on request.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Approval workflows: Optional on Basic, Required on Pro, multi-level on Enterprise. Planable’s public links let clients view and comment without a login, but state that approval actions are not possible on them; approvers are invited as Client members with a Planable account.",
+          "sources": [
+            "pricing",
+            "approvals",
+            "clientApproval"
+          ]
+        },
+        {
+          "text": "A visible per-post publishing error and retry workflow was not established by the checked sources.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Public API on Pro and Enterprise; an MCP connector on every paid plan; Basic has no public API. An n8n integration is not listed in the checked sources.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Planable documents scheduling for Facebook, Instagram, LinkedIn, X, YouTube, TikTok, Pinterest, Google Business Profile and Threads. Bluesky, Mastodon and Telegram are not in the listed set. Capabilities vary by network.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "The pricing FAQ states GDPR compliance. A hosting region is not established by the checked pages; request contractual residency details.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Trial: the first 50 posts are free with no time limit and no credit card; X publishing is excluded during the trial.",
+          "sources": [
+            "pricing"
+          ]
+        }
+      ],
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with one price that stays the same as clients join or leave. Its client approval links let a reviewer inspect and decide without a login; Planable’s no-login public links are view-and-comment only, and approving clients are invited with a Planable account. It fits a small agency seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, if you need Planable’s unlimited users per workspace or its multi-level approval chains, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer unlimited users per workspace, Planable’s nine-platform documented publishing coverage, multi-level approval chains, or its universal-content planning for non-social content. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
+      "vendorFits": "Planable is the stronger fit for agencies whose clients publish on Instagram, Facebook, LinkedIn, X, TikTok, YouTube, Pinterest, Threads or Google Business Profile today, and for teams wanting unlimited users per workspace and approval workflows from Optional up to multi-level on Enterprise. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
+      "vendorFitSources": [
+        "pricing",
+        "approvals"
+      ],
+      "faq": [
+        {
+          "question": "Is Postial cheaper than Planable for an agency with many clients?",
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Planable bills per workspace: {agencyBrands} client workspaces on Pro would be $735/month before taxes, with a volume discount on request for five or more. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+        },
+        {
+          "question": "Can Planable clients approve posts without a login?",
+          "answer": "Not for approval actions. Planable’s help center states that its no-login public links allow viewing and comments only; approving requires an invitation as a Client member with approver permissions, which means a Planable account. Postial provides login-free Agency client links that carry the approval decision."
+        },
+        {
+          "question": "Does Planable cover Bluesky, Mastodon or Telegram?",
+          "answer": "Planable’s pricing FAQ lists scheduling for Facebook, Instagram, LinkedIn, X, YouTube, TikTok, Pinterest, Google Business Profile and Threads; Bluesky, Mastodon and Telegram are not in the listed set. Postial publishes to Bluesky, Mastodon and Telegram today."
+        },
+        {
+          "question": "Do both trials require a credit card?",
+          "answer": "Neither requires one. Planable’s trial is the first 50 posts free with no time limit and no card, excluding X publishing. Postial’s {trialDays}-day trial also needs no card, so you can verify the approval flow first."
+        }
+      ],
+      "sources": [
+        {
+          "id": "pricing",
+          "title": "Planable per-workspace pricing, plans, platforms and trial",
+          "url": "https://planable.io/pricing/",
+          "checkedAt": "2026-09-13"
+        },
+        {
+          "id": "approvals",
+          "title": "Planable approval workflow types by plan",
+          "url": "https://help.planable.io/hc/en-us/articles/21715462785180-Approvals-and-Approval-Workflows",
+          "checkedAt": "2026-09-13"
+        },
+        {
+          "id": "clientApproval",
+          "title": "Planable client approval setup and public link limits",
+          "url": "https://help.planable.io/hc/en-us/articles/22581435847324-How-to-get-Client-Approval-for-content-in-Planable",
+          "checkedAt": "2026-09-13"
+        }
+      ]
     }
   ]
 }
