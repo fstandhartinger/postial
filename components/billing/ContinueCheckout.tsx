@@ -1,5 +1,7 @@
 "use client";
 import Link from 'next/link';
+import { STRIPE_ACCOUNT_DISPLAY_NAME } from '@/components/marketing/Plans';
+import { STRIPE_CHECKOUT_DISPLAY_NAME } from '@/lib/stripe-branding';
 import type { Plan } from '@/lib/plans';
 import { CheckoutButton } from './CheckoutButton';
 import { plans } from '@/lib/plans';
@@ -27,7 +29,7 @@ export function ContinueCheckout({ plan, next, trialStatus }: { plan: Plan; next
           <li>Cancel anytime.</li>
         </ul>
         <p className="text-sm text-zinc-600">
-          The payment page is operated by our payment provider under the account name &quot;Amazing AI Apps&quot;.
+          Payment is handled by Stripe. The checkout heading shows {STRIPE_CHECKOUT_DISPLAY_NAME}. Your receipt and invoice show our company account name, {STRIPE_ACCOUNT_DISPLAY_NAME}.
         </p>
       </section>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

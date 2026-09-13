@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { STRIPE_CHECKOUT_DISPLAY_NAME } from '@/lib/stripe-branding';
 import { CheckoutButton } from '@/components/billing/CheckoutButton';
 import availability from '@/content/availability.json';
 import { words } from './copy';
@@ -12,18 +13,10 @@ export function marketingPlanLimits(plan: Plan) {
     : `${value.mediaBytes / (1024 * 1024)} MiB storage`;
   return [`${value.brands} brands`, `${value.seats} ${value.seats === 1 ? 'user' : 'users'}`, storage];
 }
-/**
- * The name Stripe shows on its hosted checkout page and on receipts. It is the shared account's
- * public display name, not ours: a prospect who clicks "Start free trial" is met by a company
- * they have never seen on this site, three times over - browser tab, page heading, and a back
- * button reading "Back to <name>" that nonetheless returns to postial.co. First seen on
- * 2026-09-12 by opening a real checkout session. Changing the display name affects the other
- * products on that account, so it is not ours to change; saying so beforehand is.
- *
- * ops/invoice-check.py compares this string against the live account and fails when they differ,
- * because the acceptance gate runs offline and cannot ask Stripe.
+/** Account name used on receipts/invoices; ops/invoice-check.py compares it with Stripe.
+ * Checkout's session-specific heading is configured separately in lib/stripe-branding.ts.
  */
-export const STRIPE_ACCOUNT_DISPLAY_NAME = 'Amazing AI Apps';
+export const STRIPE_ACCOUNT_DISPLAY_NAME = 'productivity-boost.com Betriebs UG (haftungsbeschraenkt) & Co. KG';
 export function marketingPlanPrice(plan: Plan) { return `€${plans[plan].monthlyEuro}`; }
 export function Plans({ checkout = false }: { checkout?: boolean }) {
   return <><div className="marketing-grid two plans">{(['starter', 'agency'] as const).map(plan => {
@@ -31,5 +24,5 @@ export function Plans({ checkout = false }: { checkout?: boolean }) {
     const limits = marketingPlanLimits(plan);
     const features = availability[plan].filter(text => !/^\d+ (brands|users?)$/.test(text));
     return <article className="panel plan" key={plan}><h3>{words(section, 'Plan name')}</h3><p>{words(section, 'Audience')}</p><p className="price"><strong>{marketingPlanPrice(plan)}</strong><span> / month · incl. VAT</span></p><ul className="feature-list">{[...limits, ...features].map(text => <li key={text}><span aria-hidden="true">✓</span>{text}</li>)}</ul>{plan === "agency" && <p>{availability.pending}</p>}<p className="note plan-note">{words(section, plan === 'starter' ? 'Boundary note' : 'Reviewer note')}</p><div className="plan-action">{checkout ? <CheckoutButton plan={plan}>Start free trial</CheckoutButton> : <Link prefetch={false} className="primary" href={`/login?plan=${plan}`}>Start free — no card needed</Link>}<SignInNotice /></div></article>;
-  })}</div><div className="pricing-notes"><p>{words('Shared pricing notes', 'Trial note')}</p><p>{words('Shared pricing notes', 'Cancellation note')}</p><p>{TRIAL_DAYS}-day trial: if you do not add a payment method, Stripe cancels the subscription at trial end and no charge is made. Add a payment method in the customer portal to continue on the displayed monthly plan.</p><p>Prices include applicable VAT.</p><p>Payment is handled by Stripe. Its checkout page and your receipt show our company account name, {STRIPE_ACCOUNT_DISPLAY_NAME}, rather than Postial.</p></div></>;
+  })}</div><div className="pricing-notes"><p>{words('Shared pricing notes', 'Trial note')}</p><p>{words('Shared pricing notes', 'Cancellation note')}</p><p>{TRIAL_DAYS}-day trial: if you do not add a payment method, Stripe cancels the subscription at trial end and no charge is made. Add a payment method in the customer portal to continue on the displayed monthly plan.</p><p>Prices include applicable VAT.</p><p>Payment is handled by Stripe. The checkout heading shows {STRIPE_CHECKOUT_DISPLAY_NAME}. Your receipt and invoice show our company account name, {STRIPE_ACCOUNT_DISPLAY_NAME}.</p></div></>;
 }

@@ -14,13 +14,11 @@ for (const route of ['/', '/pricing', '/impressum', '/privacy', '/terms', '/site
   const html = await response.text();
   assert.ok(!html.includes('CHECK'), `${route}: unresolved marker`);
   if (route === '/pricing') {
-    // A prospect who clicks through lands on a Stripe page headed by a company name that appears
-    // nowhere else on this site. Saying so beforehand is the part we control, so it has to be
-    // rendered, not merely present in the source: five of seven ClientBeacon insertions once
-    // rendered nothing while tsc stayed green.
-    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    // Verify both names in rendered copy, including HTML-escaped company punctuation.
+    const text = html.replace(/<!--.*?-->/gs, '').replace(/<[^>]+>/g, ' ').replaceAll('&amp;', '&').replace(/\s+/g, ' ');
     assert.match(text, /Payment is handled by Stripe\./, '/pricing: no note on who handles payment');
-    assert.match(text, new RegExp(`receipt show our company account name,\\s*${displayName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*,\\s*rather than Postial`),
+    assert.ok(text.includes('The checkout heading shows Postial.'), '/pricing: missing product heading');
+    assert.ok(text.includes(`Your receipt and invoice show our company account name, ${displayName}.`),
       '/pricing: the disclosed account name is not the one the code carries');
   }
   if (route === '/') {

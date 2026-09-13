@@ -1,3 +1,5 @@
+import type Stripe from 'stripe';
+import { STRIPE_CHECKOUT_DISPLAY_NAME } from '@/lib/stripe-branding';
 import { readJson } from '@/lib/http/body';
 import { ApiError, apiError } from '@/lib/api/errors';
 import { checkoutTrial } from '@/lib/checkout-trial';
@@ -70,7 +72,8 @@ export async function POST(request: Request) {
       if (session.mode === 'subscription' && session.metadata?.app === 'socialmint') await client.checkout.sessions.expire(session.id);
     }
     const [state] = await db.select().from(billingState).where(eq(billingState.workspaceId, workspace.id));
-    const checkout = await client.checkout.sessions.create({
+    const checkoutParams: Stripe.Checkout.SessionCreateParams = {
+      branding_settings: { display_name: STRIPE_CHECKOUT_DISPLAY_NAME },
       mode: 'subscription', customer: customerId,
       line_items: [{ price, quantity: 1 }],
       ...checkoutTrial(trial, { ...metadata, plan }),
@@ -79,7 +82,10 @@ export async function POST(request: Request) {
       client_reference_id: workspace.id,
       success_url: `${appUrl()}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl()}/pricing?checkout=cancelled`,
-    }, { idempotencyKey: `socialmint-checkout-${workspace.id}-${plan}-${trial}-${state?.checkoutSessionId ?? 'first'}` });
+    };
+    const checkout = await client.checkout.sessions.create(checkoutParams, {
+      idempotencyKey: `socialmint-checkout-${workspace.id}-${plan}-${trial}-${state?.checkoutSessionId ?? 'first'}-b2`,
+    });
     if (!checkout.url || checkout.status !== 'open') throw new BillingHttpError(409, 'Checkout expired; please retry');
     await db.update(billingState).set({ checkoutSessionId: checkout.id, checkoutPlan: plan }).where(eq(billingState.workspaceId, workspace.id));
     await recordFunnelEvent('checkout_started', { workspaceId: workspace.id });

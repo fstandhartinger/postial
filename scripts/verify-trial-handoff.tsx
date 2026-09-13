@@ -13,7 +13,8 @@ test('continue checkout is an explicit, honest handoff', () => {
   assert.match(checkout, /onClick=\{checkout\}/);
   assert.match(handoff, /14 days free/);
   assert.match(handoff, /No card is needed/);
-  assert.match(handoff, /Amazing AI Apps/);
+  assert.match(handoff, /checkout heading shows \{STRIPE_CHECKOUT_DISPLAY_NAME\}/);
+  assert.match(handoff, /receipt and invoice show our company account name, \{STRIPE_ACCOUNT_DISPLAY_NAME\}/);
   assert.match(handoff, /monthlyEuro/);
   assert.match(handoff, /trialStatus/);
   assert.match(handoff, /already used its trial period/);

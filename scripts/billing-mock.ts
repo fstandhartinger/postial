@@ -1,5 +1,6 @@
 import { workAsyncStorage, type WorkStore } from 'next/dist/server/app-render/work-async-storage.external';
 import './test-runtime';
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { createRequestStoreForAPI } from 'next/dist/server/async-storage/request-store';
@@ -20,7 +21,10 @@ export async function installBillingMock() {
   Object.assign(client.subscriptions,{async list(){return list([]);}});
   Object.assign(client.checkout.sessions,{
     async list({customer,status}:{customer:string;status:string}){return list([...checkouts.values()].filter(c=>c.customer===customer&&c.status===status));},
-    async create(data:Record<string,unknown>){
+    async create(data:Record<string,unknown>, options:{idempotencyKey:string}){
+      const metadata = data.metadata as {plan:string;trial:string};
+      assert.ok(options.idempotencyKey.startsWith(`socialmint-checkout-${data.client_reference_id}-${metadata.plan}-${metadata.trial}-`));
+      assert.ok(options.idempotencyKey.endsWith('-b2'), 'new parameters must not reuse pre-branding idempotency keys');
       const {subscription_data,...rest}=data;void subscription_data;
       const id='cs_fixture_'+randomUUID(),row={...rest,id,status:'open',subscription:null,url:'https://checkout.stripe.com/c/pay/'+id};checkouts.set(id,row);return row;
     },

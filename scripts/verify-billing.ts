@@ -68,6 +68,7 @@ async function main() {
     assert.equal(open.data[0].success_url, base + "/app?checkout=success&session_id={CHECKOUT_SESSION_ID}");
     assert.equal(open.data[0].cancel_url, base + "/pricing?checkout=cancelled");
     const first = await client.checkout.sessions.retrieve(open.data[0].id);
+    assert.deepEqual(first.branding_settings, { display_name: 'Postial' });
     assert.equal(first.metadata?.trial, 'true');
     assert.equal(first.payment_method_collection, 'if_required');
     assert.equal(first.subscription, null);
@@ -82,6 +83,7 @@ async function main() {
     const restarted = await client.checkout.sessions.list({ customer: customerId, status: 'open' });
     assert.equal(restarted.data.length, 1);
     const paid = await client.checkout.sessions.retrieve(restarted.data[0].id);
+    assert.deepEqual(paid.branding_settings, { display_name: 'Postial' });
     assert.equal(paid.metadata?.trial, 'false');
     assert.equal(paid.payment_method_collection, 'always');
     assert.equal(paid.subscription, null);
