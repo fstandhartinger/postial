@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { plans } from '../lib/plans';
+import { generateHelpIndex } from './generate-help-index';
 
 const read = (file: string) => readFileSync(file, 'utf8');
 const blueskyGuide = read('content/help/connect-bluesky.md');
@@ -14,6 +15,75 @@ const postPage = read('app/app/posts/[id]/page.tsx');
 const billingPage = read('app/app/billing/page.tsx');
 const blueskyAdapter = read('lib/publishers/bluesky.ts');
 const mastodonAdapter = read('lib/publishers/mastodon.ts');
+
+type Network = { id: string; name: string; status: 'live' | 'preparation' | string };
+type Finding = { file: string; network: string; claim: string; expected: string };
+
+const futureWords = /\b(planned|coming\s+soon|not\s+available|unavailable)\b/i;
+const positiveWords = /\b(?:live|available)(?:\s+(?:today|now))?\b/i;
+
+// Inspect every sentence containing a network name. Early Access/preparation qualifiers
+// are an explicit manifest-compatible state; an unqualified future/live claim is not.
+export function findAvailabilityContradictions(
+  files: Array<{ file: string; text: string }>, networks: Network[],
+): Finding[] {
+  const findings: Finding[] = [];
+  for (const { file, text } of files) {
+    const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(sentence => sentence.trim()).filter(Boolean);
+    for (const network of networks) {
+      const name = new RegExp(`\\b${network.name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'i');
+      for (const sentence of sentences) {
+        if (!name.test(sentence)) continue;
+        // Require a grammatical status statement tied to the named network. This avoids
+        // treating unrelated claims such as “a remote link may be unavailable for Telegram”
+        // as a Telegram availability claim.
+        const statusClaim = new RegExp(
+          `${name.source}[^.!?]{0,80}\\b(?:is|are|be|remains?|becomes?|will be|may be)\\s+(?:now\\s+)?(?:${futureWords.source}|${positiveWords.source})`, 'i',
+        );
+        if (statusClaim.test(sentence) && futureWords.test(sentence)) {
+          findings.push({ file, network: network.name, claim: sentence, expected: network.status });
+        } else if (statusClaim.test(sentence) && network.status === 'preparation'
+          && !/early\s+access|preparation|pending\s+review|subject\s+to\s+provider/i.test(sentence)) {
+          findings.push({ file, network: network.name, claim: sentence, expected: network.status });
+        }
+      }
+    }
+  }
+  return findings;
+}
+
+// The fixture deliberately has two bad sentences for preparation, plus the inverse live case.
+// This pins both directions and the all-occurrences behavior.
+{
+  const fixture = findAvailabilityContradictions(
+    [{ file: 'fixture.md', text: 'Instagram is planned. Instagram is live. Bluesky is planned.' }],
+    [{ id: 'instagram', name: 'Instagram', status: 'preparation' }],
+  );
+  assert.equal(fixture.length, 2, 'availability verification must report every contradictory occurrence');
+  const inverse = findAvailabilityContradictions(
+    [{ file: 'fixture.md', text: 'Bluesky is planned.' }],
+    [{ id: 'bluesky', name: 'Bluesky', status: 'live' }],
+  );
+  assert.equal(inverse.length, 1, 'availability verification must reject future claims for live networks');
+}
+
+{
+  const manifest = JSON.parse(read('content/availability.json')) as { networks: Network[] };
+  const files = [
+    'content/landing.json', 'content/compare.json',
+    ...readdirSync('content/help').filter(file => file.endsWith('.md')).map(file => `content/help/${file}`),
+  ].map(file => ({ file, text: read(file) }));
+  const findings = findAvailabilityContradictions(files, manifest.networks);
+  assert.equal(findings.length, 0, findings.map(f => `${f.file}: ${f.network}: ${f.claim} (manifest: ${f.expected})`).join('\n'));
+  console.log(`PASS docs truth: ${manifest.networks.length} network availability claims match the manifest`);
+}
+
+{
+  const expected = JSON.stringify(generateHelpIndex(), null, 2) + '\n';
+  const actual = read('content/help/index.json');
+  assert.equal(actual, expected, 'content/help/index.json is stale; run npx tsx scripts/generate-help-index.ts');
+  console.log('PASS docs truth: generated help index matches its Markdown source');
+}
 
 // Provider limits and credentials named by the guides must remain tied to the adapters.
 assert.match(blueskyAdapter, /provider: 'bluesky', maxMediaBytes: 1000000, maxTextLength: 300/);
