@@ -420,6 +420,195 @@
           "checkedAt": "2026-09-13"
         }
       ]
+    },
+    {
+      "slug": "sendible-alternative",
+      "vendor": "Sendible",
+      "title": "Sendible alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Sendible for agency work on {liveNetworkNames}: client approvals, workspace prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "vendorCells": [
+        {
+          "text": "Core: $35/month billed monthly, $29.75/month on annual billing (“Save 15%”); 1 workspace with 6 social profiles and unlimited users. Taxes not clarified on the page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Premium: $199/month billed monthly, $169.15/month on annual billing; 7 workspaces with 6 social profiles each and unlimited users. {agencyBrands} brands exceed the 7 workspaces; Elite lists 15 workspaces at $299/month ($254.15 annually). Quota arithmetic, not a listed bundle.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Content approval workflows from Plus: “Assign tasks to teammates or clients through content approval workflows before publishing.” Whether clients approve without a Sendible login is not confirmed on the checked page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "A visible per-post publishing error and retry workflow was not established by the checked pricing page. A daily posting limit per user applies, set to 100 posts per day during the trial.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Zapier integration is listed, plus cloud integrations for Google Drive and Dropbox and automations from Airtable, Notion, Monday.com and ClickUp. A public API or n8n node is not confirmed on the checked page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Sendible documents publishing to Instagram, Facebook, TikTok, X (Twitter), LinkedIn, Google My Business, YouTube, WordPress, Threads and Bluesky. Mastodon and Telegram are not in the listed set. Capabilities vary by network.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Hosting region not established by the pricing source; request contractual residency details.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "14-day trial, no card required. The FAQ says the card is requested at the end of the trial, and a card added during the trial is billed automatically when the trial ends.",
+          "sources": [
+            "pricing"
+          ]
+        }
+      ],
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT. The brand count is not tied to a workspace quota, and login-free client review is available today — a flow Sendible’s checked page does not confirm on any tier. It fits a small agency seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, if you rely on Sendible’s unlimited users on every plan, its per-client workspaces or its white labelling, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer Sendible’s unlimited-user plans, white-labelled dashboards, content libraries and campaigns, or its documented catalogue that includes Instagram, TikTok, YouTube and WordPress. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
+      "vendorFits": "Sendible is the stronger fit when you need unlimited users on every plan, approval workflows assigning tasks to teammates or clients from Plus, and publishing today to Instagram, Facebook, TikTok, X, LinkedIn, YouTube, Threads or Bluesky — with white labelling as a paid add-on on Elite and Enterprise. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
+      "vendorFitSources": [
+        "pricing"
+      ],
+      "faq": [
+        {
+          "question": "Is Postial cheaper than Sendible for an agency with many clients?",
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Sendible Premium includes 7 workspaces at $199/month billed monthly or $169.15 on annual billing; {agencyBrands} client brands exceed that workspace count and point to Elite at $299/month. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+        },
+        {
+          "question": "Can Sendible clients approve posts without a login?",
+          "answer": "Sendible’s pricing page lists content approval workflows from Plus, described as assigning tasks to teammates or clients before publishing, but does not establish whether clients approve without a Sendible login. Confirm that workflow with Sendible. Postial provides login-free Agency client links today."
+        },
+        {
+          "question": "Does Sendible cover networks Postial does not?",
+          "answer": "Sendible documents publishing to Instagram, Facebook, TikTok, X, LinkedIn, Google My Business, YouTube, WordPress, Threads and Bluesky. Postial publishes to Bluesky, Mastodon and Telegram; {earlyAccessNetworkNames} connect in Early access, subject to provider conditions. Keep clients on networks outside Postial’s live set in the tool that covers them."
+        },
+        {
+          "question": "Do both tools offer a trial without a card?",
+          "answer": "Yes, and both list 14 days. Sendible’s FAQ says the card is requested at the end of its trial, and that a card added during the trial is billed automatically when it ends. Postial’s {trialDays}-day trial needs no card, so you can verify the approval flow first."
+        }
+      ],
+      "sources": [
+        {
+          "id": "pricing",
+          "title": "Sendible plan pricing, workspaces, approvals, integrations, trial and supported networks",
+          "url": "https://www.sendible.com/pricing",
+          "checkedAt": "2026-09-13"
+        }
+      ]
+    },
+    {
+      "slug": "sprout-social-alternative",
+      "vendor": "Sprout Social",
+      "title": "Sprout Social alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Sprout Social for agency work on {liveNetworkNames}: login-free approvals, per-seat prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "vendorCells": [
+        {
+          "text": "Essentials: $79/seat/month on annual billing ($99/seat/month billed monthly); up to 5 social profiles. Standard: $199/seat/month, shown under “Annual billing”; 5 social profiles, consolidated inbox and review management. Taxes not clarified on the page.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Professional: $299/seat/month on annual billing with unlimited social profiles; {agencySeats} seats calculate to $1,495/month. Advanced: $399/seat/month. Calculated totals; brands are not the billing unit.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "External approval workflow on Advanced and Enterprise: external stakeholders can review social posts before they are published “without needing to log in to Sprout.” Not included on Standard or Professional; the Essentials card does not list approvals.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "A visible per-post publishing error and retry workflow was not established by the checked pages.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "The Sprout API is included from the Advanced plan (“The Sprout API and Helpdesk integrations”; business-intelligence integration via the API). An n8n node is not confirmed on the checked pages.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "The integrations page lists Bluesky, Facebook, Instagram, LinkedIn, Pinterest, Reddit, Snapchat, Threads, TikTok, X and YouTube as social networks, plus messaging channels. Mastodon and Telegram are not in the listed set. Capabilities vary by network.",
+          "sources": [
+            "integrations"
+          ]
+        },
+        {
+          "text": "Hosting region not established by the checked pages; request contractual residency details.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "30-day free trial, no credit card required. Prices are shown on annual billing; Essentials also lists a billed-monthly rate.",
+          "sources": [
+            "pricing"
+          ]
+        }
+      ],
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with login-free client review on that plan and a price that does not grow per seat. Sprout gates its login-free external approval behind Advanced at $399 per seat/month on annual billing. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, if you rely on Sprout’s consolidated inbox, review management, listening or advocacy add-ons, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer Sprout Social’s documented coverage of Instagram, Facebook, LinkedIn, X, TikTok, Pinterest, Reddit, Snapchat, Threads, YouTube and Bluesky, its consolidated engagement inbox and review management, or its listening, premium-analytics and employee-advocacy add-ons. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
+      "vendorFits": "Sprout Social is the stronger fit when you need its documented network coverage today, a consolidated inbox with review management, approval chains that include login-free external review on Advanced and Enterprise, and the Sprout API from Advanced. Per-seat pricing scales one seat at a time; agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
+      "vendorFitSources": [
+        "pricing",
+        "integrations"
+      ],
+      "faq": [
+        {
+          "question": "Is Postial cheaper than Sprout Social for a five-person agency?",
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Sprout Professional’s five-seat arithmetic is $1,495/month on annual billing (5 × $299/seat/month), before any add-ons. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+        },
+        {
+          "question": "Can Sprout Social clients approve posts without a login?",
+          "answer": "Yes, but not on every plan: the pricing table includes the external approval workflow — review “without needing to log in to Sprout” — on Advanced and Enterprise only, not on Standard or Professional. Postial includes login-free client links in Agency at {agencyPrice}, including during the {trialDays}-day trial."
+        },
+        {
+          "question": "Does Sprout Social cover networks Postial does not?",
+          "answer": "Sprout’s integrations page documents Bluesky, Facebook, Instagram, LinkedIn, Pinterest, Reddit, Snapchat, Threads, TikTok, X and YouTube. Postial publishes to Bluesky, Mastodon and Telegram; {earlyAccessNetworkNames} connect in Early access, subject to provider conditions. Keep clients on networks outside Postial’s live set in the tool that covers them."
+        },
+        {
+          "question": "Do both tools offer a trial without a card?",
+          "answer": "Yes. Sprout lists a 30-day free trial with no credit card required, with paid plans shown on annual billing and an Essentials tier at $79/seat/month. Postial’s {trialDays}-day trial needs no card either, so you can verify the approval flow first."
+        }
+      ],
+      "sources": [
+        {
+          "id": "pricing",
+          "title": "Sprout Social per-seat pricing, plans, approvals, API and trial",
+          "url": "https://sproutsocial.com/pricing/",
+          "checkedAt": "2026-09-13"
+        },
+        {
+          "id": "integrations",
+          "title": "Sprout Social network and software integrations",
+          "url": "https://sproutsocial.com/integrations/",
+          "checkedAt": "2026-09-13"
+        }
+      ]
     }
   ]
 }
