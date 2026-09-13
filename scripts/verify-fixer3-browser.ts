@@ -32,7 +32,7 @@ async function main() {
       assert(await page.getByRole('button', {name: 'Schedule', exact: true}).isDisabled());
       assert(await page.getByRole('button', {name: 'Save draft', exact: true}).isEnabled());
       assert(await page.locator('[name=requiresApproval]').isDisabled());
-      assert(await page.getByText('Included with Agency —', {exact: false}).isVisible());
+      assert(await page.getByText('Client approval links are included with Agency.', {exact: false}).isVisible());
       assert(await page.getByText('Connect a channel to publish', {exact: false}).isVisible());
       await page.locator('select[name=when]').selectOption('now');
       assert(await page.getByRole('button', {name: 'Publish now', exact: true}).isDisabled());
@@ -68,7 +68,7 @@ async function main() {
     await page.getByRole('heading', {name: 'Overview', exact: true}).waitFor();
     await page.screenshot({path: `${evidence}/overview-starter.png`, fullPage: true});
     assert.equal(await page.getByRole('link', {name: 'Prepare approval link', exact: true}).count(), 0);
-    assert.equal(await page.getByRole('link', {name: 'Included with Agency — upgrade', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('link', {name: 'See plan details', exact: true}).count(), 0);
     assert(await page.getByRole('list', {name: 'Getting started'}).getByRole('link', {name: 'Plan post', exact: true}).isVisible());
     await db.update(subscriptions).set({plan: 'agency'}).where(eq(subscriptions.workspaceId, workspace.id));
     const [endpoint] = await db.insert(webhookEndpoints).values({workspaceId: workspace.id, url: 'https://example.invalid/hooks', events: ['approval.decided'], secretHash: 'unused', secretEnc: 'unused', active: false}).returning();

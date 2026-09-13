@@ -9,6 +9,7 @@ import { buttonClass } from "@/components/ui/button";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { CopyLink } from "@/components/approvals/copy-link";
 import { ProviderBadge } from "@/components/app/provider-badge";
+import { TRIAL_DAYS } from "@/lib/plans";
 
 export default async function Overview({
   searchParams,
@@ -99,11 +100,11 @@ export default async function Overview({
       {!access.publish && (
         <Card>
           <p>
-            Save drafts and set up your brands now. Start a plan to schedule and
-            publish.
+            No trial is running yet. Start your free {TRIAL_DAYS}-day trial — no
+            card needed — to schedule and publish.
           </p>
           <Link href="/app/billing" className="text-emerald-700 underline">
-            Explore plans and start your trial
+            Start your free trial
           </Link>
         </Card>
       )}

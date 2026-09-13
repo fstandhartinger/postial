@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { getDb } from "../db";
 import { verificationTokens } from "../db/schema";
 import { normalizeEmail } from "../lib/auth-email";
+import { TRIAL_DAYS } from "../lib/plans";
 import { chromium } from "playwright";
 
 const base = process.env.VERIFY_BASE_URL!;
@@ -53,6 +54,9 @@ async function main() {
     await page.waitForURL(/\/app(?:$|\?)/);
     await page.getByRole("heading", { name: "Overview" }).waitFor();
     assert(await page.getByRole("link", { name: "Create brand" }).isVisible(), "first app step is visible and clickable");
+    const overview = page.getByRole("main");
+    assert((await overview.innerText()).includes(`No trial is running yet. Start your free ${TRIAL_DAYS}-day trial — no card needed — to schedule and publish.`), "first view explains the free trial and no-card requirement");
+    assert.equal(await overview.getByRole("link", { name: "Start your free trial", exact: true }).getAttribute("href"), "/app/billing");
     await capture("04-app");
 
     await page.goto(base + "/app/posts/new");
@@ -77,6 +81,10 @@ async function main() {
     await page.getByRole("heading", { name: "Create a post" }).waitFor();
     const composer = page.getByRole("main");
     assert(await composer.getByRole("link", { name: "Connect a channel" }).last().isVisible(), "composer explains the channel prerequisite and links to it");
+    await composer.locator("select[name=when]").selectOption("now");
+    assert.equal(await composer.getByRole("button", { name: "Publish now", exact: true }).isDisabled(), true, "publish is disabled without a plan");
+    assert((await composer.innerText()).includes(`No active plan yet. Start your free ${TRIAL_DAYS}-day trial — no card needed — to publish.`), "rendered no-plan publishing gate explains the free trial and no-card requirement");
+    assert.equal(await composer.getByRole("link", { name: "Start your free trial in Billing", exact: true }).getAttribute("href"), "/app/billing");
     await capture("06-first-post");
     console.log("PASS first-run journey: home → login → check email → magic link → app → brand → channel prerequisite → first post");
   } finally {

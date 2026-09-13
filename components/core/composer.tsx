@@ -7,6 +7,7 @@ import { coreAction } from "@/app/app/actions";
 import { Input, Select, Textarea, Checkbox } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TRIAL_DAYS } from "@/lib/plans";
 type Brand = { id: string; name: string; timezone: string; readOnly?: boolean };
 type Channel = {
   id: string;
@@ -218,6 +219,16 @@ export function Composer({
           Times use {brands.find((b) => b.id === brand)?.timezone}, your brand’s
           timezone.
         </p>
+        {(!canPublish || readOnly) && (
+          <p>
+            {readOnly
+              ? "This brand is read-only under your plan."
+              : <>No active plan yet. Start your free {TRIAL_DAYS}-day trial — no card needed — to publish.</>} {" "}
+            <Link href="/app/billing" className="underline">
+              Start your free trial in Billing
+            </Link>
+          </p>
+        )}
         <label className="block">
           <Checkbox
             name="requiresApproval"
@@ -226,7 +237,7 @@ export function Composer({
           />{" "}
           Requires client approval
         </label>
-        {!approvalLinks && <p>Included with Agency — <Link href="/app/billing" className="underline">upgrade</Link></p>}
+        {!approvalLinks && <p>Client approval links are included with Agency. <Link href="/app/billing" className="underline">See plan details</Link></p>}
         <p className="text-sm text-gray-500">
           Posts requiring approval stay on hold. Open the saved post to copy its
           client approval link.
@@ -234,16 +245,6 @@ export function Composer({
         {state.error && (
           <p role="alert" className="text-red-700">
             {state.error}
-          </p>
-        )}
-        {(!canPublish || readOnly) && (
-          <p>
-            {readOnly
-              ? "This brand is read-only under your plan."
-              : "Publishing requires an active plan or trial. Drafts remain available."}{" "}
-            <Link href="/app/billing" className="underline">
-              Review Billing
-            </Link>
           </p>
         )}
         {!channels.some(c => c.brandId === brand && selected.includes(c.id)) && <p>Connect a channel to publish · <Link href={`/app/brands/${brand}#connect`} className="underline">Connect a channel</Link></p>}
