@@ -125,7 +125,7 @@ Publishing has separate provider behavior: temporary retryable failures use the 
 
 ## Networks and limits
 
-The current live adapters registered by the service are Bluesky, Mastodon, Telegram, X, Threads and LinkedIn. The public availability manifest marks Bluesky, Mastodon and Telegram as live. X, Threads and LinkedIn are preparation/early-access connections with stated platform conditions, so do not assume that a workflow can publish there. Instagram and Facebook are planned, not connected publishing targets.
+The current live adapters registered by the service are Bluesky, Mastodon, Telegram, X, Threads and LinkedIn. The public availability manifest marks Bluesky, Mastodon and Telegram as live. X, Threads and LinkedIn are preparation/early-access connections with stated platform conditions, so do not assume that a workflow can publish there. Instagram and Facebook are preparation connections too: Connect is available in Early Access, with the platform conditions stated in the availability manifest.
 
 Postial does not publish to every network, does not guarantee delivery at the scheduled minute, and does not turn an approval into a successful network publication. Instagram and Facebook are preparation connections with Connect available in Early Access; their publishing conditions and limitations are described in the availability manifest. It does not provide video upload in the current media flow. Check each target’s status and warnings after publication; one channel may succeed while another fails.
 
