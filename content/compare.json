@@ -392,8 +392,7 @@
       "notHave": "Postial does not currently offer unlimited users per workspace, Planable’s nine-platform documented publishing coverage, multi-level approval chains, or its universal-content planning for non-social content. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
       "vendorFits": "Planable is the stronger fit for agencies whose clients publish on Instagram, Facebook, LinkedIn, X, TikTok, YouTube, Pinterest, Threads or Google Business Profile today, and for teams wanting unlimited users per workspace and approval workflows from Optional up to multi-level on Enterprise. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
-        "pricing",
-        "approvals"
+        "pricing"
       ],
       "faq": [
         {
@@ -401,8 +400,8 @@
           "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Planable bills per workspace: {agencyBrands} client workspaces on Pro would be $735/month before taxes, with a volume discount on request for five or more. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
         },
         {
-          "question": "Can Planable clients approve posts without a login?",
-          "answer": "Not for approval actions. Planable’s help center states that its no-login public links allow viewing and comments only; approving requires an invitation as a Client member with approver permissions, which means a Planable account. Postial provides login-free Agency client links that carry the approval decision."
+          "question": "Which approval workflows does Planable include on each plan?",
+          "answer": "Planable’s pricing page lists None and Optional approvals on Basic, adds Required approvals on Pro and lists multi-level approvals on Enterprise. Whether external reviewers can approve without a Planable account is not confirmed on that page. Postial provides login-free Agency client links that carry the approval decision."
         },
         {
           "question": "Does Planable cover Bluesky, Mastodon or Telegram?",
