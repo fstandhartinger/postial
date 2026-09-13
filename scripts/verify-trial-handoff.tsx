@@ -4,9 +4,13 @@ import test from 'node:test';
 
 const handoff = readFileSync('components/billing/ContinueCheckout.tsx', 'utf8');
 const checkout = readFileSync('components/billing/CheckoutButton.tsx', 'utf8');
+const branding = readFileSync('lib/stripe-branding.ts', 'utf8');
+const plans = readFileSync('components/marketing/Plans.tsx', 'utf8');
 const billing = readFileSync('app/app/billing/page.tsx', 'utf8');
 const page = readFileSync('app/app/continue/page.tsx', 'utf8');
 const eligibility = readFileSync('lib/trial-eligibility.ts', 'utf8');
+const checkoutDisplayName = branding.match(/STRIPE_CHECKOUT_DISPLAY_NAME = '([^']+)'/)?.[1];
+const accountDisplayName = plans.match(/STRIPE_ACCOUNT_DISPLAY_NAME = '([^']+)'/)?.[1];
 
 test('continue checkout is an explicit, honest handoff', () => {
   assert.doesNotMatch(handoff, /useEffect|querySelector\(['"]button['"]\)|\.click\(\)/);
@@ -29,6 +33,8 @@ test('continue checkout is an explicit, honest handoff', () => {
   assert.match(page, /trialEligibility/);
   assert.match(page, /trialStatus/);
   assert.match(eligibility, /!input\.trialUsedAt && !existing\.data\.length && !input\.localStripeSubscriptionId/);
+  assert.equal(checkoutDisplayName, 'Postial');
+  assert.equal(accountDisplayName, 'productivity-boost.com Betriebs UG (haftungsbeschränkt) & Co. KG');
   assert.doesNotMatch(eligibility, /update\(|insert\(|delete\(/);
   const spentVariant = handoff.match(/This workspace has already used its trial period[^']+/)?.[0] ?? '';
   assert.equal(spentVariant, 'This workspace has already used its trial period. The monthly price applies now and a payment method is required.');

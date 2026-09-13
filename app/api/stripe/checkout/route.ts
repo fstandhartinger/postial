@@ -1,5 +1,5 @@
 import type Stripe from 'stripe';
-import { STRIPE_CHECKOUT_DISPLAY_NAME } from '@/lib/stripe-branding';
+import { STRIPE_CHECKOUT_BRANDING_VERSION, STRIPE_CHECKOUT_DISPLAY_NAME } from '@/lib/stripe-branding';
 import { readJson } from '@/lib/http/body';
 import { ApiError, apiError } from '@/lib/api/errors';
 import { checkoutTrial } from '@/lib/checkout-trial';
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const trial = eligibility === 'eligible';
     if (!trial && !fresh.trialUsedAt) await db.update(workspaces).set({ trialUsedAt: new Date() }).where(eq(workspaces.id, workspace.id));
     const open = await client.checkout.sessions.list({ customer: customerId, status: 'open', limit: 100 });
-    const reusable = open.data.find(s => s.mode === 'subscription' && s.metadata?.app === 'socialmint' && s.metadata?.plan === plan && s.metadata?.trial === String(trial) && s.client_reference_id === workspace.id);
+    const reusable = open.data.find(s => s.mode === 'subscription' && s.metadata?.app === 'socialmint' && s.metadata?.plan === plan && s.metadata?.trial === String(trial) && s.metadata?.branding === STRIPE_CHECKOUT_BRANDING_VERSION && s.client_reference_id === workspace.id);
     if (reusable?.url) return Response.json({ url: reusable.url });
     for (const session of open.data) {
       if (session.mode === 'subscription' && session.metadata?.app === 'socialmint') await client.checkout.sessions.expire(session.id);
@@ -77,14 +77,14 @@ export async function POST(request: Request) {
       mode: 'subscription', customer: customerId,
       line_items: [{ price, quantity: 1 }],
       ...checkoutTrial(trial, { ...metadata, plan }),
-      metadata: { ...metadata, plan, trial: String(trial) }, allow_promotion_codes: true,
+      metadata: { ...metadata, plan, trial: String(trial), branding: STRIPE_CHECKOUT_BRANDING_VERSION }, allow_promotion_codes: true,
       custom_text: { submit: { message: 'Postial social publishing subscription.' } },
       client_reference_id: workspace.id,
       success_url: `${appUrl()}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl()}/pricing?checkout=cancelled`,
     };
     const checkout = await client.checkout.sessions.create(checkoutParams, {
-      idempotencyKey: `socialmint-checkout-${workspace.id}-${plan}-${trial}-${state?.checkoutSessionId ?? 'first'}-b2`,
+      idempotencyKey: `socialmint-checkout-${workspace.id}-${plan}-${trial}-${state?.checkoutSessionId ?? 'first'}-${STRIPE_CHECKOUT_BRANDING_VERSION}`,
     });
     if (!checkout.url || checkout.status !== 'open') throw new BillingHttpError(409, 'Checkout expired; please retry');
     await db.update(billingState).set({ checkoutSessionId: checkout.id, checkoutPlan: plan }).where(eq(billingState.workspaceId, workspace.id));
