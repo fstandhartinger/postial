@@ -18,7 +18,11 @@ try {
     for (const route of ['/docs', ...index.map(article => `/docs/${article.slug}`), '/docs/api', '/privacy', '/terms', '/legal/dpa']) {
       const response = await page.goto(base + route);
       assert.equal(response.status(), 200, route);
-      await page.waitForLoadState('networkidle');
+      // The document is ready for every assertion once its heading is visible. A
+      // client-ready beacon is deliberately fire-and-forget and its best-effort DB
+      // write may outlive the page response, so global network quiescence is not a
+      // property this browser check needs to assert.
+      await page.locator('h1').first().waitFor({ state: 'visible' });
       assert.equal(await page.locator('h1').count(), 1, route);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
       await page.screenshot({ path: `${process.env.VERIFY_EVIDENCE_DIR || '../work'}/help-evidence/${route.slice(1).replaceAll('/', '-')}-${width}.png`, fullPage: true });
