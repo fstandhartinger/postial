@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server';
 import { createRequestStoreForAPI } from 'next/dist/server/async-storage/request-store';
 import { workUnitAsyncStorage } from 'next/dist/server/app-render/work-unit-async-storage.external';
 import { stripe } from '../lib/stripe';
+import { STRIPE_CHECKOUT_BRANDING_VERSION } from '../lib/stripe-branding';
 /** In-process SDK fixture: no Stripe socket or login. Real handlers + Auth.js DB sessions + Next request context. */
 export async function installBillingMock() {
   process.env.STRIPE_PRICE_STARTER='price_fixture_starter';
@@ -19,15 +20,16 @@ export async function installBillingMock() {
     async del(id:string){customers.delete(id);return {id,deleted:true};},
   });
   Object.assign(client.subscriptions,{async list(){return list([]);}});
-  Object.assign(client.checkout.sessions,{
-    async list({customer,status}:{customer:string;status:string}){return list([...checkouts.values()].filter(c=>c.customer===customer&&c.status===status));},
-    async create(data:Record<string,unknown>, options:{idempotencyKey:string}){
+  const createSession = async (data:Record<string,unknown>, options:{idempotencyKey:string}) => {
       const metadata = data.metadata as {plan:string;trial:string};
       assert.ok(options.idempotencyKey.startsWith(`socialmint-checkout-${data.client_reference_id}-${metadata.plan}-${metadata.trial}-`));
-      assert.ok(options.idempotencyKey.endsWith('-b2'), 'new parameters must not reuse pre-branding idempotency keys');
+      assert.ok(options.idempotencyKey.endsWith(`-${STRIPE_CHECKOUT_BRANDING_VERSION}`), 'new parameters must not reuse pre-branding idempotency keys');
       const {subscription_data,...rest}=data;void subscription_data;
       const id='cs_fixture_'+randomUUID(),row={...rest,id,status:'open',subscription:null,url:'https://checkout.stripe.com/c/pay/'+id};checkouts.set(id,row);return row;
-    },
+    };
+  Object.assign(client.checkout.sessions,{
+    async list({customer,status}:{customer:string;status:string}){return list([...checkouts.values()].filter(c=>c.customer===customer&&c.status===status));},
+    create: createSession,
     async retrieve(id:string){return checkouts.get(id);},
     async expire(id:string){const row=checkouts.get(id)!;row.status='expired';return row;},
   });
@@ -42,5 +44,14 @@ export async function installBillingMock() {
     return workAsyncStorage.run({route:url.pathname,page:url.pathname,isStaticGeneration:false} as WorkStore,()=>
       workUnitAsyncStorage.run(store,()=>url.pathname.endsWith('/checkout')?checkout.POST(request):portal.POST(request)));
   };
-  return ()=>{globalThis.fetch=original;};
+  const restore = Object.assign(() => { globalThis.fetch=original; }, {
+    async createLegacyCheckoutSession(data:Record<string,unknown>, options:{idempotencyKey:string}) {
+      const metadata = data.metadata as {plan:string;trial:string};
+      assert.ok(options.idempotencyKey.startsWith(`socialmint-checkout-${data.client_reference_id}-${metadata.plan}-${metadata.trial}-`));
+      assert.ok(options.idempotencyKey.endsWith('-legacy'), 'legacy fixture must use the pre-branding idempotency-key shape');
+      const {subscription_data,...rest}=data;void subscription_data;
+      const id='cs_fixture_'+randomUUID(),row={...rest,id,status:'open',subscription:null,url:'https://checkout.stripe.com/c/pay/'+id};checkouts.set(id,row);return row;
+    },
+  });
+  return restore;
 }

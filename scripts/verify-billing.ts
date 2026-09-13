@@ -12,6 +12,7 @@ import { checkoutTrial } from "../lib/checkout-trial";
 import { internalPath, loginTarget } from "../lib/login-target";
 import { billingRateLimit } from "../lib/rate-limit";
 import { stripe } from "../lib/stripe";
+import { STRIPE_CHECKOUT_BRANDING_VERSION, STRIPE_CHECKOUT_DISPLAY_NAME } from "../lib/stripe-branding";
 async function main() {
   assert.equal(checkoutTrial(true, {}).subscription_data?.trial_period_days, 14);
   assert.equal(checkoutTrial(true, {}).subscription_data?.trial_settings?.end_behavior.missing_payment_method, 'cancel');
@@ -68,7 +69,8 @@ async function main() {
     assert.equal(open.data[0].success_url, base + "/app?checkout=success&session_id={CHECKOUT_SESSION_ID}");
     assert.equal(open.data[0].cancel_url, base + "/pricing?checkout=cancelled");
     const first = await client.checkout.sessions.retrieve(open.data[0].id);
-    assert.deepEqual(first.branding_settings, { display_name: 'Postial' });
+    assert.deepEqual(first.branding_settings, { display_name: STRIPE_CHECKOUT_DISPLAY_NAME });
+    assert.equal(first.metadata?.branding, STRIPE_CHECKOUT_BRANDING_VERSION);
     assert.equal(first.metadata?.trial, 'true');
     assert.equal(first.payment_method_collection, 'if_required');
     assert.equal(first.subscription, null);
@@ -83,7 +85,7 @@ async function main() {
     const restarted = await client.checkout.sessions.list({ customer: customerId, status: 'open' });
     assert.equal(restarted.data.length, 1);
     const paid = await client.checkout.sessions.retrieve(restarted.data[0].id);
-    assert.deepEqual(paid.branding_settings, { display_name: 'Postial' });
+    assert.deepEqual(paid.branding_settings, { display_name: STRIPE_CHECKOUT_DISPLAY_NAME });
     assert.equal(paid.metadata?.trial, 'false');
     assert.equal(paid.payment_method_collection, 'always');
     assert.equal(paid.subscription, null);
@@ -100,8 +102,32 @@ async function main() {
     assert.equal((await post('/api/stripe/checkout')).status, 200);
     const limited = await post('/api/stripe/portal');
     assert.equal(limited.status, 429); assert.ok(Number(limited.headers.get('Retry-After')) > 0);
+    // Keep this regression case after rate-limit verification so its extra checkout request
+    // cannot change the counter state that the rate-limit stage asserts.
+    stage = "pre-branding checkout replacement";
+    const paidSession = restarted.data[0];
+    await client.checkout.sessions.expire(paidSession.id);
+    const { branding: _legacyBranding, ...legacyMetadata } = paid.metadata!;
+    const legacy = await restoreFetch.createLegacyCheckoutSession({
+      mode: paid.mode,
+      customer: paid.customer,
+      metadata: legacyMetadata,
+      client_reference_id: paid.client_reference_id,
+      success_url: paid.success_url,
+      cancel_url: paid.cancel_url,
+    }, { idempotencyKey: `socialmint-checkout-${workspaceId}-agency-false-${paidSession.id}-legacy` });
+    await db.execute(sql`delete from request_rate_limits where key=${'billing:'+userId}`);
+    const replaced = await post("/api/stripe/checkout");
+    assert.equal(replaced.status, 200);
+    const replacedData = await replaced.json();
+    assert.notEqual(replacedData.url, legacy.url);
+    const replacedSession = (await client.checkout.sessions.list({ customer: customerId, status: "open" })).data[0];
+    assert.equal(replacedSession.url, replacedData.url);
+    assert.deepEqual(replacedSession.branding_settings, { display_name: STRIPE_CHECKOUT_DISPLAY_NAME });
+    assert.equal(replacedSession.metadata?.branding, STRIPE_CHECKOUT_BRANDING_VERSION);
+    assert.equal((await client.checkout.sessions.retrieve(legacy.id)).status, "expired");
     console.log('PASS trial/restart: request trial 14/cancel vs absent, mocked SDK retrieve if_required vs always, trial metadata, canceled Restart plan, neutral banner, continuation page, shared 429/Retry-After, login whitelist and limiter reset');
-    console.log("PASS mocked checkout/portal: anonymous 401, protected page 307, owner 200 Stripe URLs, retry reuses Checkout, redirects correct, cross-origin 403. No checkout completed.");
+    console.log("PASS mocked checkout/portal: anonymous 401, protected page 307, owner 200 Stripe URLs, retry reuses Checkout, pre-branding Checkout replaced and expired, redirects correct, cross-origin 403. No checkout completed.");
   } finally {
     // Recover customer mapping even when an assertion failed after provisioning.
     if (!customerId && workspaceId) {
