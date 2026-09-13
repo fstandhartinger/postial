@@ -8,15 +8,19 @@ import { useEffect } from 'react';
  */
 export function ClientBeacon({ path }: { path: string }) {
   useEffect(() => {
-    const controller = new AbortController();
+    const body = JSON.stringify({ path });
+    // sendBeacon is fire-and-forget: page navigation and the public HTML response do
+    // not wait on funnel persistence. Keep fetch as a small fallback for browsers
+    // that do not expose sendBeacon.
+    if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(
+      '/api/internal/client-ready', new Blob([body], { type: 'application/json' }),
+    )) return;
     void fetch('/api/internal/client-ready', {
       method: 'POST',
       keepalive: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
-      signal: controller.signal,
+      body,
     }).catch(() => {});
-    return () => controller.abort();
   }, [path]);
   return null;
 }

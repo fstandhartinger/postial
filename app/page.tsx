@@ -1,4 +1,3 @@
-import { connection } from 'next/server';
 import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
 import { NetworkAvailability } from '@/components/marketing/NetworkAvailability';
 import Link from 'next/link';
@@ -10,7 +9,6 @@ import { plans } from '@/lib/plans';
 import { DemoLink } from '@/components/marketing/DemoLink';
 import { LazyApprovalDemo } from '@/components/marketing/LazyApprovalDemo';
 import { SignInNotice } from '@/components/marketing/SignInNotice';
-import { recordPublicView } from '@/lib/funnel';
 import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 const description = 'Schedule client posts with approvals, status tracking and retries for agencies using Bluesky, Mastodon and Telegram. Agency is €49/month.';
 export const metadata = seoMetadata({ title: 'Postial | Social publishing for agencies', description, path: '/' });
@@ -19,8 +17,6 @@ function FactGrid({ section }: { section: Section }) {
   return <div className={`marketing-grid ${section === 'Features' ? 'two features-grid' : 'three'}`}>{content.map((item, index) => item.label === 'H3' ? <article key={item.text}><div className="feature-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7 12 3 3 7-7"/></svg></div><h3>{item.text}</h3>{content.slice(index + 1, content.findIndex((next, nextIndex) => nextIndex > index && next.label === 'H3') === -1 ? undefined : content.findIndex((next, nextIndex) => nextIndex > index && next.label === 'H3')).filter(next => next.label !== 'Fair-comparison note').map(next => next.label === 'Badge' ? <span className="badge" key={next.text}>{next.text}</span> : <p className={next.label.includes('note') || next.label === 'Note' ? 'note' : ''} key={next.text}>{next.text}</p>)}</article> : null)}</div>;
 }
 export default async function Home() {
-  await connection();
-  await recordPublicView('landing_view', '/');
   const schema = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Postial', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: siteUrl, description, offers: Object.values(plans).map(plan => ({ '@type': 'Offer', name: plan.name, price: String(plan.monthlyEuro), priceCurrency: 'EUR', url: `${siteUrl}/pricing` })) };
   const faqSchema = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqEntries().map(entry => ({ '@type': 'Question', name: entry.question, acceptedAnswer: { '@type': 'Answer', text: entry.answer } })) };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(schema) }} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(faqSchema) }} />

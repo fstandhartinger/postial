@@ -1,17 +1,15 @@
-import { connection } from 'next/server';
 import { NetworkAvailability } from '@/components/marketing/NetworkAvailability';
 import { MarketingAccessStatus as AccessStatus } from '@/components/marketing/NetworkAvailability';
 import { Badge } from '@/components/ui/badge';
 import { Plans } from '@/components/marketing/Plans';
 import { FAQ } from '@/components/marketing/FAQ';
 import { words } from '@/components/marketing/copy';
-import { recordPublicView } from '@/lib/funnel';
 import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 import { faqEntries } from '@/components/marketing/FAQ';
 import { jsonLd, seoMetadata, siteUrl } from '@/lib/seo';
 import { plans } from '@/lib/plans';
 export const metadata = seoMetadata({ title: 'Postial pricing for social publishing', description: 'Compare Starter and Agency plans for client social publishing, with VAT-inclusive pricing, a 14-day trial and supported network details.', path: '/pricing' });
-export default async function Pricing() { await connection(); await recordPublicView('pricing_view', '/pricing'); const offerSchema = { '@context': 'https://schema.org', '@type': 'Product', name: 'Postial',
+export default async function Pricing() { const offerSchema = { '@context': 'https://schema.org', '@type': 'Product', name: 'Postial',
     description: 'Social publishing for agencies with client approval and recoverable failures.',
     brand: { '@type': 'Brand', name: 'Postial' },
     // Mirrors what the page itself shows. The landing page has carried offer data since the

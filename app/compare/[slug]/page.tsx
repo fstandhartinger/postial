@@ -7,7 +7,6 @@ import { SignInNotice } from '@/components/marketing/SignInNotice';
 import copy from '@/content/compare.json';
 import availability from '@/content/availability.json';
 import styles from '../compare.module.css';
-import { recordPublicView } from '@/lib/funnel';
 import { ClientBeacon } from '@/components/marketing/ClientBeacon';
 import { jsonLd, seoMetadata } from '@/lib/seo';
 import { plans, TRIAL_DAYS } from '@/lib/plans';
@@ -32,9 +31,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ComparePage({ params }: Props) {
   const { slug } = await params;
   const page = comparison(slug);
-  // Record which comparison was read, not a fixed '/compare' for all of them, and only
-  // after the slug is known to exist so probed URLs cannot inflate the count.
-  await recordPublicView('compare_view', `/compare/${slug}`);
   const networkText=networkSummary;
   const featureText=`Available today: ${availability.available.join('; ')}. ${availability.pending}. ${networkText}`;
   const own = {

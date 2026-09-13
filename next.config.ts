@@ -8,7 +8,16 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || process.env.DEPLOYMENT_VERSION || process.env.GIT_SHA,
   experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
-    return [{source: '/api/v1/:path*', headers: [{key: 'Cache-Control', value: 'no-store'}]}, { source: '/:path*', headers: [
+    const publicCache = { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' };
+    return [
+      { source: '/', headers: [publicCache] },
+      { source: '/pricing', headers: [publicCache] },
+      { source: '/roadmap', headers: [publicCache] },
+      { source: '/compare', headers: [publicCache] },
+      { source: '/compare/:slug*', headers: [publicCache] },
+      { source: '/docs', headers: [publicCache] },
+      { source: '/docs/:slug*', headers: [publicCache] },
+      {source: '/api/v1/:path*', headers: [{key: 'Cache-Control', value: 'no-store'}]}, { source: '/:path*', headers: [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

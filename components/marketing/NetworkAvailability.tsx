@@ -2,6 +2,7 @@ import availability from '@/content/availability.json';
 import { configuredProviders } from '@/lib/auth-providers';
 import { isOAuthProvider, oauthConfig } from '@/lib/publishers/oauth-config';
 import { NetworkWaitlist } from './NetworkWaitlist';
+import { RuntimeProviderStatus } from './RuntimeProviderStatus';
 
 type NetworkStatus = 'live' | 'preparation' | 'planned';
 export function networkNames(status: NetworkStatus) {
@@ -24,5 +25,5 @@ export function NetworkAvailability({ source }: { source?: 'pricing' | 'roadmap'
 export function MarketingAccessStatus() {
   const { google, email } = configuredProviders();
   const signIn = google && email ? 'Google sign-in and magic links are available' : google ? 'Google sign-in is available' : email ? 'Magic links are available' : 'Sign-in is not configured — try the interactive demo meanwhile';
-  return <aside data-availability className="my-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5"><strong>Early access</strong><p>{networkSummary}</p><p>Available today: {availability.available.join('; ')}.</p><p>{availability.pending}.</p><p>{signIn}.</p></aside>;
+  return <aside data-availability className="my-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5"><strong>Early access</strong><p>{networkSummary}</p><p>Available today: {availability.available.join('; ')}.</p><p>{availability.pending}.</p><p><RuntimeProviderStatus fallback={signIn} />.</p></aside>;
 }
