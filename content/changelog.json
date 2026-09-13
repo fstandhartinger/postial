@@ -42,7 +42,7 @@
   {
     "date": "2026-09-09",
     "title": "API and webhooks",
-    "body": "Agency REST API and signed webhooks. n8n-nodes-socialmint 0.1.2 is published on npm and appears as Postial in n8n; only the package name retains the former brand."
+    "body": "Agency REST API and signed webhooks. n8n-nodes-postial 0.2.0 is published on npm and appears as Postial in n8n."
   },
   {
     "date": "2026-09-09",

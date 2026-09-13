@@ -17,9 +17,15 @@ The API checks Agency access before the scope check. The API key is sent as `Aut
 
 ## The native community node
 
-The product availability manifest identifies the package as `n8n-nodes-socialmint`, version `0.1.3`. In n8n it appears as **Postial** and **Postial Trigger**. The package name still carries the earlier SocialMint brand.
+The product availability manifest identifies the package as `n8n-nodes-postial`, version `0.2.0`. In n8n it appears as **Postial** and **Postial Trigger**.
 
-In an n8n installation that permits community packages, install `n8n-nodes-socialmint`. Create the credential type **Postial API**. Its fields are **Base URL** (default `https://postial.co`) and **API Key**. The credential adds the Bearer header and tests `GET /api/v1/me`.
+In an n8n installation that permits community packages, install `n8n-nodes-postial`. Create the credential type **Postial API**. Its fields are **Base URL** (default `https://postial.co`) and **API Key**. The credential adds the Bearer header and tests `GET /api/v1/me`.
+
+### Three steps to the first scheduled post
+
+1. Install `n8n-nodes-postial` under **Settings → Community Nodes**, then restart n8n if requested.
+2. Add **Postial API** credentials with the Postial base URL and an Agency API key containing `brands:read`, `posts:write`, and `webhooks:manage` where required by the workflow.
+3. Add **Postial**, choose **Post → Create**, select a brand and channel, enter the text, choose **Scheduled Time**, and provide a future date. Execute the workflow and confirm the returned post status in Postial.
 
 ### Create and schedule a post
 

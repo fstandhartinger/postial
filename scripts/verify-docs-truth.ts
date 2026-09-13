@@ -67,7 +67,7 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
 // deliberately excluded.
 {
   const versionOf = (text: string) => {
-    const found = [...text.matchAll(/n8n-nodes-socialmint[`\s]*,?\s*(?:version\s*`?)?(\d+\.\d+\.\d+)/g)].map(m => m[1]);
+    const found = [...text.matchAll(/n8n-nodes-postial[`\s]*,?\s*(?:version\s*`?)?(\d+\.\d+\.\d+)/g)].map(m => m[1]);
     return [...new Set(found)];
   };
   const manifest = versionOf(readFileSync('content/availability.json', 'utf8'));
