@@ -16,7 +16,7 @@ export function marketingPlanLimits(plan: Plan) {
 /** Account name used on receipts/invoices; ops/invoice-check.py compares it with Stripe.
  * Checkout's session-specific heading is configured separately in lib/stripe-branding.ts.
  */
-export const STRIPE_ACCOUNT_DISPLAY_NAME = 'productivity-boost.com Betriebs UG (haftungsbeschraenkt) & Co. KG';
+export const STRIPE_ACCOUNT_DISPLAY_NAME = 'productivity-boost.com Betriebs UG (haftungsbeschränkt) & Co. KG';
 export function marketingPlanPrice(plan: Plan) { return `€${plans[plan].monthlyEuro}`; }
 export function Plans({ checkout = false }: { checkout?: boolean }) {
   return <><div className="marketing-grid two plans">{(['starter', 'agency'] as const).map(plan => {
