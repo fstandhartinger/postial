@@ -105,7 +105,7 @@
       "faq": [
         {
           "question": "Is Postial cheaper for a five-person agency?",
-        "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
         },
         {
           "question": "Can Hootsuite clients approve without a login?",
@@ -117,7 +117,7 @@
         },
         {
           "question": "Do both trials require a credit card?",
-        "answer": "Neither Postial nor Hootsuite requires a card for its listed {trialDays}-day trial. Postial is early access, so use the trial to verify the features your clients need."
+          "answer": "Neither Postial nor Hootsuite requires a card for its listed {trialDays}-day trial. Postial is early access, so use the trial to verify the features your clients need."
         }
       ],
       "sources": [
@@ -213,7 +213,7 @@
         },
         {
           "question": "Does Postiz Pro cover fifteen brands?",
-        "answer": "Pro lists 30 channels and unlimited team members for $49/month. {agencyBrands} brands fit that account allowance only if they use at most 30 connected profiles combined; brands and channels are different units."
+          "answer": "Pro lists 30 channels and unlimited team members for $49/month. {agencyBrands} brands fit that account allowance only if they use at most 30 connected profiles combined; brands and channels are different units."
         },
         {
           "question": "Is API automation unique to Postial?",
@@ -221,7 +221,7 @@
         },
         {
           "question": "Can clients review Postial posts without signing up?",
-        "answer": "Login-free client approval links are available on Agency today, including during the {trialDays}-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
+          "answer": "Login-free client approval links are available on Agency today, including during the {trialDays}-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
         }
       ],
       "sources": [
@@ -260,7 +260,7 @@
           ]
         },
         {
-          "text": "Content approval workflows listed on the Team plan: manage who can draft and approve posts across your team. Login-free external reviewer links not confirmed on the checked page.",
+          "text": "Content approval workflows listed on the pricing page: manage who can draft and approve posts across your team. Login-free external reviewer links not confirmed on the checked page.",
           "sources": [
             "pricing"
           ]
@@ -272,7 +272,7 @@
           ]
         },
         {
-          "text": "API access on every plan, including Free with 1 key and 3,000 requests per 30 days; Team lists 5 keys and 15,000 requests per 30 days. n8n is listed among Buffer’s integrations.",
+          "text": "API access on every plan, including Free with 1 key and 3,000 requests per month; Team lists 5 keys and 15,000 requests per month. n8n is listed among Buffer’s integrations.",
           "sources": [
             "pricing"
           ]
@@ -351,11 +351,9 @@
           ]
         },
         {
-          "text": "Approval workflows: Optional on Basic, Required on Pro, multi-level on Enterprise. Planable’s public links let clients view and comment without a login, but state that approval actions are not possible on them; approvers are invited as Client members with a Planable account.",
+          "text": "Approval workflows by plan: None and Optional on Basic, Required added on Pro, multi-level approvals on Enterprise. Login-free external approval links not confirmed on the checked page.",
           "sources": [
-            "pricing",
-            "approvals",
-            "clientApproval"
+            "pricing"
           ]
         },
         {
@@ -389,7 +387,7 @@
           ]
         }
       ],
-      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with one price that stays the same as clients join or leave. Its client approval links let a reviewer inspect and decide without a login; Planable’s no-login public links are view-and-comment only, and approving clients are invited with a Planable account. It fits a small agency seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with one price that stays the same as clients join or leave. It fits a small agency seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
       "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, if you need Planable’s unlimited users per workspace or its multi-level approval chains, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
       "notHave": "Postial does not currently offer unlimited users per workspace, Planable’s nine-platform documented publishing coverage, multi-level approval chains, or its universal-content planning for non-social content. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
       "vendorFits": "Planable is the stronger fit for agencies whose clients publish on Instagram, Facebook, LinkedIn, X, TikTok, YouTube, Pinterest, Threads or Google Business Profile today, and for teams wanting unlimited users per workspace and approval workflows from Optional up to multi-level on Enterprise. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
@@ -420,18 +418,6 @@
           "id": "pricing",
           "title": "Planable per-workspace pricing, plans, platforms and trial",
           "url": "https://planable.io/pricing/",
-          "checkedAt": "2026-09-13"
-        },
-        {
-          "id": "approvals",
-          "title": "Planable approval workflow types by plan",
-          "url": "https://help.planable.io/hc/en-us/articles/21715462785180-Approvals-and-Approval-Workflows",
-          "checkedAt": "2026-09-13"
-        },
-        {
-          "id": "clientApproval",
-          "title": "Planable client approval setup and public link limits",
-          "url": "https://help.planable.io/hc/en-us/articles/22581435847324-How-to-get-Client-Approval-for-content-in-Planable",
           "checkedAt": "2026-09-13"
         }
       ]
