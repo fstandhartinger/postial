@@ -3,7 +3,12 @@ import { configuredProviders } from '@/lib/auth-providers';
 import { isOAuthProvider, oauthConfig } from '@/lib/publishers/oauth-config';
 import { NetworkWaitlist } from './NetworkWaitlist';
 
-export const networkSummary = 'Live: Bluesky, Mastodon, Telegram. X, Threads, LinkedIn, Facebook and Instagram connections are Early access when configured; publishing is subject to provider conditions, and Instagram publishes only to Business accounts linked to a Facebook Page.';
+type NetworkStatus = 'live' | 'preparation' | 'planned';
+export function networkNames(status: NetworkStatus) {
+  const names = availability.networks.filter(network => network.status === status).map(network => network.name);
+  return names.join(', ');
+}
+export const networkSummary = `Live: ${networkNames('live')}. ${networkNames('preparation')} connections are Early access when configured; publishing is subject to provider conditions, and Instagram publishes only to Business accounts linked to a Facebook Page.`;
 
 export function NetworkAvailability({ source }: { source?: 'pricing' | 'roadmap' }) {
   return <div>{(['live', 'preparation', 'planned'] as const).map(status => {

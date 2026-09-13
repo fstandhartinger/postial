@@ -40,10 +40,10 @@
     {
       "slug": "hootsuite-alternative",
       "vendor": "Hootsuite",
-      "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "title": "Hootsuite alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Hootsuite for agency work on {liveNetworkNames}: approvals, prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Standard: from $99/user/month, annual billing; 10 social accounts. Taxes extra.",
@@ -95,7 +95,7 @@
         }
       ],
       "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with login-free client review and REST API/webhooks available today, and a native n8n node shown as “Postial” in n8n. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
-      "notFor": "Do not switch yet if a client needs a network outside the live Bluesky, Mastodon and Telegram set, or if an early-access provider condition cannot be accepted. X, Threads, LinkedIn, Facebook and Instagram connections are not the same as a generally available publishing guarantee.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
       "notHave": "Postial does not currently offer a broad network catalogue, a promised history importer, or a guarantee that early-access provider connections will pass review. The n8n package name also retains the former brand; check the availability matrix before committing a schedule.",
       "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
@@ -144,10 +144,10 @@
     {
       "slug": "postiz-alternative",
       "vendor": "Postiz",
-      "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
-      "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
-      "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "title": "Postiz alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Postiz for agency work on {liveNetworkNames}: approvals, prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Cloud Standard: $29/month, 5 channels, unlimited posts. Team: $39/month, 10 channels, unlimited team members.",
@@ -180,7 +180,7 @@
           ]
         },
         {
-          "text": "Includes all five Postial launch networks plus LinkedIn, Instagram, Facebook, TikTok, YouTube and more.",
+          "text": "Postiz documents platforms including X, LinkedIn, Facebook, Instagram, Threads, Mastodon, Bluesky and Telegram.",
           "sources": [
             "api"
           ]
@@ -209,7 +209,7 @@
       "faq": [
         {
           "question": "Is Postial an open-source or self-hosted Postiz replacement?",
-          "answer": "Postial is presented here as a managed service hosted in Germany. Postiz offers an open-source self-hosting option; operating its server and integrations remains your responsibility."
+          "answer": "Postial is presented here as a managed service hosted in Germany. Postiz offers an open-source self-hosting option."
         },
         {
           "question": "Does Postiz Pro cover fifteen brands?",

@@ -11,9 +11,9 @@ Retrieved 2026-09-13 from the vendors’ public pages. This is the evidence regi
 
 ## Postiz
 
-- Cloud pricing, channel/team limits, trial and self-hosting: [Postiz pricing](https://postiz.com/pricing) — retrieved 2026-09-13. It lists Standard $29/month, Team $39/month, Pro $49/month and Ultimate $99/month, with their channel/team allowances; says the cloud trial is 7 days; and says the open-source product can be deployed on a customer-owned cloud/server.
+- Cloud pricing, channel/team limits, trial and self-hosting: [Postiz pricing](https://postiz.com/pricing) — retrieved 2026-09-13. It lists Standard $29/month, Team $39/month, Pro $49/month and Ultimate $99/month, with their channel/team allowances; says the cloud trial is 7 days; and says Postiz offers an open-source product that can be deployed on a customer-owned cloud/server.
 - Agency grouping and team roles: [Postiz homepage FAQ](https://postiz.com/) — retrieved 2026-09-13. It describes customer groups on Team, Pro and Ultimate, unlimited team members on those plans, and Admin/Member roles. It does not establish a login-free external approval link.
-- API, n8n, failure semantics and supported platforms: [Postiz API overview](https://docs.postiz.com/public-api/introduction) — retrieved 2026-09-13. It documents a public API and custom n8n node, HTTP error statuses including retry-with-exponential-backoff for 5xx, and platforms including X, LinkedIn, Facebook, Instagram, Threads, Mastodon, Bluesky and Telegram. The comparison does not turn API error handling into a claim of a visible per-post UI retry button.
+- API, n8n, failure semantics and supported platforms: [Postiz API overview](https://docs.postiz.com/public-api/introduction) — retrieved 2026-09-13. It documents a public API and custom n8n node, HTTP error statuses including retry-with-exponential-backoff for 5xx, and platforms including X, LinkedIn, Facebook, Instagram, Threads, Mastodon, Bluesky and Telegram. The comparison now states only that Postiz documents these platforms; it does not infer a Postial-network overlap or turn API error handling into a claim of a visible per-post UI retry button.
 
 ## Scope note
 

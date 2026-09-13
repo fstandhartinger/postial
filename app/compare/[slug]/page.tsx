@@ -1,4 +1,4 @@
-import { networkSummary } from '@/components/marketing/NetworkAvailability';
+import { networkNames, networkSummary } from '@/components/marketing/NetworkAvailability';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -22,9 +22,12 @@ function comparison(slug: string) {
   if (!page) notFound();
   return page;
 }
+const liveNetworkNames = networkNames('live');
+const earlyAccessNetworkNames = networkNames('preparation');
+const hydrateNetworkText = (text: string) => text.replace(/\{(liveNetworkNames|earlyAccessNetworkNames)\}/g, (_, key) => key === 'liveNetworkNames' ? liveNetworkNames : earlyAccessNetworkNames);
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = comparison((await params).slug);
-  return seoMetadata({ title: page.title, description: page.description, path: `/compare/${page.slug}` });
+  return seoMetadata({ title: hydrateNetworkText(page.title), description: hydrateNetworkText(page.description), path: `/compare/${page.slug}` });
 }
 export default async function ComparePage({ params }: Props) {
   const { slug } = await params;
@@ -39,7 +42,7 @@ export default async function ComparePage({ params }: Props) {
     starterBrands: String(plans.starter.brands), agencyBrands: String(plans.agency.brands),
     starterSeats: String(plans.starter.seats), agencySeats: String(plans.agency.seats), trialDays: String(TRIAL_DAYS),
   };
-  const hydrate = (text: string) => text.replace(/\{(starterPrice|agencyPrice|starterBrands|agencyBrands|starterSeats|agencySeats|trialDays)\}/g, (_, key) => own[key as keyof typeof own]);
+  const hydrate = (text: string) => hydrateNetworkText(text).replace(/\{(starterPrice|agencyPrice|starterBrands|agencyBrands|starterSeats|agencySeats|trialDays)\}/g, (_, key) => own[key as keyof typeof own]);
   const feature = (index: number) => index === 2 ? availability.available[2] : index === 3 ? availability.available[3] : index === 4 ? `${availability.available[6]}. ${availability.pending}` : index === 5 ? networkText : [
     `Starter: ${own.starterPrice} including VAT; ${own.starterBrands} brands, ${own.starterSeats} user.`,
     `Agency: ${own.agencyPrice} including VAT; ${own.agencyBrands} brands, ${own.agencySeats} users.`,
