@@ -1,20 +1,20 @@
 {
-  "checkedAt": "2026-09-08",
+  "checkedAt": "2026-09-13",
   "priceFootnote": "Prices as listed on vendor sites, checked September 2026",
-  "methodology": "Postial prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Fifteen brands can require many more than fifteen accounts. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
+  "methodology": "Postial prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Several brands can require many more accounts than brands. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
   "postial": [
-    "Starter: €19/month including VAT; 3 brands, 1 user.",
-    "Agency: €49/month including VAT; 15 brands, 5 users.",
+    "Starter: {starterPrice} including VAT; {starterBrands} brands, {starterSeats} user.",
+    "Agency: {agencyPrice} including VAT; {agencyBrands} brands, {agencySeats} users.",
     "Client approval links (Agency)",
     "Publishing status and retries",
-    "REST API and webhooks (Agency); the native n8n node is on npm as n8n-nodes-socialmint 0.1.3 and appears as “Postial” inside n8n; only the package name still carries the former brand.",
+    "REST API and webhooks (Agency); the native n8n node is published and appears as “Postial” inside n8n; only the package name still carries the former brand.",
     "See the availability matrix above.",
     "Hosted in Germany. Publishing still sends content to the selected social networks.",
-    "14 days, no card needed. Cancel anytime."
+    "{trialDays}-day trial, no card needed. Cancel anytime."
   ],
   "labels": [
     "Entry price",
-    "Price for 5 users / 15 brands",
+    "Agency allowance",
     "Client approval without login",
     "Visible failures and retries",
     "API / n8n",
@@ -29,7 +29,7 @@
     },
     {
       "title": "2. Pilot the approval flow",
-      "body": "Start the 14-day trial without a card. Recreate a small set of drafts and, when enabled, test an Agency approval link with a reviewer. Check publishing status and recovery before expanding."
+      "body": "Start the {trialDays}-day trial without a card. Recreate a small set of drafts and, when enabled, test an Agency approval link with a reviewer. Check publishing status and recovery before expanding."
     },
     {
       "title": "3. Move only verified workflows",
@@ -43,7 +43,7 @@
       "title": "Hootsuite alternative for Bluesky, Mastodon & Telegram agencies",
       "description": "Compare Postial and Hootsuite for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
       "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Standard: from $99/user/month, annual billing; 10 social accounts. Taxes extra.",
@@ -94,7 +94,9 @@
           ]
         }
       ],
-      "fits": "Postial’s Agency offer combines 15 brands and 5 users for €49/month including VAT, with login-free client review and REST API/webhooks available today, and the native n8n node on npm as n8n-nodes-socialmint 0.1.3, shown as “Postial” in n8n. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with login-free client review and REST API/webhooks available today, and a native n8n node shown as “Postial” in n8n. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live Bluesky, Mastodon and Telegram set, or if an early-access provider condition cannot be accepted. X, Threads, LinkedIn, Facebook and Instagram connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer a broad network catalogue, a promised history importer, or a guarantee that early-access provider connections will pass review. The n8n package name also retains the former brand; check the availability matrix before committing a schedule.",
       "vendorFits": "Hootsuite is the stronger fit when you need its already listed Instagram, Facebook and LinkedIn integrations. Professional includes custom reporting; Advanced adds team approvals. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
       "vendorFitSources": [
         "integrations",
@@ -103,7 +105,7 @@
       "faq": [
         {
           "question": "Is Postial cheaper for a five-person agency?",
-          "answer": "Postial Agency lists €49/month including VAT for 5 users and 15 brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
+        "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Hootsuite Professional’s five-seat arithmetic is $995/month on annual billing before taxes. Currencies, billing periods and capabilities differ; these are not equivalent bundles."
         },
         {
           "question": "Can Hootsuite clients approve without a login?",
@@ -115,7 +117,7 @@
         },
         {
           "question": "Do both trials require a credit card?",
-          "answer": "Neither Postial nor Hootsuite requires a card for its listed 14-day trial. Postial is early access, so use the trial to verify the features your clients need."
+        "answer": "Neither Postial nor Hootsuite requires a card for its listed {trialDays}-day trial. Postial is early access, so use the trial to verify the features your clients need."
         }
       ],
       "sources": [
@@ -123,19 +125,19 @@
           "id": "pricing",
           "title": "Hootsuite plans, prices and limits",
           "url": "https://www.hootsuite.com/plans",
-          "checkedAt": "2026-09-08"
+          "checkedAt": "2026-09-13"
         },
         {
           "id": "integrations",
           "title": "Hootsuite network integrations",
           "url": "https://www.hootsuite.com/platform/integrations",
-          "checkedAt": "2026-09-08"
+          "checkedAt": "2026-09-13"
         },
         {
           "id": "errors",
           "title": "Hootsuite publishing error guidance",
           "url": "https://help.hootsuite.com/s/article/troubleshoot-errors",
-          "checkedAt": "2026-09-08"
+          "checkedAt": "2026-09-13"
         }
       ]
     },
@@ -145,7 +147,7 @@
       "title": "Postiz alternative for Bluesky, Mastodon & Telegram agencies",
       "description": "Compare Postial and Postiz for agency work on Bluesky, Mastodon and Telegram: approvals, prices and live networks. X, Threads, LinkedIn, Facebook and Instagram connect in Early access.",
       "intro": "For agencies whose clients publish on Bluesky, Mastodon and Telegram: login-free client approvals, visible publishing errors and retries, and one monthly agency price. X, Threads, LinkedIn, Facebook and Instagram connect in Early access, subject to provider conditions.",
-      "audience": "Small agencies managing up to 15 brands with 5 teammates on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on Bluesky, Mastodon and Telegram. X, Threads, LinkedIn, Facebook and Instagram connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
       "vendorCells": [
         {
           "text": "Cloud Standard: $29/month, 5 channels, unlimited posts. Team: $39/month, 10 channels, unlimited team members.",
@@ -154,7 +156,7 @@
           ]
         },
         {
-          "text": "Pro: $49/month, 30 channels, unlimited team members. Fits 15 brands only if they total ≤30 channels. Ultimate: $99/month, 100 channels. Taxes not clarified on the page.",
+          "text": "Pro: $49/month, 30 channels, unlimited team members. Fits {agencyBrands} brands only if they total ≤30 channels. Ultimate: $99/month, 100 channels. Taxes not clarified on the page.",
           "sources": [
             "pricing"
           ]
@@ -196,7 +198,9 @@
           ]
         }
       ],
-      "fits": "Postial fits teams that want a managed service hosted in Germany and a plan defined around brands and five teammates. Its Agency client approval links are designed for reviewers without accounts. Client approval links are available today on Agency.",
+      "fits": "Postial fits teams that want a managed service hosted in Germany and a plan defined around brands and {agencySeats} teammates. Its Agency client approval links are designed for reviewers without accounts. Client approval links are available today on Agency.",
+      "notFor": "Do not switch if self-hosting is a hard requirement, if the schedule needs one of Postiz’s wider documented platform list, or if the team needs more than the Postial Agency seat allowance. Validate every client channel before changing a live calendar.",
+      "notHave": "Postial does not currently offer Postiz’s self-hosting model or its wider documented platform catalogue. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
       "vendorFits": "Postiz fits teams that want to self-host or need a broader network selection today. Its documented API and n8n node already support automation. Unlimited team members on eligible cloud plans can suit teams larger than Postial Agency’s five-user allowance.",
       "vendorFitSources": [
         "pricing",
@@ -209,7 +213,7 @@
         },
         {
           "question": "Does Postiz Pro cover fifteen brands?",
-          "answer": "Pro lists 30 channels and unlimited team members for $49/month. Fifteen brands fit that account allowance only if they use at most 30 connected profiles combined; brands and channels are different units."
+        "answer": "Pro lists 30 channels and unlimited team members for $49/month. {agencyBrands} brands fit that account allowance only if they use at most 30 connected profiles combined; brands and channels are different units."
         },
         {
           "question": "Is API automation unique to Postial?",
@@ -217,7 +221,7 @@
         },
         {
           "question": "Can clients review Postial posts without signing up?",
-          "answer": "Login-free client approval links are available on Agency today, including during the 14-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
+        "answer": "Login-free client approval links are available on Agency today, including during the {trialDays}-day trial without a card. The checked Postiz sources do not establish an equivalent login-free review flow."
         }
       ],
       "sources": [
@@ -225,13 +229,13 @@
           "id": "pricing",
           "title": "Postiz cloud pricing, limits and self-hosting FAQ",
           "url": "https://postiz.com/pricing",
-          "checkedAt": "2026-09-08"
+          "checkedAt": "2026-09-13"
         },
         {
           "id": "api",
           "title": "Postiz API, n8n and supported platforms",
           "url": "https://docs.postiz.com/public-api/introduction",
-          "checkedAt": "2026-09-08"
+          "checkedAt": "2026-09-13"
         }
       ]
     }
