@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, gte, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { funnelEvents } from '@/db/schema';
@@ -13,7 +14,7 @@ export const FUNNEL_EVENTS = [
   'client_ready',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
-export const CLIENT_CLASSES = ['browser', 'automated', 'unknown'] as const;
+export const CLIENT_CLASSES = ['browser', 'automated', 'internal', 'unknown'] as const;
 export type ClientClass = typeof CLIENT_CLASSES[number];
 export const FUNNEL_SUCCESS_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
@@ -53,6 +54,40 @@ export type FunnelOptions = { workspaceId?: string; path?: string; referrerHost?
 export function classifyUserAgent(userAgent: string | null | undefined): ClientClass {
   if (!userAgent) return 'automated';
   return automatedUserAgent.test(userAgent) ? 'automated' : 'browser';
+}
+
+export function internalMarkerValue(): string | undefined {
+  const token = process.env.FUNNEL_INTERNAL_TOKEN;
+  if (!token || token.length < 16) return undefined;
+  return createHmac('sha256', token).update('postial-internal-v1').digest('hex');
+}
+
+function safeEqual(left: string | null | undefined, right: string | null | undefined): boolean {
+  if (!left || !right || Buffer.byteLength(left) !== Buffer.byteLength(right)) return false;
+  return timingSafeEqual(Buffer.from(left), Buffer.from(right));
+}
+
+function cookieValue(headers: Headers, name: string): string | undefined {
+  const cookie = headers.get('cookie');
+  if (!cookie) return undefined;
+  for (const part of cookie.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() === name) return part.slice(separator + 1);
+  }
+  return undefined;
+}
+
+export function isInternalRequest(headers: Headers): boolean {
+  const token = process.env.FUNNEL_INTERNAL_TOKEN;
+  const marker = internalMarkerValue();
+  if (!token || !marker) return false;
+  return safeEqual(headers.get('x-postial-internal'), token)
+    || safeEqual(cookieValue(headers, 'pm_internal'), marker);
+}
+
+export function classifyRequest(headers: Headers): ClientClass {
+  return isInternalRequest(headers) ? 'internal' : classifyUserAgent(headers.get('user-agent'));
 }
 
 export type SignInMethod = 'google' | 'email' | 'unknown';
@@ -98,7 +133,7 @@ export function recordPublicView(event: FunnelEvent, path: string): void {
       const agent = h.get('user-agent');
       const engine = searchEngine(agent);
       await recordFunnelEvent(event, { path, referrerHost: referrerHost(h.get('referer')),
-        clientClass: classifyUserAgent(agent), ...(engine ? { props: { crawler: engine } } : {}) });
+        clientClass: classifyRequest(h), ...(engine ? { props: { crawler: engine } } : {}) });
     } catch { /* Public rendering must never depend on measurement. */ }
   })();
 }
@@ -141,8 +176,8 @@ export async function funnelReport(days: number) {
   const refs = await getDb().select({ host: funnelEvents.referrerHost, count: sql<number>`count(*)::int` }).from(funnelEvents)
     .where(and(gte(funnelEvents.day, since), sql`${funnelEvents.referrerHost} is not null`)).groupBy(funnelEvents.referrerHost)
     .orderBy(sql`count(*) desc`).limit(10);
-  const clientClassTotals: Record<ClientClass, Record<string, number>> = { browser: {}, automated: {}, unknown: {} };
-  const clientClassByDay: Record<ClientClass, Record<string, Record<string, number>>> = { browser: {}, automated: {}, unknown: {} };
+  const clientClassTotals: Record<ClientClass, Record<string, number>> = { browser: {}, automated: {}, internal: {}, unknown: {} };
+  const clientClassByDay: Record<ClientClass, Record<string, Record<string, number>>> = { browser: {}, automated: {}, internal: {}, unknown: {} };
   for (const row of rows) {
     const clientClass = CLIENT_CLASSES.includes(row.clientClass as ClientClass) ? row.clientClass as ClientClass : 'unknown';
     clientClassTotals[clientClass][row.event] = (clientClassTotals[clientClass][row.event] ?? 0) + row.count;

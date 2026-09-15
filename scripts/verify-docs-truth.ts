@@ -193,7 +193,7 @@ console.log('PASS docs truth: Mastodon guide warns about instance automation rul
   assert.match(beacon, /'use client'/, 'the beacon has to run in the browser');
   assert.match(beacon, /\/api\/internal\/client-ready/, 'the beacon calls its route');
   const route = readFileSync('app/api/internal/client-ready/route.ts', 'utf8');
-  assert.match(route, /classifyUserAgent/, 'the route classifies the same way a page view does');
+  assert.match(route, /classifyRequest/, 'the route classifies requests the same way a page view does');
   assert.doesNotMatch(route, /user-agent['"]\s*\)\s*[,;]\s*$/m, 'the raw user agent is never stored');
   for (const page of ['app/page.tsx', 'app/pricing/page.tsx', 'app/compare/page.tsx', 'app/compare/[slug]/page.tsx',
                       'app/docs/api/page.tsx', 'app/docs/(help)/page.tsx', 'app/docs/(help)/[slug]/page.tsx']) {

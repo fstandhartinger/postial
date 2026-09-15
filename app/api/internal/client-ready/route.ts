@@ -1,4 +1,4 @@
-import { classifyUserAgent, recordFunnelEvent, referrerHost } from '@/lib/funnel';
+import { classifyRequest, recordFunnelEvent, referrerHost } from '@/lib/funnel';
 export const runtime = 'nodejs';
 
 // Only the shapes we serve ourselves. The body reaches us from the browser, so an
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const options = {
     path,
     referrerHost: referrerHost(request.headers.get('referer')),
-    clientClass: classifyUserAgent(request.headers.get('user-agent')),
+    clientClass: classifyRequest(request.headers),
   } as const;
   // Public HTML is cacheable, so the browser beacon is now the page-view write. It
   // preserves the event/path/class distinction without making HTML rendering open a DB
