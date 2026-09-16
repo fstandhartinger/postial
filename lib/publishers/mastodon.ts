@@ -59,9 +59,14 @@ export const mastodon: Publisher = {
   }), input.signal); },
   fetchMetrics(credentials, remoteId) { return guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
-    const headers = { Authorization: `Bearer ${credentials.accessToken}` };
     if (!remoteId) throw failure('UNKNOWN', 'This Mastodon post reference is not valid.');
-    const status = await json<{ id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number }>('Mastodon', `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`, { headers });
+    type Status = { id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number };
+    const url = `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`;
+    // Ask without the token first: the connect guide grants no read:statuses scope, and Mastodon
+    // rejects a valid token that lacks it with 403 even for a public status. Only a post the
+    // public cannot see (followers-only) needs the token, and then only if it has that scope.
+    const status = await json<Status>('Mastodon', url).catch(() =>
+      json<Status>('Mastodon', url, { headers: { Authorization: `Bearer ${credentials.accessToken}` } }));
     // Anything but the requested status is not a measurement of this post.
     if (status.id !== remoteId) throw failure('UNKNOWN', 'Mastodon did not return this post.');
     return {

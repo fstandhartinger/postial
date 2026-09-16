@@ -8,6 +8,8 @@ import { getPublisher, PublishError, type Credentials, type PostMetrics, type Pu
 export const METRICS_WINDOW_DAYS = 30;
 /** Hard cap on provider calls per tick so a backlog can never stall the worker. */
 export const METRICS_PER_TICK = 20;
+/** Wall-clock budget per tick: a slow provider must not hold up the next publishing tick. */
+export const METRICS_TICK_BUDGET_MS = 15_000;
 /** Upper bound on targets considered per tick (published in the window, newest first). */
 export const METRICS_CANDIDATE_LIMIT = 500;
 
@@ -54,8 +56,9 @@ type Db = ReturnType<typeof getDb>;
  * per-tick cap, age-based backoff, and every failure is contained — a metrics
  * problem must never affect publishing or throw out of the tick.
  */
-export async function refreshMetricsTick(db: Db = getDb()): Promise<number> {
+export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = METRICS_TICK_BUDGET_MS): Promise<number> {
   const now = new Date();
+  const started = Date.now();
   const windowStart = new Date(now.getTime() - METRICS_WINDOW_DAYS * 24 * 3_600_000);
   // Only networks whose adapter can report metrics are candidates. Filtering here (not
   // after the query) keeps targets that can never be measured, such as Telegram, from
@@ -94,7 +97,7 @@ export async function refreshMetricsTick(db: Db = getDb()): Promise<number> {
   for (const row of latestRows) if (row.fetchedAt) latest.set(row.targetId, new Date(row.fetchedAt));
   let refreshed = 0;
   for (const candidate of candidates) {
-    if (refreshed >= METRICS_PER_TICK) break;
+    if (refreshed >= METRICS_PER_TICK || Date.now() - started >= budgetMs) break;
     if (!candidate.remoteId || !candidate.publishedAt) continue;
     const last = latest.get(candidate.targetId);
     const intervalMs = metricsRefreshIntervalMs(candidate.publishedAt, now);

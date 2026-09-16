@@ -712,9 +712,30 @@ test('Mastodon fetchMetrics maps favourites/reblogs/replies and leaves absent fi
   const calls = mock(url => url.endsWith('/api/v1/statuses/8') ? response({ id: '8', favourites_count: 7, reblogs_count: 2, replies_count: 4 }) : ok(url));
   const result = await getPublisher('mastodon').fetchMetrics!(credentials.mastodon, '8');
   assert.deepEqual(result, { likes: 7, replies: 4, reposts: 2, quotes: null, impressions: null });
-  const call = calls.find(c => c.url.endsWith('/api/v1/statuses/8'))!;
-  assert.equal(new Headers(call.init.headers).get('Authorization'), 'Bearer test-secret');
-  assert.equal(call.init.method, undefined);
+  const statusCalls = calls.filter(c => c.url.endsWith('/api/v1/statuses/8'));
+  // A public status is read without the token (the connect guide grants no read:statuses scope).
+  assert.equal(statusCalls.length, 1);
+  assert.equal(new Headers(statusCalls[0].init.headers).get('Authorization'), null);
+  assert.equal(statusCalls[0].init.method, undefined);
+});
+test('Mastodon fetchMetrics retries with the token only when the anonymous read is refused', async () => {
+  const calls = mock((url, init) => url.endsWith('/api/v1/statuses/9')
+    ? (new Headers(init?.headers).get('Authorization') ? response({ id: '9', favourites_count: 1, reblogs_count: 0, replies_count: 0 }) : response({ error: 'Record not found' }, 404))
+    : ok(url));
+  const result = await getPublisher('mastodon').fetchMetrics!(credentials.mastodon, '9');
+  assert.deepEqual(result, { likes: 1, replies: 0, reposts: 0, quotes: null, impressions: null });
+  const statusCalls = calls.filter(c => c.url.endsWith('/api/v1/statuses/9'));
+  assert.deepEqual(statusCalls.map(c => new Headers(c.init.headers).get('Authorization')), [null, 'Bearer test-secret']);
+});
+test('metrics refresh: a tick stops fetching once its time budget is spent', async () => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+  const now = new Date();
+  const credentialsEnc = encryptCredentials({ instanceUrl: 'https://mastodon.example', accessToken: 'test-secret' });
+  const candidates = [1, 2, 3].map(n => ({ targetId: crypto.randomUUID(), remoteId: String(n), publishedAt: new Date(now.getTime() - 3_600_000), provider: 'mastodon', credentialsEnc }));
+  const db = fakeMetricsDb(candidates, [], []);
+  mock(url => response({ id: url.split('/').pop(), favourites_count: 1, reblogs_count: 0, replies_count: 0 }));
+  assert.equal(await refreshMetricsTick(db as never, 0), 0);
+  assert.equal(db.writes.length, 0);
 });
 test('metrics: a provider-reported zero stays 0 and is distinguishable from absence', async () => {
   mock(url => url.includes('/xrpc/app.bsky.feed.getPosts?') ? response({ posts: [{ uri: 'at://did:plc:alice/app.bsky.feed.post/key', likeCount: 0 }] }) : ok(url));
@@ -760,8 +781,9 @@ test('metrics: auth failure yields auth_expired and the tick never writes post/t
   const calls = mock(() => response({ error: 'The access token is invalid' }, 401));
   const refreshed = await refreshMetricsTick(db as never);
   assert.equal(refreshed, 1);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, 'https://mastodon.example/api/v1/statuses/8');
+  // Anonymous read refused, then the token is refused too.
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map(c => c.url), ['https://mastodon.example/api/v1/statuses/8', 'https://mastodon.example/api/v1/statuses/8']);
   assert.equal(db.writes.length, 1);
   assert.equal(db.writes[0].table, postMetrics);
   const row = db.writes[0].rows[0] as Record<string, unknown>;
