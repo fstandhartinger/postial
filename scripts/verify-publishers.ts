@@ -315,7 +315,7 @@ test('TikTok chunk plan honors TikTok chunk restrictions', () => {
   assert.deepEqual(tiktokChunkPlan(4_194_304), { chunkSize: 4_194_304, totalChunks: 1 });
   assert.deepEqual(tiktokChunkPlan(5_000_000), { chunkSize: 5_000_000, totalChunks: 1 });
   assert.deepEqual(tiktokChunkPlan(50_000_123), { chunkSize: 50_000_123, totalChunks: 1 });
-  assert.deepEqual(tiktokChunkPlan(136_314_880), { chunkSize: 45_438_293, totalChunks: 3 });
+  assert.deepEqual(tiktokChunkPlan(125_829_121), { chunkSize: 62_914_560, totalChunks: 2 });
   assert.deepEqual(tiktokChunkPlan(600_000_000), { chunkSize: 60_000_000, totalChunks: 10 });
   for (const size of [5_000_001, 64_000_000, 64_000_001, 128_000_000, 128_000_001, 256_000_001, 1_000_000_000, 4_000_000_000]) {
     const plan = tiktokChunkPlan(size);
@@ -365,7 +365,7 @@ test('TikTok: validate account and single-chunk video publish with SELF_ONLY', a
   assert.equal(calls.filter(call => call.url.startsWith('https://upload.tiktok.test/')).length, 1);
 });
 test('TikTok: multi-chunk upload sends sequential Content-Range parts and adopts the public post id', async () => {
-  const size = 136_314_880;
+  const size = 125_829_121;
   const plan = tiktokChunkPlan(size);
   const ranges: string[] = [];
   let uploadCalls = 0;

@@ -9,7 +9,8 @@ configure the developer app. No TikTok password is stored in Postial.
 
 Each connection publishes as one TikTok account identified by its `open_id`.
 Captions support up to 2,200 characters. A post must carry **one video**
-(MP4, WebM or MOV, up to 256 MB in the current download flow); TikTok has no
+(MP4, WebM or MOV, up to 128 MB in the current download flow, because the
+adapter holds the whole video in memory); TikTok has no
 text-only or image post, so a text-only or image-only target is rejected with a
 content error instead of publishing an empty post.
 

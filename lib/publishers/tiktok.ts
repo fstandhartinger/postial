@@ -2,8 +2,11 @@ import type { Publisher } from './types';
 import { checkLength, downloadVideo, failure, guarded, jsonBody, postText, pollingPause, publishingDeadline, uploadChunk } from './http';
 import { bearer, oauthJson, tiktokToken, tokenCredentials } from './oauth-http';
 export const TIKTOK_TEXT_LIMIT = 2200;
-/** The Content Posting API accepts up to 4 GB, but the adapter streams the video into memory, so Postial caps downloads lower. */
-export const TIKTOK_VIDEO_LIMIT = 256 * 1024 * 1024;
+/** The Content Posting API accepts up to 4 GB, but this adapter holds the whole video in memory
+ * (download buffer, then the Blob copy, then a per-chunk slice) and the container runs with a
+ * 768 MB limit, so Postial caps downloads far below TikTok's ceiling. Raising this materially
+ * requires streaming the download to disk first, not just a bigger number here. */
+export const TIKTOK_VIDEO_LIMIT = 128 * 1024 * 1024;
 /** TikTok chunk rules: 5 MB to 64 MB per chunk, the final chunk may reach 128 MB, at most 1000 chunks. */
 const TIKTOK_CHUNK_MAX = 64_000_000;
 const TIKTOK_CHUNK_MIN = 5_000_000;
