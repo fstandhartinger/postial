@@ -3,6 +3,10 @@ import { pollingPause, publishingDeadline, checkLength, downloadImage, failure, 
 
 // Instance limits learned by validation/publishing; never cache credentials.
 const limits = new Map<string, number>();
+/** A provider-reported count; anything else is absence (null), never a fabricated number. */
+function count(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
 async function textLimit(origin: string) {
   try {
     const info = await json<{ configuration?: { statuses?: { max_characters?: number } } }>('Mastodon', `${origin}/api/v2/instance`);
@@ -53,4 +57,17 @@ export const mastodon: Publisher = {
     const status = await json<{ id: string; url: string }>('Mastodon', `${origin}/api/v1/statuses`, { ...request, headers: { ...request.headers, ...headers, 'Idempotency-Key': input.idempotencyKey } });
     return { remoteId: status.id, url: status.url, ...((input.mediaUrls?.length ?? 0) > 4 ? { warnings: ['Mastodon allows four images; extra images were omitted.'] } : {}) };
   }), input.signal); },
+  fetchMetrics(credentials, remoteId) { return guarded('Mastodon', async () => {
+    const origin = httpsOrigin(credentials.instanceUrl);
+    const headers = { Authorization: `Bearer ${credentials.accessToken}` };
+    const status = await json<{ favourites_count?: number; reblogs_count?: number; replies_count?: number }>('Mastodon', `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`, { headers });
+    return {
+      likes: count(status.favourites_count),
+      replies: count(status.replies_count),
+      reposts: count(status.reblogs_count),
+      // Mastodon does not report quote counts or impressions; absence, not zero.
+      quotes: null,
+      impressions: null,
+    };
+  }); },
 };

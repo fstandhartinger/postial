@@ -29,6 +29,19 @@ export interface PublishResult {
   warnings?: string[];
 }
 
+/**
+ * Measured engagement for one published post. A NULL means "the provider did not
+ * report this metric" (e.g. Bluesky has no impression count); 0 means the provider
+ * reported a measured zero. The two states are different and must stay distinguishable.
+ */
+export interface PostMetrics {
+  likes: number | null;
+  replies: number | null;
+  reposts: number | null;
+  quotes: number | null;
+  impressions: number | null;
+}
+
 export interface AccountInfo {
   meta?: { maxTextLength?: number; automated?: boolean };
   /** Provider-side account/channel identifier. */
@@ -78,4 +91,11 @@ export interface Publisher {
   refreshCredentials?(credentials: Credentials): Promise<Credentials | null>;
   /** Publishes one post. Throws PublishError. Must never throw anything else. */
   publish(credentials: Credentials, input: PublishInput): Promise<PublishResult>;
+  /**
+   * Fetches current engagement metrics for a published post, identified by the
+   * `remoteId` returned from `publish`. OPTIONAL: adapters that cannot report metrics
+   * simply omit this method, and the absence is a first-class "unsupported" state.
+   * Throws PublishError (e.g. AUTH_EXPIRED) on failure; must never throw anything else.
+   */
+  fetchMetrics?(credentials: Credentials, remoteId: string): Promise<PostMetrics>;
 }

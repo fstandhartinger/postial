@@ -233,6 +233,35 @@ export const postTargets = pgTable(
     index("targets_due").on(t.status, t.nextAttemptAt),
   ],
 );
+export const metricOutcome = pgEnum("metric_outcome", [
+  "ok",
+  "unsupported",
+  "auth_expired",
+  "provider_error",
+]);
+// One row per metrics fetch (append-only history), not one current row per target:
+// the previous-period comparison (AN-3) needs a time series of measurements, and the
+// current value is simply the latest row. NULL metric columns mean "the provider did
+// not report this metric" (e.g. Bluesky has no impression count); 0 means the provider
+// reported a measured zero. The two states must stay distinguishable in the database.
+export const postMetrics = pgTable(
+  "post_metrics",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    targetId: uuid("target_id")
+      .notNull()
+      .references(() => postTargets.id, { onDelete: "cascade" }),
+    provider: channelProvider("provider").notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+    outcome: metricOutcome("outcome").notNull(),
+    likes: integer("likes"),
+    replies: integer("replies"),
+    reposts: integer("reposts"),
+    quotes: integer("quotes"),
+    impressions: integer("impressions"),
+  },
+  (t) => [index("post_metrics_target_fetched").on(t.targetId, t.fetchedAt)],
+);
 export const postEvents = pgTable("post_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   postId: uuid("post_id")

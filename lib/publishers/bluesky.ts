@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { type Credentials, type Publisher, PublishError } from './types';
-import { publishingDeadline, checkLength, downloadImage, guarded, httpsOrigin, json, jsonBody, postText } from './http';
+import { publishingDeadline, checkLength, downloadImage, failure, guarded, httpsOrigin, json, jsonBody, postText } from './http';
+
+/** A provider-reported count; anything else is absence (null), never a fabricated number. */
+function count(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
 
 type DidDocument = { service?: { id: string; type?: string; serviceEndpoint: string }[] };
 type Session = { did: string; handle: string; accessJwt: string; didDoc?: DidDocument };
@@ -80,4 +85,20 @@ export const bluesky: Publisher = {
     const result = await json<{ uri: string }>('Bluesky', `${auth.pds}/xrpc/com.atproto.repo.createRecord`, { ...request, headers: { ...request.headers, ...headers } });
     return { remoteId: result.uri, url: `https://bsky.app/profile/${auth.handle}/post/${result.uri.split('/').pop()}`, ...(warnings.length ? { warnings } : {}) };
   }), input.signal); },
+  fetchMetrics(credentials, remoteId) { return guarded('Bluesky', async () => {
+    const auth = await session(credentials);
+    const headers = { Authorization: `Bearer ${auth.accessJwt}` };
+    const body = jsonBody({ posts: [remoteId] });
+    const result = await json<{ posts?: { likeCount?: number; repostCount?: number; replyCount?: number; quoteCount?: number }[] }>('Bluesky', `${auth.pds}/xrpc/app.bsky.feed.getPosts`, { ...body, headers: { ...body.headers, ...headers } });
+    const post = result.posts?.[0];
+    if (!post) throw failure('UNKNOWN', 'Bluesky did not return this post.');
+    return {
+      likes: count(post.likeCount),
+      replies: count(post.replyCount),
+      reposts: count(post.repostCount),
+      quotes: count(post.quoteCount),
+      // Bluesky does not report impression counts; absence, not zero.
+      impressions: null,
+    };
+  }); },
 };
