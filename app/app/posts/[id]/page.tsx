@@ -3,9 +3,11 @@ import { inZone } from '@/lib/timezone';
 import { workspaceEntitlements } from "@/lib/entitlements";
 import Link from "next/link";
 import { ApprovalPanel } from "@/components/approvals/panel";
+import { PostMetrics, type TargetMetricsView } from "@/components/app/post-metrics";
 import { eq, asc } from "drizzle-orm";
-import { channels, postTargets, postEvents } from "@/db/schema";
+import { channels, postTargets, postEvents, postMetrics } from "@/db/schema";
 import { ownPost } from "@/lib/core";
+import { getPublisher } from "@/lib/publishers";
 import { Card } from "@/components/ui/card";
 import { ActionForm } from "@/components/core/forms";
 export default async function PostPage({
@@ -17,7 +19,7 @@ export default async function PostPage({
   const access = await workspaceEntitlements(workspace);
   const writable = access.activeBrandIds.includes(brand.id);
   const targets = await db
-    .select({ target: postTargets, name: channels.displayName, channelStatus: channels.status })
+    .select({ target: postTargets, name: channels.displayName, channelStatus: channels.status, provider: channels.provider })
     .from(postTargets)
     .innerJoin(channels, eq(channels.id, postTargets.channelId))
     .where(eq(postTargets.postId, post.id));
@@ -26,6 +28,46 @@ export default async function PostPage({
     .from(postEvents)
     .where(eq(postEvents.postId, post.id))
     .orderBy(asc(postEvents.createdAt));
+  const metricRows = await db
+    .select({
+      targetId: postMetrics.targetId,
+      fetchedAt: postMetrics.fetchedAt,
+      outcome: postMetrics.outcome,
+      likes: postMetrics.likes,
+      replies: postMetrics.replies,
+      reposts: postMetrics.reposts,
+      quotes: postMetrics.quotes,
+      impressions: postMetrics.impressions,
+    })
+    .from(postMetrics)
+    .innerJoin(postTargets, eq(postTargets.id, postMetrics.targetId))
+    .where(eq(postTargets.postId, post.id))
+    .orderBy(asc(postMetrics.fetchedAt));
+  const metricsByTarget = new Map<string, typeof metricRows>();
+  for (const row of metricRows) {
+    const list = metricsByTarget.get(row.targetId) ?? [];
+    list.push(row);
+    metricsByTarget.set(row.targetId, list);
+  }
+  const targetMetrics: TargetMetricsView[] = targets.map(({ target: t, name, provider }) => {
+    const rows = metricsByTarget.get(t.id) ?? [];
+    const latestRow = rows[rows.length - 1];
+    const values = (row: (typeof metricRows)[number]) => ({
+      likes: row.likes,
+      replies: row.replies,
+      reposts: row.reposts,
+      quotes: row.quotes,
+      impressions: row.impressions,
+    });
+    return {
+      targetId: t.id,
+      channelName: name,
+      reportsMetrics: Boolean(getPublisher(provider).fetchMetrics),
+      published: t.status === "published",
+      latest: latestRow ? { outcome: latestRow.outcome, fetchedAt: latestRow.fetchedAt, values: values(latestRow) } : null,
+      points: rows.filter((r) => r.outcome === "ok").map((r) => ({ fetchedAt: r.fetchedAt, values: values(r) })),
+    };
+  });
   const editable = ["draft", "pending_approval", "changes_requested", "scheduled", "approved"].includes(
     post.status,
   ) && !targets.some(({target:t}) => t.attempts > 0 || ["publishing", "published"].includes(t.status));
@@ -70,6 +112,7 @@ export default async function PostPage({
       </Card>
       {reschedulable && writable && <Card><ActionForm action="reschedule" disabled={!access.publish}><input type="hidden" name="postId" value={post.id}/><label className="block">New date and time ({brand.timezone})<input className="block rounded border p-3" type="datetime-local" name="scheduledAt" required defaultValue={post.scheduledAt ? inZone(post.scheduledAt,brand.timezone) : undefined}/></label><p>Changing only the date preserves client approval.</p></ActionForm></Card>}
       <ApprovalPanel post={post} />
+      <PostMetrics targets={targetMetrics} now={new Date()} />
       {targets.map(({ target: t, name, channelStatus }) => (
         <Card key={t.id}>
           <h2 className="text-xl font-semibold">{name}</h2>
