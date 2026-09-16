@@ -7,6 +7,8 @@ export interface TargetMetricsView {
   channelName: string;
   /** Whether the adapter can report metrics at all (Telegram cannot). */
   reportsMetrics: boolean;
+  /** Network name, so the no-statistics message is honest about why. */
+  provider: string;
   published: boolean;
   /** Latest stored fetch for this target, of any outcome, or null if none yet. */
   latest: { outcome: string; fetchedAt: Date; values: Record<MetricKey, number | null> } | null;
@@ -36,6 +38,13 @@ function MetricValue({ label, value }: { label: string; value: number | null }) 
   );
 }
 
+/** Telegram's Bot API has no post statistics; other networks do, Postial just does not collect them yet. */
+function noStatisticsReason(provider: string) {
+  return provider === "telegram"
+    ? "Telegram does not report post statistics to Postial."
+    : "Postial does not collect statistics for this network yet.";
+}
+
 function TargetBlock({ view, now }: { view: TargetMetricsView; now: Date }) {
   const comparison = compareMetricHistory(view.points, now);
   let body: ReactNode;
@@ -46,11 +55,11 @@ function TargetBlock({ view, now }: { view: TargetMetricsView; now: Date }) {
       <p className="mt-1 text-gray-500">
         {view.reportsMetrics
           ? "No data from provider yet. The first refresh is still pending."
-          : "This network does not report post statistics."}
+          : noStatisticsReason(view.provider)}
       </p>
     );
   } else if (view.latest.outcome === "unsupported") {
-    body = <p className="mt-1 text-gray-500">This network does not report post statistics.</p>;
+    body = <p className="mt-1 text-gray-500">{noStatisticsReason(view.provider)}</p>;
   } else if (view.latest.outcome === "auth_expired") {
     body = (
       <p className="mt-1 text-amber-900">

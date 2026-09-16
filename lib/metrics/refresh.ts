@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, lte, max } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { channels, postMetrics, postTargets } from '@/db/schema';
+import { channelProvider, channels, postMetrics, postTargets } from '@/db/schema';
 import { decryptCredentials } from '@/lib/crypto';
 import { getPublisher, PublishError, type Credentials, type PostMetrics, type Publisher } from '@/lib/publishers';
 
@@ -8,6 +8,8 @@ import { getPublisher, PublishError, type Credentials, type PostMetrics, type Pu
 export const METRICS_WINDOW_DAYS = 30;
 /** Hard cap on provider calls per tick so a backlog can never stall the worker. */
 export const METRICS_PER_TICK = 20;
+/** Upper bound on targets considered per tick (published in the window, newest first). */
+export const METRICS_CANDIDATE_LIMIT = 500;
 
 export type MetricOutcomeValue = 'ok' | 'unsupported' | 'auth_expired' | 'provider_error';
 
@@ -55,53 +57,55 @@ type Db = ReturnType<typeof getDb>;
 export async function refreshMetricsTick(db: Db = getDb()): Promise<number> {
   const now = new Date();
   const windowStart = new Date(now.getTime() - METRICS_WINDOW_DAYS * 24 * 3_600_000);
+  // Only networks whose adapter can report metrics are candidates. Filtering here (not
+  // after the query) keeps targets that can never be measured, such as Telegram, from
+  // filling the candidate list and starving posts that can.
+  const measurable = channelProvider.enumValues.filter(provider => Boolean(getPublisher(provider).fetchMetrics));
+  if (!measurable.length) return 0;
   const candidates = await db
     .select({
       targetId: postTargets.id,
-      channelId: postTargets.channelId,
       remoteId: postTargets.remoteId,
       publishedAt: postTargets.publishedAt,
+      provider: channels.provider,
+      credentialsEnc: channels.credentialsEnc,
     })
     .from(postTargets)
+    .innerJoin(channels, eq(channels.id, postTargets.channelId))
     .where(
       and(
         eq(postTargets.status, 'published'),
         isNotNull(postTargets.remoteId),
         gte(postTargets.publishedAt, windowStart),
         lte(postTargets.publishedAt, now),
+        inArray(channels.provider, measurable),
       ),
     )
-    .orderBy(asc(postTargets.publishedAt))
-    .limit(METRICS_PER_TICK * 4);
+    // Newest first: fresh posts change fastest and have the shortest backoff.
+    .orderBy(desc(postTargets.publishedAt))
+    .limit(METRICS_CANDIDATE_LIMIT);
   if (!candidates.length) return 0;
   const latestRows = await db
-    .select({ targetId: postMetrics.targetId, fetchedAt: postMetrics.fetchedAt, outcome: postMetrics.outcome })
+    .select({ targetId: postMetrics.targetId, fetchedAt: max(postMetrics.fetchedAt) })
     .from(postMetrics)
     .where(inArray(postMetrics.targetId, candidates.map(c => c.targetId)))
-    .orderBy(desc(postMetrics.fetchedAt));
-  const latest = new Map<string, { fetchedAt: Date; outcome: string }>();
-  for (const row of latestRows) if (!latest.has(row.targetId)) latest.set(row.targetId, { fetchedAt: row.fetchedAt, outcome: row.outcome });
+    .groupBy(postMetrics.targetId);
+  const latest = new Map<string, Date>();
+  for (const row of latestRows) if (row.fetchedAt) latest.set(row.targetId, new Date(row.fetchedAt));
   let refreshed = 0;
   for (const candidate of candidates) {
     if (refreshed >= METRICS_PER_TICK) break;
     if (!candidate.remoteId || !candidate.publishedAt) continue;
     const last = latest.get(candidate.targetId);
-    // The adapter cannot report metrics; re-fetching would never change that.
-    if (last?.outcome === 'unsupported') continue;
     const intervalMs = metricsRefreshIntervalMs(candidate.publishedAt, now);
-    if (last && now.getTime() - last.fetchedAt.getTime() < intervalMs) continue;
+    if (last && now.getTime() - last.getTime() < intervalMs) continue;
     refreshed += 1;
     try {
-      const [channel] = await db
-        .select({ provider: channels.provider, credentialsEnc: channels.credentialsEnc })
-        .from(channels)
-        .where(eq(channels.id, candidate.channelId));
-      if (!channel) continue;
-      const publisher = getPublisher(channel.provider);
-      const { outcome, metrics } = await fetchTargetMetrics(publisher, decryptCredentials(channel.credentialsEnc), candidate.remoteId);
+      const publisher = getPublisher(candidate.provider);
+      const { outcome, metrics } = await fetchTargetMetrics(publisher, decryptCredentials(candidate.credentialsEnc), candidate.remoteId);
       await db.insert(postMetrics).values({
         targetId: candidate.targetId,
-        provider: channel.provider,
+        provider: candidate.provider,
         fetchedAt: now,
         outcome,
         likes: metrics?.likes ?? null,

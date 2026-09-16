@@ -85,12 +85,13 @@ export const bluesky: Publisher = {
     const result = await json<{ uri: string }>('Bluesky', `${auth.pds}/xrpc/com.atproto.repo.createRecord`, { ...request, headers: { ...request.headers, ...headers } });
     return { remoteId: result.uri, url: `https://bsky.app/profile/${auth.handle}/post/${result.uri.split('/').pop()}`, ...(warnings.length ? { warnings } : {}) };
   }), input.signal); },
-  fetchMetrics(credentials, remoteId) { return guarded('Bluesky', async () => {
-    const auth = await session(credentials);
-    const headers = { Authorization: `Bearer ${auth.accessJwt}` };
-    const body = jsonBody({ posts: [remoteId] });
-    const result = await json<{ posts?: { likeCount?: number; repostCount?: number; replyCount?: number; quoteCount?: number }[] }>('Bluesky', `${auth.pds}/xrpc/app.bsky.feed.getPosts`, { ...body, headers: { ...body.headers, ...headers } });
-    const post = result.posts?.[0];
+  // app.bsky.feed.getPosts is a GET query on the public AppView. Engagement counts of a
+  // public post need no session, and skipping createSession keeps metrics polling from
+  // consuming the account's login rate limit that publishing depends on.
+  fetchMetrics(_credentials, remoteId) { return guarded('Bluesky', async () => {
+    if (!remoteId.startsWith('at://')) throw failure('UNKNOWN', 'This Bluesky post reference is not valid.');
+    const result = await json<{ posts?: { uri?: string; likeCount?: number; repostCount?: number; replyCount?: number; quoteCount?: number }[] }>('Bluesky', `https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(remoteId)}`);
+    const post = result.posts?.find(candidate => candidate.uri === remoteId);
     if (!post) throw failure('UNKNOWN', 'Bluesky did not return this post.');
     return {
       likes: count(post.likeCount),

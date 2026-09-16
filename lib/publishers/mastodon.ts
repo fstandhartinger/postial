@@ -60,7 +60,10 @@ export const mastodon: Publisher = {
   fetchMetrics(credentials, remoteId) { return guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
     const headers = { Authorization: `Bearer ${credentials.accessToken}` };
-    const status = await json<{ favourites_count?: number; reblogs_count?: number; replies_count?: number }>('Mastodon', `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`, { headers });
+    if (!remoteId) throw failure('UNKNOWN', 'This Mastodon post reference is not valid.');
+    const status = await json<{ id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number }>('Mastodon', `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`, { headers });
+    // Anything but the requested status is not a measurement of this post.
+    if (status.id !== remoteId) throw failure('UNKNOWN', 'Mastodon did not return this post.');
     return {
       likes: count(status.favourites_count),
       replies: count(status.replies_count),

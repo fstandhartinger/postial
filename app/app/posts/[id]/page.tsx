@@ -63,6 +63,7 @@ export default async function PostPage({
       targetId: t.id,
       channelName: name,
       reportsMetrics: Boolean(getPublisher(provider).fetchMetrics),
+      provider,
       published: t.status === "published",
       latest: latestRow ? { outcome: latestRow.outcome, fetchedAt: latestRow.fetchedAt, values: values(latestRow) } : null,
       points: rows.filter((r) => r.outcome === "ok").map((r) => ({ fetchedAt: r.fetchedAt, values: values(r) })),

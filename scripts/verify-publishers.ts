@@ -693,12 +693,20 @@ for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin'
 
 // --- Per-post metrics (AN-1 / AN-3) -------------------------------------------------
 test('Bluesky fetchMetrics parses counts into the right columns and leaves impressions absent', async () => {
-  const calls = mock(url => url.endsWith('getPosts') ? response({ posts: [{ likeCount: 12, repostCount: 3, replyCount: 5, quoteCount: 1 }] }) : ok(url));
-  const result = await getPublisher('bluesky').fetchMetrics!(credentials.bluesky, 'at://did:plc:alice/app.bsky.feed.post/key');
+  const uri = 'at://did:plc:alice/app.bsky.feed.post/key';
+  const calls = mock(url => url.includes('/xrpc/app.bsky.feed.getPosts?') ? response({ posts: [{ uri, likeCount: 12, repostCount: 3, replyCount: 5, quoteCount: 1 }] }) : ok(url));
+  const result = await getPublisher('bluesky').fetchMetrics!(credentials.bluesky, uri);
   assert.deepEqual(result, { likes: 12, replies: 5, reposts: 3, quotes: 1, impressions: null });
-  const call = calls.find(c => c.url.endsWith('getPosts'))!;
-  assert.deepEqual(JSON.parse(String(call.init.body)).posts, ['at://did:plc:alice/app.bsky.feed.post/key']);
-  assert.equal(new Headers(call.init.headers).get('Authorization'), 'Bearer temporary-secret');
+  // getPosts is an XRPC query: GET with the `uris` parameter (the real API answers POST with
+  // "Incorrect HTTP method (POST) expected GET"), on the public AppView, without a login.
+  assert.equal(calls.length, 1);
+  const call = calls[0];
+  const url = new URL(call.url);
+  assert.equal(url.origin + url.pathname, 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts');
+  assert.deepEqual(url.searchParams.getAll('uris'), [uri]);
+  assert(!call.init.method || call.init.method === 'GET');
+  assert.equal(call.init.body, undefined);
+  assert.equal(new Headers(call.init.headers).get('Authorization'), null);
 });
 test('Mastodon fetchMetrics maps favourites/reblogs/replies and leaves absent fields null', async () => {
   const calls = mock(url => url.endsWith('/api/v1/statuses/8') ? response({ id: '8', favourites_count: 7, reblogs_count: 2, replies_count: 4 }) : ok(url));
@@ -709,7 +717,7 @@ test('Mastodon fetchMetrics maps favourites/reblogs/replies and leaves absent fi
   assert.equal(call.init.method, undefined);
 });
 test('metrics: a provider-reported zero stays 0 and is distinguishable from absence', async () => {
-  mock(url => url.endsWith('getPosts') ? response({ posts: [{ likeCount: 0 }] }) : ok(url));
+  mock(url => url.includes('/xrpc/app.bsky.feed.getPosts?') ? response({ posts: [{ uri: 'at://did:plc:alice/app.bsky.feed.post/key', likeCount: 0 }] }) : ok(url));
   const result = await getPublisher('bluesky').fetchMetrics!(credentials.bluesky, 'at://did:plc:alice/app.bsky.feed.post/key');
   assert.equal(result.likes, 0);
   assert.notEqual(result.likes, null);
@@ -730,7 +738,7 @@ function fakeMetricsDb(candidates: unknown[], latestRows: unknown[], channelRows
   const queue: unknown[] = [candidates, latestRows, ...channelRows.map(row => [row])];
   const chain = (result: unknown) => {
     const self: Record<string, unknown> = { then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result).then(resolve, reject) };
-    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit']) self[method] = () => self;
+    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit', 'groupBy']) self[method] = () => self;
     return self;
   };
   return {
@@ -747,14 +755,13 @@ test('metrics: auth failure yields auth_expired and the tick never writes post/t
   process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
   const now = new Date();
   const targetId = crypto.randomUUID();
-  const candidates = [{ targetId, channelId: 'channel-1', remoteId: 'at://did:plc:alice/app.bsky.feed.post/key', publishedAt: new Date(now.getTime() - 3_600_000) }];
-  const channelRows = [{ provider: 'bluesky', credentialsEnc: encryptCredentials({ identifier: 'alice@example.test', appPassword: 'test-secret' }) }];
-  const db = fakeMetricsDb(candidates, [], channelRows);
-  const calls = mock(() => response({ error: 'AuthenticationRequired' }, 401));
+  const candidates = [{ targetId, remoteId: '8', publishedAt: new Date(now.getTime() - 3_600_000), provider: 'mastodon', credentialsEnc: encryptCredentials({ instanceUrl: 'https://mastodon.example', accessToken: 'test-secret' }) }];
+  const db = fakeMetricsDb(candidates, [], []);
+  const calls = mock(() => response({ error: 'The access token is invalid' }, 401));
   const refreshed = await refreshMetricsTick(db as never);
   assert.equal(refreshed, 1);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, 'https://bsky.social/xrpc/com.atproto.server.createSession');
+  assert.equal(calls[0].url, 'https://mastodon.example/api/v1/statuses/8');
   assert.equal(db.writes.length, 1);
   assert.equal(db.writes[0].table, postMetrics);
   const row = db.writes[0].rows[0] as Record<string, unknown>;
@@ -762,16 +769,15 @@ test('metrics: auth failure yields auth_expired and the tick never writes post/t
   assert.equal(row.outcome, 'auth_expired');
   for (const key of ['likes', 'replies', 'reposts', 'quotes', 'impressions']) assert.equal(row[key], null);
 });
-test('metrics refresh: backoff and unsupported targets are not refetched', async () => {
+test('metrics refresh: a target inside its backoff interval is not refetched', async () => {
   const now = new Date();
   const targetId = crypto.randomUUID();
-  const candidates = [{ targetId, channelId: 'channel-1', remoteId: 'remote-1', publishedAt: new Date(now.getTime() - 3_600_000) }];
-  const fresh = fakeMetricsDb(candidates, [{ targetId, fetchedAt: new Date(now.getTime() - 10 * 60_000), outcome: 'ok' }], []);
+  const candidates = [{ targetId, remoteId: '8', publishedAt: new Date(now.getTime() - 3_600_000), provider: 'mastodon', credentialsEnc: 'unused' }];
+  const fresh = fakeMetricsDb(candidates, [{ targetId, fetchedAt: new Date(now.getTime() - 10 * 60_000) }], []);
+  const calls = mock(url => ok(url));
   assert.equal(await refreshMetricsTick(fresh as never), 0);
   assert.equal(fresh.writes.length, 0);
-  const unsupported = fakeMetricsDb(candidates, [{ targetId, fetchedAt: new Date(now.getTime() - 10 * 60_000), outcome: 'unsupported' }], []);
-  assert.equal(await refreshMetricsTick(unsupported as never), 0);
-  assert.equal(unsupported.writes.length, 0);
+  assert.equal(calls.length, 0);
 });
 test('metrics refresh: backoff grows with post age', () => {
   const now = new Date();
