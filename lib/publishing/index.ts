@@ -16,6 +16,7 @@ import { decryptCredentials, encryptCredentials } from "@/lib/crypto";
 import { getPublisher, PublishError } from "@/lib/publishers";
 import { recordFunnelEvent } from '@/lib/funnel';
 import { recordError, retainErrors } from '@/lib/error-visibility';
+import { refreshMetricsTick } from '@/lib/metrics/refresh';
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 export async function derivePostStatus(tx: Tx, postId: string): Promise<string | undefined> {
   const [previous] = await tx
@@ -309,6 +310,7 @@ export async function tick() {
   );
   await checkChannelHealth().catch(error => { void recordError(error, { route: 'worker:channel-health' }); });
   await mediaRetentionTick().catch(error => { void recordError(error, { route: 'worker:media-retention' }); });
+  await refreshMetricsTick().catch(error => { void recordError(error, { route: 'worker:metrics' }); });
   await retainErrors();
   workerState.lastTickAt = new Date().toISOString();
   return { claimed: claimed.length };
