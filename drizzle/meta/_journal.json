@@ -183,6 +183,13 @@
       "when": 1789170322657,
       "tag": "0025_funnel-client-class-internal",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789170422657,
+      "tag": "0026_channel-provider-tiktok",
+      "breakpoints": true
     }
   ]
 }

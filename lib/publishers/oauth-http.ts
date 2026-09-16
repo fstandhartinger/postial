@@ -1,7 +1,7 @@
 import { failure, guarded, jsonResponse, responseError } from './http';
 import { FACEBOOK_GRAPH_VERSION, oauthConfig, oauthEndpoint, type OAuthProvider } from './oauth-config';
 import type { Credentials } from './types';
-const oauthDisplay: Record<OAuthProvider, string> = { x: 'X', threads: 'Threads', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram' };
+const oauthDisplay: Record<OAuthProvider, string> = { x: 'X', threads: 'Threads', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' };
 export async function oauthJson<T>(provider: OAuthProvider, path: string, init: RequestInit = {}): Promise<T> {
   return (await oauthJsonResponse<T>(provider, path, init)).body;
 }
@@ -41,6 +41,14 @@ export async function facebookToken(query: Record<string, string>, provider: 'fa
   const config = oauthConfig(provider);
   if (!config) throw failure('AUTH_EXPIRED', `${oauthDisplay[provider]} connection is not configured.`);
   return oauthJson<TokenResponse>(provider, `/${FACEBOOK_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({ ...query, client_id: config.id, client_secret: config.secret })}`);
+}
+/** TikTok Login Kit v2 exchanges the code and refreshes via the same form-encoded endpoint; the refresh token rotates. */
+export async function tiktokToken(body: Record<string, string>) {
+  const config = oauthConfig('tiktok');
+  if (!config) throw failure('AUTH_EXPIRED', 'TikTok connection is not configured.');
+  const r = await oauthJson<{ access_token?: string; refresh_token?: string; expires_in?: number; open_id?: string }>('tiktok', '/v2/oauth/token/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ ...body, client_key: config.id, client_secret: config.secret }) });
+  if (!r.access_token) throw failure('AUTH_EXPIRED', 'TikTok did not issue a token.');
+  return { token: { access_token: r.access_token, refresh_token: r.refresh_token, expires_in: r.expires_in }, openId: r.open_id };
 }
 /** Facebook publishes as a Page: resolve the first manageable Page and keep its long-lived Page token. */
 export async function facebookPageToken(userToken: string) {

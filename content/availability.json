@@ -81,6 +81,12 @@
       "name": "Facebook",
       "status": "preparation",
       "dependency": "Connect available (Early access) for Pages. Publishing supports text posts; images and videos are not attached yet. The app is in Development Mode pending Meta review."
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "status": "preparation",
+      "dependency": "Connect requires TikTok app approval; until TikTok's audit, posts are visible only to the account owner."
     }
   ]
 }

@@ -9,6 +9,7 @@ import { validateConnection } from '../lib/publishers/connection';
 import { json } from '../lib/publishers/http';
 import { FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
 import { INSTAGRAM_TEXT_LIMIT } from '../lib/publishers/instagram';
+import { TIKTOK_TEXT_LIMIT, tiktokChunkPlan } from '../lib/publishers/tiktok';
 
 beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
 const originalFetch = globalThis.fetch;
@@ -309,6 +310,164 @@ test('Instagram: 401, 429 Retry-After, 5xx, long caption and missing Business ac
   assert.equal(calls.length, 0);
   await assert.rejects(adapter.publish({ accessToken: 'test-secret' }, { text: 'hello', mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
 });
+test('TikTok chunk plan honors TikTok chunk restrictions', () => {
+  assert.deepEqual(tiktokChunkPlan(0), { chunkSize: 0, totalChunks: 0 });
+  assert.deepEqual(tiktokChunkPlan(4_194_304), { chunkSize: 4_194_304, totalChunks: 1 });
+  assert.deepEqual(tiktokChunkPlan(5_000_000), { chunkSize: 5_000_000, totalChunks: 1 });
+  assert.deepEqual(tiktokChunkPlan(50_000_123), { chunkSize: 50_000_123, totalChunks: 1 });
+  assert.deepEqual(tiktokChunkPlan(125_829_121), { chunkSize: 62_914_560, totalChunks: 2 });
+  assert.deepEqual(tiktokChunkPlan(600_000_000), { chunkSize: 60_000_000, totalChunks: 10 });
+  for (const size of [5_000_001, 64_000_000, 64_000_001, 128_000_000, 128_000_001, 256_000_001, 1_000_000_000, 4_000_000_000]) {
+    const plan = tiktokChunkPlan(size);
+    assert.ok(plan.totalChunks >= 1 && plan.totalChunks <= 1000, `chunk count for ${size}`);
+    assert.ok(plan.chunkSize >= 5_000_000 && plan.chunkSize <= 64_000_000, `chunk size ${plan.chunkSize} for ${size}`);
+    const last = size - (plan.totalChunks - 1) * plan.chunkSize;
+    assert.ok(last >= 1 && last <= 128_000_000, `final chunk ${last} for ${size}`);
+  }
+});
+test('TikTok: validate account and single-chunk video publish with SELF_ONLY', async () => {
+  const calls = mock((url, init) => {
+    if (url.includes('video.test')) return new Response(new Uint8Array(12), { headers: { 'content-type': 'video/mp4' } });
+    if (url.includes('/v2/user/info/')) {
+      assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+      return response({ data: { user: { open_id: 'tt-account', display_name: 'Postial Test' } } });
+    }
+    if (url.endsWith('/v2/post/publish/creator_info/query/')) return response({ data: { privacy_level_options: ['SELF_ONLY'] } });
+    if (url.endsWith('/v2/post/publish/video/init/')) {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.post_info.title, 'hello');
+      assert.equal(body.post_info.privacy_level, 'SELF_ONLY');
+      assert.equal(body.source_info.source, 'FILE_UPLOAD');
+      assert.equal(body.source_info.video_size, 12);
+      assert.equal(body.source_info.chunk_size, 12);
+      assert.equal(body.source_info.total_chunk_count, 1);
+      return response({ data: { publish_id: 'pub-1', upload_url: 'https://upload.tiktok.test/video/?upload_id=1' } });
+    }
+    if (url.startsWith('https://upload.tiktok.test/')) {
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get('Content-Range'), 'bytes 0-11/12');
+      assert.equal(headers.get('Content-Type'), 'video/mp4');
+      return new Response(null, { status: 201 });
+    }
+    if (url.endsWith('/v2/post/publish/status/fetch/')) {
+      assert.equal(JSON.parse(String(init?.body)).publish_id, 'pub-1');
+      return response({ data: { status: 'PUBLISH_COMPLETE' } });
+    }
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const adapter = getPublisher('tiktok');
+  const c = { accessToken: 'test-secret', externalId: 'tt-account' };
+  const account = await adapter.validate(c);
+  assert.equal(account.externalId, 'tt-account');
+  assert.equal(account.displayName, 'Postial Test');
+  const result = await adapter.publish(c, { text: 'hello', mediaUrls: ['https://video.test/clip.mp4'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'pub-1');
+  assert.equal(calls.filter(call => call.url.startsWith('https://upload.tiktok.test/')).length, 1);
+});
+test('TikTok: multi-chunk upload sends sequential Content-Range parts and adopts the public post id', async () => {
+  const size = 125_829_121;
+  const plan = tiktokChunkPlan(size);
+  const ranges: string[] = [];
+  let uploadCalls = 0;
+  mock((url, init) => {
+    if (url.includes('video.test')) return new Response(new Uint8Array(size), { headers: { 'content-type': 'video/mp4' } });
+    if (url.endsWith('/v2/post/publish/creator_info/query/')) return response({ data: { privacy_level_options: ['SELF_ONLY'] } });
+    if (url.endsWith('/v2/post/publish/video/init/')) {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.source_info.video_size, size);
+      assert.equal(body.source_info.chunk_size, plan.chunkSize);
+      assert.equal(body.source_info.total_chunk_count, plan.totalChunks);
+      return response({ data: { publish_id: 'pub-2', upload_url: 'https://upload.tiktok.test/video/?upload_id=2' } });
+    }
+    if (url.startsWith('https://upload.tiktok.test/')) {
+      ranges.push(new Headers(init?.headers).get('Content-Range')!);
+      uploadCalls++;
+      return new Response(null, { status: uploadCalls === plan.totalChunks ? 201 : 206 });
+    }
+    if (url.endsWith('/v2/post/publish/status/fetch/')) return response({ data: { status: 'PUBLISH_COMPLETE', publicaly_available_post_id: [777] } });
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const result = await getPublisher('tiktok').publish({ accessToken: 'test-secret' }, { text: 'album', mediaUrls: ['https://video.test/big.mp4'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, '777');
+  assert.equal(uploadCalls, plan.totalChunks);
+  let offset = 0;
+  for (const range of ranges) {
+    const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(range)!;
+    assert.equal(Number(match[1]), offset);
+    offset = Number(match[2]) + 1;
+    assert.equal(Number(match[3]), size);
+  }
+  assert.equal(offset, size);
+});
+test('TikTok: FAILED status maps fail reasons to reconnect, retry and content errors', async () => {
+  const adapter = getPublisher('tiktok');
+  const c = { accessToken: 'test-secret' };
+  const failFlow = (failReason: string) => mock(url => {
+    if (url.includes('video.test')) return new Response(new Uint8Array(12), { headers: { 'content-type': 'video/mp4' } });
+    if (url.endsWith('/v2/post/publish/creator_info/query/')) return response({ data: { privacy_level_options: ['SELF_ONLY'] } });
+    if (url.endsWith('/v2/post/publish/video/init/')) return response({ data: { publish_id: 'pub-3', upload_url: 'https://upload.tiktok.test/video/?upload_id=3' } });
+    if (url.startsWith('https://upload.tiktok.test/')) return new Response(null, { status: 201 });
+    if (url.endsWith('/v2/post/publish/status/fetch/')) return response({ data: { status: 'FAILED', fail_reason: failReason } });
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  failFlow('duration_check_failed');
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  failFlow('internal');
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('PROVIDER_DOWN', true));
+  failFlow('auth_removed');
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('AUTH_EXPIRED', false));
+});
+test('TikTok: text-only and image-only rejected, caption over 2200 rejected before HTTP', async () => {
+  const adapter = getPublisher('tiktok');
+  const c = { accessToken: 'test-secret' };
+  let calls = mock();
+  await assert.rejects(adapter.publish(c, { text: 'no video', idempotencyKey: 'k' }), error => {
+    assert(error instanceof PublishError); assert.equal(error.code, 'CONTENT_REJECTED');
+    assert.match(error.humanMessage, /TikTok requires a video/); return true;
+  });
+  assert.equal(calls.length, 0);
+  calls = mock(url => url.includes('image.test') ? new Response('image', { headers: { 'content-type': 'image/png' } }) : response({}));
+  await assert.rejects(adapter.publish(c, { text: 'image only', mediaUrls: ['https://image.test/a.png'], idempotencyKey: 'k' }), error => {
+    assert(error instanceof PublishError); assert.equal(error.code, 'CONTENT_REJECTED');
+    assert.match(error.humanMessage, /video content type/); return true;
+  });
+  calls = mock();
+  await assert.rejects(adapter.publish(c, { text: 'x'.repeat(TIKTOK_TEXT_LIMIT + 1), mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0);
+});
+test('TikTok: 401, 429 Retry-After, 5xx and unaudited private-only mappings', async () => {
+  const adapter = getPublisher('tiktok');
+  const c = { accessToken: 'test-secret' };
+  const videoThen = (status: number, headers: HeadersInit = {}, errorBody: unknown = { error: 'x' }) => mock(url => url.includes('video.test') ? new Response(new Uint8Array(12), { headers: { 'content-type': 'video/mp4' } }) : response(errorBody, status, headers));
+  mock(() => response({ error: { code: 'access_token_invalid' } }, 401));
+  await assert.rejects(adapter.validate(c), errorCode('AUTH_EXPIRED', false));
+  videoThen(429, { 'Retry-After': '17' }, { error: { code: 'rate_limit_exceeded' } });
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('RATE_LIMITED', true, 17));
+  videoThen(503);
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), errorCode('PROVIDER_DOWN', true));
+  videoThen(403, {}, { error: { code: 'unaudited_client_can_only_post_to_private_accounts', message: 'Unaudited clients can only post to a private account.' } });
+  await assert.rejects(adapter.publish(c, { text: 'hi', mediaUrls: ['https://video.test/a.mp4'], idempotencyKey: 'k' }), error => {
+    assert(error instanceof PublishError); assert.equal(error.code, 'CONTENT_REJECTED');
+    assert.match(error.humanMessage, /private posts until the Postial app passes TikTok's audit/); return true;
+  });
+});
+test('TikTok refresh rotates tokens, honors expiry, fails closed', async () => {
+  process.env.TIKTOK_CLIENT_KEY = 'local-tiktok'; process.env.TIKTOK_CLIENT_SECRET = 'local-tiktok-secret';
+  try {
+    const calls = mock(() => response({ access_token: 'tiktok-new', refresh_token: 'tiktok-new-refresh', expires_in: 86400, open_id: 'tt-account' }));
+    const adapter = getPublisher('tiktok');
+    const c = { accessToken: 'test-secret', refreshToken: 'old-refresh', expiresAt: String(Date.now() + 1000) };
+    const fresh = await adapter.refreshCredentials!(c);
+    assert.equal(fresh?.accessToken, 'tiktok-new'); assert.equal(fresh?.refreshToken, 'tiktok-new-refresh'); assert(Number(fresh?.expiresAt) > Date.now());
+    const sent = new URLSearchParams(String(calls[0].init.body));
+    assert.equal(sent.get('grant_type'), 'refresh_token');
+    assert.equal(sent.get('client_key'), 'local-tiktok');
+    assert.equal(sent.get('refresh_token'), 'old-refresh');
+    assert.equal(await adapter.refreshCredentials!(fresh!), null);
+    mock(() => response({ error: 'invalid_grant' }, 400));
+    await assert.rejects(adapter.refreshCredentials!(c), errorCode('AUTH_EXPIRED'));
+  } finally { delete process.env.TIKTOK_CLIENT_KEY; delete process.env.TIKTOK_CLIENT_SECRET; }
+});
 test('Mastodon 404 instance fallback and duplicate mapping', async () => {
   mock(url => url.endsWith('/instance') ? response({}, 404) : url.endsWith('/statuses') ? response({ error: 'duplicate idempotency key' }, 422) : ok(url));
   await assert.rejects(getPublisher('mastodon').publish(credentials.mastodon, { text: 'hi', idempotencyKey: 'k' }), errorCode('DUPLICATE', false));
@@ -519,7 +678,7 @@ test('Threads refresh extends long-lived tokens and refuses expired ones', async
   await assert.rejects(adapter.refreshCredentials!({ ...c, expiresAt: '1' }), errorCode('AUTH_EXPIRED'));
 });
 
-for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin','facebook','instagram'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
+for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin','facebook','instagram','tiktok'] as const) test(`${provider} adapter download limit is honored without a global cap`, async () => {
   const adapter = getPublisher(provider), limit = adapter.maxMediaBytes;
   const {downloadImage} = await import('../lib/publishers/http');
   mock(() => new Response(new Uint8Array(limit),{headers:{'content-type':'image/png'}}));
