@@ -28,9 +28,9 @@ const METRIC_LABELS: Record<MetricKey, string> = {
 function MetricValue({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-lg bg-gray-50 p-3">
-      <dt className="text-sm text-gray-500">{label}</dt>
+      <dt className="text-sm text-gray-600">{label}</dt>
       {value === null ? (
-        <dd className="text-sm text-gray-400">not reported</dd>
+        <dd className="text-sm text-gray-600">not reported</dd>
       ) : (
         <dd className="text-lg font-semibold tabular-nums">{value}</dd>
       )}
@@ -45,45 +45,55 @@ function noStatisticsReason(provider: string) {
     : "Postial does not collect statistics for this network yet.";
 }
 
+function MeasuredValues({ values, comparison }: { values: Record<MetricKey, number | null>; comparison: ReturnType<typeof compareMetricHistory> }) {
+  return (
+    <>
+      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {METRIC_KEYS.map((key) => (
+          <MetricValue key={key} label={METRIC_LABELS[key]} value={values[key]} />
+        ))}
+      </dl>
+      <p className="mt-3 text-sm text-gray-600">
+        {comparison.state === "compared"
+          ? `Compared to the previous period: ${comparison.deltas
+              .map((d) => `${d.delta >= 0 ? "+" : ""}${d.delta} ${METRIC_LABELS[d.key].toLowerCase()}`)
+              .join(", ")}.`
+          : "No previous data."}
+      </p>
+    </>
+  );
+}
+
 function TargetBlock({ view, now }: { view: TargetMetricsView; now: Date }) {
   const comparison = compareMetricHistory(view.points, now);
+  const lastMeasured = view.points[view.points.length - 1];
   let body: ReactNode;
   if (!view.published) {
-    body = <p className="mt-1 text-gray-500">Not published yet.</p>;
+    body = <p className="mt-1 text-gray-600">Not published yet.</p>;
   } else if (!view.latest) {
     body = (
-      <p className="mt-1 text-gray-500">
+      <p className="mt-1 text-gray-600">
         {view.reportsMetrics
           ? "No data from provider yet. The first refresh is still pending."
           : noStatisticsReason(view.provider)}
       </p>
     );
   } else if (view.latest.outcome === "unsupported") {
-    body = <p className="mt-1 text-gray-500">{noStatisticsReason(view.provider)}</p>;
-  } else if (view.latest.outcome === "auth_expired") {
-    body = (
-      <p className="mt-1 text-amber-900">
-        Channel access expired. Reconnect the channel to see statistics.
-      </p>
-    );
-  } else if (view.latest.outcome === "provider_error") {
-    body = <p className="mt-1 text-amber-900">The provider did not return data for this post.</p>;
+    body = <p className="mt-1 text-gray-600">{noStatisticsReason(view.provider)}</p>;
+  } else if (view.latest.outcome === "ok") {
+    body = <MeasuredValues values={view.latest.values} comparison={comparison} />;
   } else {
-    const latest = view.latest;
+    const problem = view.latest.outcome === "auth_expired"
+      ? "Channel access expired. Reconnect the channel to see statistics."
+      : "The provider did not return data for this post.";
     body = (
       <>
-        <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {METRIC_KEYS.map((key) => (
-            <MetricValue key={key} label={METRIC_LABELS[key]} value={latest.values[key]} />
-          ))}
-        </dl>
-        <p className="mt-3 text-sm text-gray-600">
-          {comparison.state === "compared"
-            ? `Compared to the previous period: ${comparison.deltas
-                .map((d) => `${d.delta >= 0 ? "+" : ""}${d.delta} ${METRIC_LABELS[d.key].toLowerCase()}`)
-                .join(", ")}.`
-            : "No previous data."}
+        <p className="mt-1 text-amber-900">
+          {lastMeasured
+            ? `${problem} The figures below are from the last successful refresh on ${lastMeasured.fetchedAt.toISOString().slice(0, 16).replace("T", " ")} UTC.`
+            : problem}
         </p>
+        {lastMeasured && <MeasuredValues values={lastMeasured.values} comparison={comparison} />}
       </>
     );
   }
@@ -101,9 +111,9 @@ export function PostMetrics({ targets, now }: { targets: TargetMetricsView[]; no
     <Card>
       <h2 className="text-xl font-semibold">Post performance</h2>
       {!targets.length ? (
-        <p className="mt-2 text-gray-500">No channels were selected for this post.</p>
+        <p className="mt-2 text-gray-600">No channels were selected for this post.</p>
       ) : !anyPublished ? (
-        <p className="mt-2 text-gray-500">
+        <p className="mt-2 text-gray-600">
           Not published yet — statistics appear after the post is published.
         </p>
       ) : (

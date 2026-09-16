@@ -727,6 +727,19 @@ test('Mastodon fetchMetrics retries with the token only when the anonymous read 
   const statusCalls = calls.filter(c => c.url.endsWith('/api/v1/statuses/9'));
   assert.deepEqual(statusCalls.map(c => new Headers(c.init.headers).get('Authorization')), [null, 'Bearer test-secret']);
 });
+test('Mastodon fetchMetrics: quotes_count is reported on 4.5+, a sick instance is not retried with the token, a hidden post never reads as expired access', async () => {
+  let calls = mock(url => url.endsWith('/api/v1/statuses/10') ? response({ id: '10', favourites_count: 3, reblogs_count: 1, replies_count: 0, quotes_count: 2 }) : ok(url));
+  assert.deepEqual(await getPublisher('mastodon').fetchMetrics!(credentials.mastodon, '10'), { likes: 3, replies: 0, reposts: 1, quotes: 2, impressions: null });
+  calls = mock(url => url.endsWith('/api/v1/statuses/11') ? response({ error: 'down' }, 503) : ok(url));
+  await assert.rejects(getPublisher('mastodon').fetchMetrics!(credentials.mastodon, '11'), errorCode('PROVIDER_DOWN'));
+  assert.equal(calls.filter(c => c.url.endsWith('/api/v1/statuses/11')).length, 1);
+  calls = mock((url, init) => url.endsWith('/api/v1/statuses/12')
+    ? (new Headers(init?.headers).get('Authorization') ? response({ error: 'This action is outside the authorized scopes' }, 403) : response({ error: 'Record not found' }, 404))
+    : ok(url));
+  const fetched = await fetchTargetMetrics(getPublisher('mastodon'), credentials.mastodon, '12');
+  assert.deepEqual(fetched, { outcome: 'provider_error', metrics: null });
+  assert.equal(calls.filter(c => c.url.endsWith('/api/v1/statuses/12')).length, 2);
+});
 test('metrics refresh: a tick stops fetching once its time budget is spent', async () => {
   process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
   const now = new Date();

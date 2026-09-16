@@ -60,21 +60,34 @@ export const mastodon: Publisher = {
   fetchMetrics(credentials, remoteId) { return guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
     if (!remoteId) throw failure('UNKNOWN', 'This Mastodon post reference is not valid.');
-    type Status = { id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number };
+    type Status = { id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number; quotes_count?: number };
     const url = `${origin}/api/v1/statuses/${encodeURIComponent(remoteId)}`;
     // Ask without the token first: the connect guide grants no read:statuses scope, and Mastodon
     // rejects a valid token that lacks it with 403 even for a public status. Only a post the
-    // public cannot see (followers-only) needs the token, and then only if it has that scope.
-    const status = await json<Status>('Mastodon', url).catch(() =>
-      json<Status>('Mastodon', url, { headers: { Authorization: `Bearer ${credentials.accessToken}` } }));
+    // public cannot see (followers-only: 401/403/404 anonymously) is retried with the token.
+    let status: Status;
+    try {
+      status = await json<Status>('Mastodon', url);
+    } catch (anonymous) {
+      if (!(anonymous instanceof PublishError) || !['AUTH_EXPIRED', 'UNKNOWN'].includes(anonymous.code)) throw anonymous;
+      try {
+        status = await json<Status>('Mastodon', url, { headers: { Authorization: `Bearer ${credentials.accessToken}` } });
+      } catch (authenticated) {
+        // A hidden post plus a token without read:statuses is not an expired channel; keep the
+        // anonymous "not found" instead of telling the user to reconnect a working channel.
+        if (anonymous.code === 'UNKNOWN' && authenticated instanceof PublishError && authenticated.code === 'AUTH_EXPIRED') throw anonymous;
+        throw authenticated;
+      }
+    }
     // Anything but the requested status is not a measurement of this post.
     if (status.id !== remoteId) throw failure('UNKNOWN', 'Mastodon did not return this post.');
     return {
       likes: count(status.favourites_count),
       replies: count(status.replies_count),
       reposts: count(status.reblogs_count),
-      // Mastodon does not report quote counts or impressions; absence, not zero.
-      quotes: null,
+      // quotes_count exists since Mastodon 4.5; older instances omit it (absence, not zero).
+      quotes: count(status.quotes_count),
+      // Mastodon does not report impressions.
       impressions: null,
     };
   }); },
