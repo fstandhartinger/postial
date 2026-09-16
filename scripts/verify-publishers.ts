@@ -10,6 +10,10 @@ import { json } from '../lib/publishers/http';
 import { FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
 import { INSTAGRAM_TEXT_LIMIT } from '../lib/publishers/instagram';
 import { TIKTOK_TEXT_LIMIT, tiktokChunkPlan } from '../lib/publishers/tiktok';
+import { fetchTargetMetrics, metricsRefreshIntervalMs, refreshMetricsTick } from '../lib/metrics/refresh';
+import { compareMetricHistory } from '../lib/metrics/compare';
+import { encryptCredentials } from '../lib/crypto';
+import { postMetrics } from '../db/schema';
 
 beforeEach(() => { nodeMock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]); });
 const originalFetch = globalThis.fetch;
@@ -685,4 +689,119 @@ for (const provider of ['x','bluesky','mastodon','telegram','threads','linkedin'
   assert.equal((await downloadImage(provider,'https://image.test/limit',limit)).size,limit);
   mock(() => new Response(new Uint8Array(limit+1),{headers:{'content-type':'image/png'}}));
   await assert.rejects(downloadImage(provider,'https://image.test/over',limit), errorCode('CONTENT_REJECTED',false));
+});
+
+// --- Per-post metrics (AN-1 / AN-3) -------------------------------------------------
+test('Bluesky fetchMetrics parses counts into the right columns and leaves impressions absent', async () => {
+  const calls = mock(url => url.endsWith('getPosts') ? response({ posts: [{ likeCount: 12, repostCount: 3, replyCount: 5, quoteCount: 1 }] }) : ok(url));
+  const result = await getPublisher('bluesky').fetchMetrics!(credentials.bluesky, 'at://did:plc:alice/app.bsky.feed.post/key');
+  assert.deepEqual(result, { likes: 12, replies: 5, reposts: 3, quotes: 1, impressions: null });
+  const call = calls.find(c => c.url.endsWith('getPosts'))!;
+  assert.deepEqual(JSON.parse(String(call.init.body)).posts, ['at://did:plc:alice/app.bsky.feed.post/key']);
+  assert.equal(new Headers(call.init.headers).get('Authorization'), 'Bearer temporary-secret');
+});
+test('Mastodon fetchMetrics maps favourites/reblogs/replies and leaves absent fields null', async () => {
+  const calls = mock(url => url.endsWith('/api/v1/statuses/8') ? response({ id: '8', favourites_count: 7, reblogs_count: 2, replies_count: 4 }) : ok(url));
+  const result = await getPublisher('mastodon').fetchMetrics!(credentials.mastodon, '8');
+  assert.deepEqual(result, { likes: 7, replies: 4, reposts: 2, quotes: null, impressions: null });
+  const call = calls.find(c => c.url.endsWith('/api/v1/statuses/8'))!;
+  assert.equal(new Headers(call.init.headers).get('Authorization'), 'Bearer test-secret');
+  assert.equal(call.init.method, undefined);
+});
+test('metrics: a provider-reported zero stays 0 and is distinguishable from absence', async () => {
+  mock(url => url.endsWith('getPosts') ? response({ posts: [{ likeCount: 0 }] }) : ok(url));
+  const result = await getPublisher('bluesky').fetchMetrics!(credentials.bluesky, 'at://did:plc:alice/app.bsky.feed.post/key');
+  assert.equal(result.likes, 0);
+  assert.notEqual(result.likes, null);
+  assert.equal(result.replies, null);
+  assert.equal(result.reposts, null);
+  assert.equal(result.quotes, null);
+  assert.equal(result.impressions, null);
+});
+test('Telegram has no fetchMetrics and resolves to the unsupported outcome', async () => {
+  const adapter = getPublisher('telegram');
+  assert.equal(adapter.fetchMetrics, undefined);
+  const result = await fetchTargetMetrics(adapter, credentials.telegram, '42');
+  assert.deepEqual(result, { outcome: 'unsupported', metrics: null });
+});
+/** Records inserts; throws on any update/delete so a test fails if the tick ever writes post/target status. */
+function fakeMetricsDb(candidates: unknown[], latestRows: unknown[], channelRows: Record<string, unknown>[]) {
+  const writes: { table: unknown; rows: unknown[] }[] = [];
+  const queue: unknown[] = [candidates, latestRows, ...channelRows.map(row => [row])];
+  const chain = (result: unknown) => {
+    const self: Record<string, unknown> = { then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result).then(resolve, reject) };
+    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit']) self[method] = () => self;
+    return self;
+  };
+  return {
+    writes,
+    select: () => chain(queue.shift() ?? []),
+    insert: (table: unknown) => ({
+      values: (rows: unknown) => { writes.push({ table, rows: Array.isArray(rows) ? rows : [rows] }); return chain([]); },
+    }),
+    update: () => { throw new Error('refreshMetricsTick must not update any table'); },
+    delete: () => { throw new Error('refreshMetricsTick must not delete any table'); },
+  };
+}
+test('metrics: auth failure yields auth_expired and the tick never writes post/target status', async () => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+  const now = new Date();
+  const targetId = crypto.randomUUID();
+  const candidates = [{ targetId, channelId: 'channel-1', remoteId: 'at://did:plc:alice/app.bsky.feed.post/key', publishedAt: new Date(now.getTime() - 3_600_000) }];
+  const channelRows = [{ provider: 'bluesky', credentialsEnc: encryptCredentials({ identifier: 'alice@example.test', appPassword: 'test-secret' }) }];
+  const db = fakeMetricsDb(candidates, [], channelRows);
+  const calls = mock(() => response({ error: 'AuthenticationRequired' }, 401));
+  const refreshed = await refreshMetricsTick(db as never);
+  assert.equal(refreshed, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://bsky.social/xrpc/com.atproto.server.createSession');
+  assert.equal(db.writes.length, 1);
+  assert.equal(db.writes[0].table, postMetrics);
+  const row = db.writes[0].rows[0] as Record<string, unknown>;
+  assert.equal(row.targetId, targetId);
+  assert.equal(row.outcome, 'auth_expired');
+  for (const key of ['likes', 'replies', 'reposts', 'quotes', 'impressions']) assert.equal(row[key], null);
+});
+test('metrics refresh: backoff and unsupported targets are not refetched', async () => {
+  const now = new Date();
+  const targetId = crypto.randomUUID();
+  const candidates = [{ targetId, channelId: 'channel-1', remoteId: 'remote-1', publishedAt: new Date(now.getTime() - 3_600_000) }];
+  const fresh = fakeMetricsDb(candidates, [{ targetId, fetchedAt: new Date(now.getTime() - 10 * 60_000), outcome: 'ok' }], []);
+  assert.equal(await refreshMetricsTick(fresh as never), 0);
+  assert.equal(fresh.writes.length, 0);
+  const unsupported = fakeMetricsDb(candidates, [{ targetId, fetchedAt: new Date(now.getTime() - 10 * 60_000), outcome: 'unsupported' }], []);
+  assert.equal(await refreshMetricsTick(unsupported as never), 0);
+  assert.equal(unsupported.writes.length, 0);
+});
+test('metrics refresh: backoff grows with post age', () => {
+  const now = new Date();
+  assert.equal(metricsRefreshIntervalMs(new Date(now.getTime() - 3_600_000), now), 3_600_000);
+  assert.equal(metricsRefreshIntervalMs(new Date(now.getTime() - 2 * 86_400_000), now), 6 * 3_600_000);
+  assert.equal(metricsRefreshIntervalMs(new Date(now.getTime() - 20 * 86_400_000), now), 24 * 3_600_000);
+});
+test('AN-3: populated previous period returns a real delta', () => {
+  const now = new Date('2026-09-16T12:00:00Z');
+  const day = 86_400_000;
+  const values = (likes: number, replies: number, reposts: number) => ({ likes, replies, reposts, quotes: null, impressions: null });
+  const points = [
+    { fetchedAt: new Date(now.getTime() - 9 * day), values: values(10, 1, 0) },
+    { fetchedAt: new Date(now.getTime() - 8 * day), values: values(14, 1, 0) },
+    { fetchedAt: new Date(now.getTime() - 2 * day), values: values(30, 5, 2) },
+    { fetchedAt: new Date(now.getTime() - 1 * day), values: values(40, 7, 2) },
+  ];
+  const result = compareMetricHistory(points, now);
+  assert.equal(result.state, 'compared');
+  assert.deepEqual(result.deltas, [{ key: 'likes', delta: 26 }, { key: 'replies', delta: 6 }, { key: 'reposts', delta: 2 }]);
+});
+test('AN-3: empty previous period is an explicit no-previous state, never a fabricated 0 %', () => {
+  const now = new Date('2026-09-16T12:00:00Z');
+  const day = 86_400_000;
+  const points = [
+    { fetchedAt: new Date(now.getTime() - 2 * day), values: { likes: 5, replies: 0, reposts: 0, quotes: null, impressions: null } },
+    { fetchedAt: new Date(now.getTime() - 1 * day), values: { likes: 9, replies: 1, reposts: 0, quotes: null, impressions: null } },
+  ];
+  const result = compareMetricHistory(points, now);
+  assert.equal(result.state, 'no_previous');
+  assert.equal(result.deltas.length, 0);
+  assert.deepEqual(compareMetricHistory([], now), { state: 'no_data', currentWindow: null, previousWindow: null, deltas: [] });
 });
