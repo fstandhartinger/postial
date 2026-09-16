@@ -48,7 +48,7 @@ try {
   const db = ['timezone.ts', 'funnel', 'funnel-client-class', 'entitlements', 'workspace', 'webhook', 'publishers', 'docs-truth', 'ssrf-boundary', 'core', 'api', 'openapi', 'oauth', 'pilot', 'retention', 'bulk', 'c6', 'c7', 'deletion-sweep', 'signin-ratelimit', 'signin-visibility.ts', 'fixer3-migration', 'worker-drain', 'trial-end', 'trial-reminder', 'alert-mail.ts', 'error-visibility', 'deployment-skew.tsx', 'trial-handoff.tsx'];
   const http = ['n8n-lastmile-browser', 'http.mjs', 'marketing.mjs', 'docs', 'core-http', 'billing', 'api', 'approvals', 'team', 'media', 'funnel-browser',
     'waitlist', 'appshell', 'bulk', 'c6', 'c7', 'c8', 'first-run-browser', 'fixer-browser.mjs', 'fixer2-browser', 'fixer3-browser',
-    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'admin-funnel-browser', 'approval-e2e'];
+    'docs-browser.mjs', 'marketing-browser.mjs', 'login-browser', 'admin-funnel-browser', 'approval-e2e', 'compare-h1.mjs'];
   async function run(name) {
     controller.signal.throwIfAborted();
     const file = `scripts/verify-${name.includes('.') ? name : name + '.ts'}`;
