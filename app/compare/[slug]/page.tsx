@@ -63,7 +63,7 @@ export default async function ComparePage({ params }: Props) {
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(schema) }} />
     <section className="hero">
       <p className="eyebrow">Postial comparisons · September 2026</p>
-      <h1>{page.title}</h1>
+      <h1>{hydrate(page.title)}</h1>
       <p className="hero-sub">{hydrate(page.intro)}</p>
       <div className="actions"><Link className="primary" href="/login">Start free — no card needed</Link><Link className="secondary" href="/pricing">See pricing</Link></div>
       <SignInNotice />
