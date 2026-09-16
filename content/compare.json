@@ -1,7 +1,7 @@
 {
   "checkedAt": "2026-09-13",
   "priceFootnote": "Prices as listed on vendor sites, checked September 2026",
-  "methodology": "Postial prices are monthly in EUR including VAT. Vendor prices below are in USD; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Several brands can require many more accounts than brands. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
+  "methodology": "Postial prices are monthly in EUR including VAT. Vendor prices are quoted in the currency, billing period and tax treatment each vendor's own page states, and those differ between vendors; no currency conversion or like-for-like savings claim is made. A brand is a client workspace grouping; a channel or social account is one connected profile. Several brands can require many more accounts than brands. Confirm your exact account mix, taxes and checkout terms before buying. Unconfirmed means not established from the linked sources, not that a feature is absent.",
   "postial": [
     "Starter: {starterPrice} including VAT; {starterBrands} brands, {starterSeats} user.",
     "Agency: {agencyPrice} including VAT; {agencyBrands} brands, {agencySeats} users.",
