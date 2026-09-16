@@ -22,7 +22,9 @@ async function main() {
   process.env.X_CLIENT_ID = 'local-x'; process.env.X_CLIENT_SECRET = 'local-x-secret';
   process.env.THREADS_APP_ID = 'local-threads'; process.env.THREADS_APP_SECRET = 'local-threads-secret';
   process.env.LINKEDIN_CLIENT_ID = 'local-linkedin'; process.env.LINKEDIN_CLIENT_SECRET = 'local-linkedin-secret';
-  process.env.FACEBOOK_APP_ID = 'local-facebook'; process.env.FACEBOOK_APP_SECRET = 'local-facebook-secret';  const db = getDb(), userId = crypto.randomUUID(), foreignId = crypto.randomUUID(), sessionToken = randomBytes(32).toString('hex');
+  process.env.FACEBOOK_APP_ID = 'local-facebook'; process.env.FACEBOOK_APP_SECRET = 'local-facebook-secret';
+  process.env.TIKTOK_CLIENT_KEY = 'local-tiktok'; process.env.TIKTOK_CLIENT_SECRET = 'local-tiktok-secret';
+  const db = getDb(), userId = crypto.randomUUID(), foreignId = crypto.randomUUID(), sessionToken = randomBytes(32).toString('hex');
   let tokenFailure = false;
   const requests: { path: string; body: URLSearchParams }[] = [];
   const endpoint = createServer(async (req, res) => {
@@ -48,11 +50,13 @@ async function main() {
       '/v21.0/me/accounts': { data: [{ id: 'facebook-page', name: 'Facebook Test', access_token: 'facebook-page-token', instagram_business_account: { id: 'ig-account', username: 'ig.test' } }] },
       '/v21.0/me': { id: 'facebook-page', name: 'Facebook Test' },
       '/v21.0/ig-account': { id: 'ig-account', username: 'ig.test' },
+      '/v2/oauth/token/': { access_token: 'tiktok-access', refresh_token: 'tiktok-refresh', expires_in: 86400, open_id: 'tiktok-account' },
+      '/v2/user/info/': { data: { user: { open_id: 'tiktok-account', display_name: 'TikTok Test' } } },
     };
     res.writeHead(responses[url.pathname] ? 200 : 404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(responses[url.pathname] ?? {}));
   });
   const endpointUrl = await listen(endpoint);
-  process.env.X_API_BASE_URL = endpointUrl; process.env.THREADS_API_BASE_URL = endpointUrl; process.env.LINKEDIN_API_BASE_URL = endpointUrl; process.env.FACEBOOK_API_BASE_URL = endpointUrl; process.env.INSTAGRAM_API_BASE_URL = endpointUrl;
+  process.env.X_API_BASE_URL = endpointUrl; process.env.THREADS_API_BASE_URL = endpointUrl; process.env.LINKEDIN_API_BASE_URL = endpointUrl; process.env.FACEBOOK_API_BASE_URL = endpointUrl; process.env.INSTAGRAM_API_BASE_URL = endpointUrl; process.env.TIKTOK_API_BASE_URL = endpointUrl;
   const { POST } = await import('../app/api/oauth/[provider]/start/route');
   const { GET } = await import('../app/api/oauth/[provider]/callback/route');
   let appUrl = '';
@@ -83,16 +87,21 @@ async function main() {
     assert.equal((await start('x', { ...headers, origin: 'https://foreign.invalid' })).status, 403);
     assert.equal((await start('unknown')).status, 404);
     assert.equal((await start('x', { ...headers, cookie: `authjs.session-token=${foreignToken}` })).status, 400);
-    for (const provider of ['x', 'threads', 'linkedin', 'facebook', 'instagram'] as const) {
+    for (const provider of ['x', 'threads', 'linkedin', 'facebook', 'instagram', 'tiktok'] as const) {
       const started = await start(provider); assert.equal(started.status, 303);
       const url = new URL(started.headers.get('location')!), state = url.searchParams.get('state')!;
       assert.equal(url.searchParams.get('redirect_uri'), `${appUrl}/api/oauth/${provider}/callback`);
       const [saved] = await db.select().from(oauthStates).where(eq(oauthStates.state, state));
       assert.equal(saved.userId, userId); assert.equal(saved.brandId, brand.id);
       assert(saved.expiresAt.getTime() <= Date.now() + 600000);
-      if (provider === 'x') {
+      if (provider === 'x' || provider === 'tiktok') {
         assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
         assert.equal(url.searchParams.get('code_challenge'), createHash('sha256').update(decryptCredentials(saved.codeVerifier).verifier).digest('base64url'));
+      }
+      if (provider === 'tiktok') {
+        assert.equal(url.origin + url.pathname, 'https://www.tiktok.com/v2/auth/authorize/');
+        assert.equal(url.searchParams.get('client_key'), 'local-tiktok');
+        assert.equal(url.searchParams.get('scope'), 'user.info.basic,video.publish,video.upload');
       }
       assert.match((await callback(provider, state, '')).headers.get('location')!, /connect_error=expired$/);
       assert.match((await callback(provider, state, `authjs.session-token=${foreignToken}`)).headers.get('location')!, /connect_error=expired$/);
@@ -102,9 +111,10 @@ async function main() {
       const [channel] = await db.select().from(channels).where(and(eq(channels.brandId, brand.id), eq(channels.provider, provider)));
       assert.equal(channel.status, 'active'); assert(!channel.credentialsEnc.includes('access'));
       const credentials = decryptCredentials(channel.credentialsEnc); assert(Number(credentials.expiresAt) > Date.now());
-      assert.equal(credentials.accessToken, { x: 'x-access', threads: 'threads-long', linkedin: 'linkedin-access', facebook: 'facebook-page-token', instagram: 'facebook-page-token' }[provider]);
+      assert.equal(credentials.accessToken, { x: 'x-access', threads: 'threads-long', linkedin: 'linkedin-access', facebook: 'facebook-page-token', instagram: 'facebook-page-token', tiktok: 'tiktok-access' }[provider]);
       if (provider === 'facebook') assert.equal(credentials.externalId, 'facebook-page');
       if (provider === 'instagram') assert.equal(credentials.externalId, 'ig-account');
+      if (provider === 'tiktok') assert.equal(credentials.externalId, 'tiktok-account');
       const before = requests.length; assert.match((await callback(provider, state)).headers.get('location')!, /connect_error=expired$/); assert.equal(requests.length, before);
       const restarted = new URL((await start(provider)).headers.get('location')!);
       const race = await Promise.all([callback(provider, restarted.searchParams.get('state')!), callback(provider, restarted.searchParams.get('state')!)]);
@@ -116,6 +126,10 @@ async function main() {
     }
     assert.equal(requests.find(r => r.path === '/2/oauth2/token')?.body.get('grant_type'), 'authorization_code');
     assert.equal(requests.find(r => r.path === '/oauth/access_token')?.body.get('client_id'), 'local-threads');
+    const tiktokExchange = requests.find(r => r.path === '/v2/oauth/token/');
+    assert.equal(tiktokExchange?.body.get('grant_type'), 'authorization_code');
+    assert.equal(tiktokExchange?.body.get('client_key'), 'local-tiktok');
+    assert.equal(tiktokExchange?.body.get('code_verifier')?.length, 43);
     // Worker integration: two targets sharing one channel must rotate only once.
     // Editors can connect, with safe brand-bound browser error navigation.
     await db.update(workspaceMembers).set({role:'editor'}).where(eq(workspaceMembers.userId,userId));

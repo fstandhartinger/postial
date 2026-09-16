@@ -9,7 +9,7 @@ test('landing FAQ uses the same unconfigured availability as its summary', () =>
   const html = renderToStaticMarkup(React.createElement(FAQ));
   assert.doesNotMatch(html, /Connect available|Google sign-in and magic links are available/);
 });
-const keys = ['AUTH_GOOGLE_ID','AUTH_GOOGLE_SECRET','SMTP_URL','EMAIL_FROM','X_CLIENT_ID','X_CLIENT_SECRET','THREADS_APP_ID','THREADS_APP_SECRET','LINKEDIN_CLIENT_ID','LINKEDIN_CLIENT_SECRET','FACEBOOK_APP_ID','FACEBOOK_APP_SECRET'];
+const keys = ['AUTH_GOOGLE_ID','AUTH_GOOGLE_SECRET','SMTP_URL','EMAIL_FROM','X_CLIENT_ID','X_CLIENT_SECRET','THREADS_APP_ID','THREADS_APP_SECRET','LINKEDIN_CLIENT_ID','LINKEDIN_CLIENT_SECRET','FACEBOOK_APP_ID','FACEBOOK_APP_SECRET','TIKTOK_CLIENT_KEY','TIKTOK_CLIENT_SECRET'];
 test('network summary does not contradict configured Early access connections', () => {
   assert.doesNotMatch(networkSummary, /awaiting developer access/);
 });

@@ -118,6 +118,7 @@ export const channelProvider = pgEnum("channel_provider", [
   "linkedin",
   "facebook",
   "instagram",
+  "tiktok",
 ]);
 export const channelStatus = pgEnum("channel_status", [
   "active",

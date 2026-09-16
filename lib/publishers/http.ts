@@ -48,6 +48,13 @@ export function responseError(provider: string, status: number, body: Record<str
   if (provider === 'X' && status === 403 && /duplicate/i.test(description)) return failure('DUPLICATE', 'X reports that this post already exists.');
   if (provider === 'Threads' && (body.error as {code?: number})?.code === 190) return failure('AUTH_EXPIRED', 'Reconnect Threads.');
   if (provider === 'LinkedIn' && (status === 409 || /duplicate|already exists|already posted/i.test(description))) return failure('DUPLICATE', 'LinkedIn reports that this post was already submitted.');
+  if (provider === 'TikTok') {
+    const code = String((body.error as { code?: unknown })?.code ?? '');
+    if (code === 'unaudited_client_can_only_post_to_private_accounts') return failure('CONTENT_REJECTED', 'TikTok only allows private posts until the Postial app passes TikTok\'s audit, so this post was not published.');
+    if (code === 'privacy_level_option_mismatch') return failure('CONTENT_REJECTED', 'TikTok rejected the post privacy setting. Reconnect the channel and try again.');
+    if (code === 'spam_risk_user_banned_from_posting') return failure('CONTENT_REJECTED', 'TikTok has banned this account from posting, so the post was not published.');
+    if (code === 'spam_risk_too_many_posts' || code === 'reached_active_user_cap') return failure('RATE_LIMITED', 'TikTok has reached its posting limit. Please try again later.');
+  }
   if (status === 401 || status === 403 || /AuthenticationRequired|ExpiredToken|Unauthorized|bot was kicked|chat not found/i.test(description)) {
     return failure('AUTH_EXPIRED', provider === 'Bluesky' ? 'Bluesky rejected the app password. Reconnect the channel to continue posting.' : `${provider} rejected the credentials or channel access. Reconnect the channel to continue posting.`);
   }
@@ -65,16 +72,16 @@ export function responseError(provider: string, status: number, body: Record<str
 }
 
 /** The deadline covers both fetching headers and consuming the response body. */
-async function request<T>(provider: string, url: string, init: RequestInit, consume: (response: Response) => Promise<T>, maxBytes = 64 * 1024, allowMissing = false): Promise<T> {
+async function request<T>(provider: string, url: string, init: RequestInit, consume: (response: Response) => Promise<T>, maxBytes = 64 * 1024, allowMissing = false, timeoutMs = 20_000): Promise<T> {
   return guarded(provider, async () => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => { controller.abort(); reject(failure('NETWORK', `${provider} did not respond within 20 seconds. Please try again.`)); }, 20_000);
+      timer = setTimeout(() => { controller.abort(); reject(failure('NETWORK', `${provider} did not respond within ${Math.round(timeoutMs / 1000)} seconds. Please try again.`)); }, timeoutMs);
     });
     try {
       return await Promise.race([ (async () => {
-        const response = await safeFetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(deadlines.getStore() ? [deadlines.getStore()!] : [])]) }, maxBytes);
+        const response = await safeFetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(deadlines.getStore() ? [deadlines.getStore()!] : [])]) }, maxBytes, timeoutMs);
         if (!response.ok && !(allowMissing && response.status === 404)) {
           const body = await response.clone().json().catch(() => ({}));
           if (allowMissing && response.status === 400 && body.error === "RecordNotFound") return consume(response);
@@ -122,4 +129,40 @@ export async function downloadImage(provider: string, url: string, maxBytes: num
     } finally { await reader.cancel(); }
     return new Blob(chunks, { type });
   }, maxBytes);
+}
+
+/** Stream a video with a hard bound; the longer timeout fits files beyond a 20 second fetch. */
+export async function downloadVideo(provider: string, url: string, maxBytes: number): Promise<Blob> {
+  if (!localMediaUrl(url)) httpsOrigin(url);
+  return request(provider, url, {}, async response => {
+    const type = response.headers.get('content-type')?.split(';')[0] ?? '';
+    if (!type.startsWith('video/')) throw failure('CONTENT_REJECTED', `${provider} requires a video URL with a video content type (MP4, WebM or MOV).`);
+    const tooLarge = () => failure('CONTENT_REJECTED', `${provider} video exceeds the ${maxBytes} byte download limit.`);
+    if (Number(response.headers.get('content-length')) > maxBytes) { await response.body?.cancel(); throw tooLarge(); }
+    const reader = response.body?.getReader();
+    if (!reader) throw failure('CONTENT_REJECTED', `${provider} received an empty video.`);
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > maxBytes) throw tooLarge();
+        chunks.push(new Uint8Array(value));
+      }
+    } finally { await reader.cancel(); }
+    return new Blob(chunks, { type });
+  }, maxBytes, false, 60_000);
+}
+
+/** One chunk of a provider-issued chunked upload (PUT with Content-Range). Returns the HTTP status (201 final, 206 partial).
+ * An expired or unknown upload link is a flow problem, not a credential problem: a retry re-initializes the upload. */
+export async function uploadChunk(provider: string, url: string, chunk: Uint8Array<ArrayBuffer>, headers: Record<string, string>): Promise<number> {
+  try {
+    return await request(provider, url, { method: 'PUT', headers, body: chunk }, async response => response.status, 64 * 1024);
+  } catch (error) {
+    if (error instanceof PublishError && ['AUTH_EXPIRED', 'CONTENT_REJECTED', 'UNKNOWN'].includes(error.code)) throw failure('NETWORK', `${provider} could not accept the uploaded chunk. Please try again.`);
+    throw error;
+  }
 }

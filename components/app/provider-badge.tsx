@@ -7,6 +7,7 @@ const colors: Record<string, string> = {
   linkedin: "#0a66c2",
   facebook: "#1877f2",
   instagram: "#d62976",
+  tiktok: "#010101",
 };
 export function ProviderBadge({ provider }: { provider: string }) {
   return (

@@ -44,8 +44,8 @@ export function pinnedAgent(host: string, addresses: { address: string; family: 
     else callback(null, candidates[0].address, candidates[0].family);
   } } });
 }
-export async function safeFetch(value: string, init: RequestInit = {}, maxBytes = 64 * 1024): Promise<Response> {
-  const signal = AbortSignal.any([AbortSignal.timeout(20_000), ...(init.signal ? [init.signal] : [])]);
+export async function safeFetch(value: string, init: RequestInit = {}, maxBytes = 64 * 1024, timeoutMs = 20_000): Promise<Response> {
+  const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(init.signal ? [init.signal] : [])]);
   // Race DNS and stream reads as well: an uncooperative peer must not extend the deadline.
   let abortListener: () => void = () => {};
   const aborted = new Promise<never>((_, reject) => {
