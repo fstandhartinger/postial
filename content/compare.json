@@ -609,6 +609,113 @@
           "checkedAt": "2026-09-13"
         }
       ]
+    },
+    {
+      "slug": "metricool-alternative",
+      "vendor": "Metricool",
+      "title": "Metricool alternative for {liveNetworkNames} agencies",
+      "description": "Compare Postial and Metricool for agency work on {liveNetworkNames}: approvals, prices and live networks. {earlyAccessNetworkNames} connect in Early access.",
+      "intro": "For agencies whose clients publish on {liveNetworkNames}: login-free client approvals, visible publishing errors and retries, and one monthly agency price. {earlyAccessNetworkNames} connect in Early access, subject to provider conditions.",
+      "audience": "Small agencies using the Agency allowance with its configured teammates and brands on {liveNetworkNames}. {earlyAccessNetworkNames} connect in Early access when the operator configures the developer app, subject to provider conditions. Keep workflows that need a network outside this set with a provider that supports them today.",
+      "vendorCells": [
+        {
+          "text": "Free: €0 for 1 brand with 20 posts/month. Starter: from €20/month for up to 5 brands, €37/month for 10 brands. Advanced: from €54/month for 15 brands. These are the annual-billing rates; the page’s “Annual (save up to 24%)” / “Monthly” toggle means monthly billing costs more. “The prices indicated do not include any applicable VAT. The corresponding VAT will be calculated before signing.” — so these are not like-for-like with Postial’s including-VAT prices.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Advanced: from €54/month for 15 brands, €87/month for 25 brands, €172/month for 50 brands, with team and client management and role management. Custom: contact sales for a custom brand count, white label and a dedicated account manager. Brands are the billing unit; a brand is a client workspace grouping, not a connected profile.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "An “Approval System” is listed as a product feature, and Advanced includes a post approval system. Whether a client can approve without a Metricool account or login is not confirmed on the checked pages.",
+          "sources": [
+            "pricing",
+            "networks"
+          ]
+        },
+        {
+          "text": "A visible per-post publishing error and retry workflow was not established by the checked sources.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "Metricool API access is available on the Advanced and Custom plans; documented uses are exporting metrics to other tools and automating tasks via integrations such as Zapier and Make, with the auth token sent in a custom header X-Mc-Auth. Webhooks are not mentioned on that page. An n8n node is not confirmed in the checked sources.",
+          "sources": [
+            "api"
+          ]
+        },
+        {
+          "text": "Publishing and scheduling networks named: Facebook, Instagram, Threads, Bluesky, LinkedIn, Pinterest, TikTok, YouTube and X (formerly Twitter). Mastodon and Telegram are not in the named set. The free plan covers all networks except LinkedIn and X/Twitter.",
+          "sources": [
+            "networks",
+            "pricing"
+          ]
+        },
+        {
+          "text": "Hosting region not established by the checked sources; request contractual residency details.",
+          "sources": [
+            "pricing"
+          ]
+        },
+        {
+          "text": "No free trial of the paid plans is offered on the checked pricing page; a permanently free plan exists instead. No card requirement is stated for the free plan.",
+          "sources": [
+            "pricing"
+          ]
+        }
+      ],
+      "fits": "Postial’s Agency offer combines {agencyBrands} brands and {agencySeats} users for {agencyPrice} including VAT, with login-free client review and REST API/webhooks available today, and a native n8n node shown as “Postial” in n8n. It fits a small team seeking this specific workflow and German hosting, provided early-access availability meets its needs.",
+      "notFor": "Do not switch yet if a client needs a network outside the live {liveNetworkNames} set — Metricool names Facebook, Instagram, Threads, LinkedIn, Pinterest, TikTok, YouTube and X for publishing today — if you rely on Metricool’s analytics and competitor benchmarking, or on its permanently free plan, or if an early-access provider condition cannot be accepted. {earlyAccessNetworkNames} connections are not the same as a generally available publishing guarantee.",
+      "notHave": "Postial does not currently offer Metricool’s wider live network set, its analytics and competitor benchmarking, or a permanently free tier; Postial offers a {trialDays}-day trial without a card instead. It also makes no promise of automatic history import, and early-access provider connections remain subject to their conditions.",
+      "vendorFits": "Metricool is the stronger fit when you need publishing today on Facebook, Instagram, Threads, LinkedIn, Pinterest, TikTok, YouTube or X, analytics with competitor benchmarking, or a permanently free plan to start. Its post approval system and API access on the Advanced and Custom plans suit larger client operations. Agencies dependent on these capabilities should validate Postial’s narrower rollout before moving.",
+      "vendorFitSources": [
+        "pricing",
+        "networks",
+        "api"
+      ],
+      "faq": [
+        {
+          "question": "Is Postial cheaper than Metricool for an agency with several clients?",
+          "answer": "Postial Agency lists {agencyPrice} including VAT for {agencySeats} users and {agencyBrands} brands. Metricool Advanced starts at €54/month for 15 brands on annual billing, and its listed prices do not include VAT. Billing periods, VAT treatment and capabilities differ; these are not equivalent bundles."
+        },
+        {
+          "question": "Can Metricool clients approve posts without a login?",
+          "answer": "The checked pages list an Approval System as a product feature, and Advanced includes a post approval system, but they do not establish whether a reviewer approves without a Metricool account or login. Confirm that workflow with Metricool. Postial provides login-free Agency client links today."
+        },
+        {
+          "question": "Does Metricool cover networks Postial does not?",
+          "answer": "Metricool names Facebook, Instagram, Threads, Bluesky, LinkedIn, Pinterest, TikTok, YouTube and X (formerly Twitter) for publishing and scheduling. Postial publishes to Bluesky, Mastodon and Telegram; {earlyAccessNetworkNames} connect in Early access, subject to provider conditions. Keep clients on networks outside Postial’s live set in the tool that covers them."
+        },
+        {
+          "question": "Do both tools offer a trial without a card?",
+          "answer": "Not the same way. The checked Metricool pricing page offers no free trial of the paid plans; a permanently free plan exists instead, and no card requirement is stated for it. Postial’s {trialDays}-day trial needs no card, so you can verify the approval flow first."
+        }
+      ],
+      "sources": [
+        {
+          "id": "pricing",
+          "title": "Metricool plans, brand allowances and VAT note",
+          "url": "https://metricool.com/pricing/",
+          "checkedAt": "2026-09-16"
+        },
+        {
+          "id": "networks",
+          "title": "Metricool social media management: networks and approval system",
+          "url": "https://metricool.com/social-media-management/",
+          "checkedAt": "2026-09-16"
+        },
+        {
+          "id": "api",
+          "title": "Metricool API access and plan requirement",
+          "url": "https://help.metricool.com/api-access-export-your-metricool-data-to-other-tools-and-automate-tasks-x8ln5",
+          "checkedAt": "2026-09-16"
+        }
+      ]
     }
   ]
 }
