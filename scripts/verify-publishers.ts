@@ -779,7 +779,15 @@ function fakeMetricsDb(candidates: unknown[], latestRows: unknown[], channelRows
     for (const method of ['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit', 'groupBy', 'as']) self[method] = () => self;
     return self;
   };
-  return {
+  const fake: {
+    writes: { table: unknown; rows: unknown[] }[];
+    select: () => unknown;
+    insert: (table: unknown) => { values: (rows: unknown) => unknown };
+    update: () => never;
+    delete: () => never;
+    execute: () => Promise<{ locked: boolean }[]>;
+    transaction?: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+  } = {
     writes,
     select: () => chain(queue.shift() ?? []),
     insert: (table: unknown) => ({
@@ -787,7 +795,11 @@ function fakeMetricsDb(candidates: unknown[], latestRows: unknown[], channelRows
     }),
     update: () => { throw new Error('refreshMetricsTick must not update any table'); },
     delete: () => { throw new Error('refreshMetricsTick must not delete any table'); },
+    // Advisory lock acquisition in the real implementation; mocks always win it.
+    execute: async () => [{ locked: true }],
   };
+  fake.transaction = async (fn: (tx: unknown) => Promise<unknown>) => fn(fake);
+  return fake;
 }
 test('metrics: auth failure yields auth_expired and the tick never writes post/target status', async () => {
   process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');

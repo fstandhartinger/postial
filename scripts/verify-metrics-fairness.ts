@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { assertVerificationDatabase, createIsolatedDatabase, migrateVerificationDatabase } from './isolated-db.mjs';
 import { getDb } from '../db';
 import { users, workspaces, brands, channels, posts, postTargets, postMetrics } from '../db/schema';
@@ -122,6 +122,15 @@ async function main() {
     assert.deepEqual(await db.select().from(posts).orderBy(posts.id), beforePosts);
     assert.deepEqual(await db.select().from(channels).orderBy(channels.id), beforeChannels);
     console.log('PASS: 20 malformed encrypted credentials record null failures, back off, preserve publishing/channels and allow next-tick healthy progress');
+    const raced = await targets(7, new Date(now.getTime() - 2 * hour), 'race');
+    calls.length = 0;
+    const [first, second] = await Promise.all([refreshMetricsTick(db), refreshMetricsTick(db)]);
+    assert.equal(first + second, 7, 'two overlapping ticks must measure the due set exactly once in total');
+    const raceRows = await db.select().from(postMetrics).where(inArray(postMetrics.targetId, raced.map(target => target.id)));
+    assert.equal(raceRows.length, 7, 'exactly one stored measurement per raced target, no duplicate concurrent writes');
+    assert.deepEqual([...calls].sort(), raced.map(target => target.remoteId).sort(), 'each raced target fetched exactly once across both ticks');
+    assert.equal(await refreshMetricsTick(db), 0, 'raced targets are within backoff on the following tick');
+    console.log('PASS: concurrent ticks share one advisory lock; no duplicate provider calls or metric rows; next tick respects backoff');
     await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
     await db.delete(users).where(eq(users.id, userId));
   } finally {

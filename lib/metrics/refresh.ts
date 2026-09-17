@@ -12,6 +12,8 @@ export const METRICS_PER_TICK = 20;
 /** Wall-clock budget per tick: a slow provider must not hold up the next publishing tick. */
 export const METRICS_TICK_BUDGET_MS = 15_000;
 export const METRICS_CANDIDATE_LIMIT = 500;
+/** Advisory xact lock serializing overlapping metrics ticks (HTTP cron + worker interval, future replicas). */
+export const METRICS_TICK_LOCK_KEY = 884001;
 
 export type MetricOutcomeValue = 'ok' | 'unsupported' | 'auth_expired' | 'provider_error';
 
@@ -60,8 +62,12 @@ type Db = ReturnType<typeof getDb>;
 
 /**
  * Refreshes metrics for published targets. Gentle and bounded: 30-day window,
- * per-tick cap, age-based backoff, and every failure is contained — a metrics
- * problem must never affect publishing or throw out of the tick.
+ * per-tick cap, age-based backoff, and every provider failure is contained — a metrics
+ * problem must never affect publishing. Overlapping ticks (HTTP cron route and worker
+ * interval, or future replicas) are serialized by a transaction-scoped advisory lock;
+ * the loser skips the tick instead of double-measuring targets. Storage failures throw
+ * out of the transaction so the worker error recorder sees them instead of silently
+ * losing attempts.
  */
 export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = METRICS_TICK_BUDGET_MS): Promise<number> {
   const now = new Date();
@@ -72,50 +78,51 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
   // filling the candidate list and starving posts that can.
   const measurable = channelProvider.enumValues.filter(provider => Boolean(getPublisher(provider).fetchMetrics));
   if (!measurable.length) return 0;
-  const latest = db
-    .select({ targetId: postMetrics.targetId, fetchedAt: max(postMetrics.fetchedAt).as('fetched_at') })
-    .from(postMetrics)
-    .groupBy(postMetrics.targetId)
-    .as('latest_metrics');
-  const interval = sql`case
-    when ${postTargets.publishedAt} > ${new Date(now.getTime() - 24 * 3_600_000).toISOString()}::timestamptz then interval '1 hour'
-    when ${postTargets.publishedAt} > ${new Date(now.getTime() - 7 * 24 * 3_600_000).toISOString()}::timestamptz then interval '6 hours'
-    else interval '24 hours' end`;
-  const dueAt = sql`coalesce(${latest.fetchedAt} + ${interval}, ${postTargets.publishedAt})`;
-  const candidates = await db
-    .select({
-      targetId: postTargets.id,
-      remoteId: postTargets.remoteId,
-      publishedAt: postTargets.publishedAt,
-      provider: channels.provider,
-      credentialsEnc: channels.credentialsEnc,
-      fetchedAt: latest.fetchedAt,
-    })
-    .from(postTargets)
-    .innerJoin(channels, eq(channels.id, postTargets.channelId))
-    .leftJoin(latest, eq(latest.targetId, postTargets.id))
-    .where(
-      and(
-        eq(postTargets.status, 'published'),
-        isNotNull(postTargets.remoteId),
-        gte(postTargets.publishedAt, windowStart),
-        lte(postTargets.publishedAt, now),
-        inArray(channels.provider, measurable),
-        lte(dueAt, now.toISOString()),
-      ),
-    )
-    .orderBy(sql`${latest.fetchedAt} asc nulls first`, asc(dueAt), asc(postTargets.id))
-    .limit(METRICS_CANDIDATE_LIMIT);
-  if (!candidates.length) return 0;
-  let refreshed = 0;
-  for (const candidate of candidates) {
-    if (refreshed >= METRICS_PER_TICK || Date.now() - started >= budgetMs) break;
-    if (!candidate.remoteId || !candidate.publishedAt) continue;
-    const last = candidate.fetchedAt ? new Date(candidate.fetchedAt) : null;
-    const intervalMs = metricsRefreshIntervalMs(candidate.publishedAt, now);
-    if (last && now.getTime() - last.getTime() < intervalMs) continue;
-    refreshed += 1;
-    try {
+  return db.transaction(async (tx) => {
+    const locks = (await tx.execute(sql`select pg_try_advisory_xact_lock(${METRICS_TICK_LOCK_KEY}) as locked`)) as unknown as { locked: boolean }[];
+    if (!locks[0]?.locked) return 0;
+    const latest = tx
+      .select({ targetId: postMetrics.targetId, fetchedAt: max(postMetrics.fetchedAt).as('fetched_at') })
+      .from(postMetrics)
+      .groupBy(postMetrics.targetId)
+      .as('latest_metrics');
+    const interval = sql`case
+      when ${postTargets.publishedAt} > ${new Date(now.getTime() - 24 * 3_600_000).toISOString()}::timestamptz then interval '1 hour'
+      when ${postTargets.publishedAt} > ${new Date(now.getTime() - 7 * 24 * 3_600_000).toISOString()}::timestamptz then interval '6 hours'
+      else interval '24 hours' end`;
+    const dueAt = sql`coalesce(${latest.fetchedAt} + ${interval}, ${postTargets.publishedAt})`;
+    const candidates = await tx
+      .select({
+        targetId: postTargets.id,
+        remoteId: postTargets.remoteId,
+        publishedAt: postTargets.publishedAt,
+        provider: channels.provider,
+        credentialsEnc: channels.credentialsEnc,
+        fetchedAt: latest.fetchedAt,
+      })
+      .from(postTargets)
+      .innerJoin(channels, eq(channels.id, postTargets.channelId))
+      .leftJoin(latest, eq(latest.targetId, postTargets.id))
+      .where(
+        and(
+          eq(postTargets.status, 'published'),
+          isNotNull(postTargets.remoteId),
+          gte(postTargets.publishedAt, windowStart),
+          lte(postTargets.publishedAt, now),
+          inArray(channels.provider, measurable),
+          lte(dueAt, now.toISOString()),
+        ),
+      )
+      .orderBy(sql`${latest.fetchedAt} asc nulls first`, asc(dueAt), asc(postTargets.id))
+      .limit(METRICS_CANDIDATE_LIMIT);
+    if (!candidates.length) return 0;
+    let refreshed = 0;
+    for (const candidate of candidates) {
+      if (refreshed >= METRICS_PER_TICK || Date.now() - started >= budgetMs) break;
+      if (!candidate.remoteId || !candidate.publishedAt) continue;
+      const last = candidate.fetchedAt ? new Date(candidate.fetchedAt) : null;
+      const intervalMs = metricsRefreshIntervalMs(candidate.publishedAt, now);
+      if (last && now.getTime() - last.getTime() < intervalMs) continue;
       let result: TargetMetricsFetch = { outcome: 'provider_error', metrics: null };
       try {
         const publisher = getPublisher(candidate.provider);
@@ -123,7 +130,7 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
         result = await fetchTargetMetrics(publisher, credentials, candidate.remoteId, budgetMs - (Date.now() - started));
       } catch {}
       const { outcome, metrics } = result;
-      await db.insert(postMetrics).values({
+      await tx.insert(postMetrics).values({
         targetId: candidate.targetId,
         provider: candidate.provider,
         fetchedAt: now,
@@ -134,9 +141,8 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
         quotes: metrics?.quotes ?? null,
         impressions: metrics?.impressions ?? null,
       });
-    } catch {
-      // A metrics failure must never affect publishing or throw out of the tick.
+      refreshed += 1;
     }
-  }
-  return refreshed;
+    return refreshed;
+  });
 }
