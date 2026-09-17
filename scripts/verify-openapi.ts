@@ -5,9 +5,39 @@ import { join } from 'node:path';
 // Contract inventory guard. The runtime half is scripts/verify-api.ts: it creates
 // isolated fixtures and exercises every operation below. Keeping this inventory
 // derived from the published document prevents a route silently disappearing.
-const spec = JSON.parse(readFileSync(join(process.cwd(), 'public/openapi.json'), 'utf8'));
+type JsonSchema = {
+  $ref?: string;
+  oneOf?: JsonSchema[];
+  allOf?: JsonSchema[];
+  const?: unknown;
+  enum?: unknown[];
+  type?: string | string[];
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+  minItems?: number;
+  maxItems?: number;
+  items?: JsonSchema;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  additionalProperties?: boolean | JsonSchema;
+  examples?: unknown[];
+};
+type MediaObject = { schema?: JsonSchema; example?: unknown; examples?: Record<string, { value?: unknown }> };
+type Operation = {
+  operationId?: unknown;
+  requestBody?: { content?: Record<string, MediaObject> };
+  responses?: Record<string, { content?: Record<string, MediaObject> }>;
+  parameters?: { in?: string; name?: string; required?: boolean }[];
+};
+type Spec = {
+  info: { title: string; description: string };
+  components: { schemas: Record<string, JsonSchema>; securitySchemes: Record<string, { scheme: string }> };
+  paths: Record<string, Record<string, Operation>>;
+};
 
-type JsonSchema = Record<string, any>;
+const spec = JSON.parse(readFileSync(join(process.cwd(), 'public/openapi.json'), 'utf8')) as Spec;
 
 function resolveSchema(schema: JsonSchema): JsonSchema {
   if (!schema.$ref) return schema;
@@ -46,14 +76,14 @@ function validateExample(schemaInput: JsonSchema, value: unknown, path: string):
   if (Array.isArray(value)) {
     if (schema.minItems !== undefined) assert(value.length >= schema.minItems, `${path}: minItems`);
     if (schema.maxItems !== undefined) assert(value.length <= schema.maxItems, `${path}: maxItems`);
-    if (schema.items) value.forEach((item, index) => validateExample(schema.items, item, `${path}[${index}]`));
+    if (schema.items) value.forEach((item, index) => validateExample(schema.items!, item, `${path}[${index}]`));
   }
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     const properties = schema.properties ?? {};
     for (const required of schema.required ?? []) assert(Object.prototype.hasOwnProperty.call(value, required), `${path}: missing required ${required}`);
     if (schema.additionalProperties === false) for (const key of Object.keys(value)) assert(Object.prototype.hasOwnProperty.call(properties, key), `${path}: unknown property ${key}`);
-    for (const [key, child] of Object.entries(properties)) if (Object.prototype.hasOwnProperty.call(value, key)) validateExample(child as JsonSchema, (value as any)[key], `${path}.${key}`);
-    if (schema.additionalProperties && typeof schema.additionalProperties === 'object') for (const key of Object.keys(value)) if (!Object.prototype.hasOwnProperty.call(properties, key)) validateExample(schema.additionalProperties, (value as any)[key], `${path}.${key}`);
+    for (const [key, child] of Object.entries(properties)) if (Object.prototype.hasOwnProperty.call(value, key)) validateExample(child as JsonSchema, (value as Record<string, unknown>)[key], `${path}.${key}`);
+    if (schema.additionalProperties && typeof schema.additionalProperties === 'object') for (const key of Object.keys(value)) if (!Object.prototype.hasOwnProperty.call(properties, key)) validateExample(schema.additionalProperties, (value as Record<string, unknown>)[key], `${path}.${key}`);
   }
 }
 
@@ -67,17 +97,17 @@ function validateExamplesForSchema(schemaInput: JsonSchema, path: string, seen =
   if (schema.items) validateExamplesForSchema(schema.items, `${path}.items`, seen);
 }
 
-function validateMediaExamples(media: JsonSchema, schemaPath: string): void {
+function validateMediaExamples(media: MediaObject, schemaPath: string): void {
   const schema = media.schema;
   assert(schema, `${schemaPath}: example has no schema`);
   if (media.example !== undefined) validateExample(schema, media.example, `${schemaPath}.example`);
-  for (const [name, example] of Object.entries(media.examples ?? {})) validateExample(schema, (example as any).value, `${schemaPath}.examples.${name}`);
+  for (const [name, example] of Object.entries(media.examples ?? {})) validateExample(schema, example.value, `${schemaPath}.examples.${name}`);
 }
 
 for (const [name, schema] of Object.entries<JsonSchema>(spec.components.schemas)) validateExamplesForSchema(schema, `components.schemas.${name}`);
-for (const [path, operations] of Object.entries<any>(spec.paths)) for (const [method, operation] of Object.entries<any>(operations)) {
-  for (const [mediaType, media] of Object.entries<any>(operation.requestBody?.content ?? {})) validateMediaExamples(media, `${path} ${method} request ${mediaType}`);
-  for (const [status, response] of Object.entries<any>(operation.responses ?? {})) for (const [mediaType, media] of Object.entries<any>(response.content ?? {})) validateMediaExamples(media, `${path} ${method} response ${status} ${mediaType}`);
+for (const [path, operations] of Object.entries(spec.paths)) for (const [method, operation] of Object.entries(operations)) {
+  for (const [mediaType, media] of Object.entries(operation.requestBody?.content ?? {})) validateMediaExamples(media, `${path} ${method} request ${mediaType}`);
+  for (const [status, response] of Object.entries(operation.responses ?? {})) for (const [mediaType, media] of Object.entries(response.content ?? {})) validateMediaExamples(media, `${path} ${method} response ${status} ${mediaType}`);
 }
 
 const routeFiles: Record<string, string> = {
@@ -99,10 +129,10 @@ assert.deepEqual(Object.keys(spec.paths).sort(), Object.keys(routeFiles).sort())
 for (const [path, file] of Object.entries(routeFiles)) {
   assert(existsSync(join(process.cwd(), file)), `${path}: missing route file`);
   assert.deepEqual(Object.keys(spec.paths[path]).sort(), expected[path].sort(), `${path}: operation inventory`);
-  for (const [method, operation] of Object.entries<any>(spec.paths[path])) {
+  for (const [method, operation] of Object.entries(spec.paths[path])) {
     assert(operation.operationId, `${path} ${method}: operationId`);
     assert(operation.responses && Object.keys(operation.responses).length > 0, `${path} ${method}: responses`);
-    if (path.includes('{id}')) assert(operation.parameters?.some((p: any) => p.in === 'path' && p.name === 'id' && p.required), `${path} ${method}: required id`);
+    if (path.includes('{id}')) assert(operation.parameters?.some(p => p.in === 'path' && p.name === 'id' && p.required), `${path} ${method}: required id`);
   }
 }
 assert.equal(spec.info.title, 'Postial API');

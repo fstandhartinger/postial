@@ -1,7 +1,8 @@
-import { and, desc, eq, gte, inArray, isNotNull, lte, max } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, lte, max, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { channelProvider, channels, postMetrics, postTargets } from '@/db/schema';
 import { decryptCredentials } from '@/lib/crypto';
+import { withAbortSignal } from '@/lib/publishers/http';
 import { getPublisher, PublishError, type Credentials, type PostMetrics, type Publisher } from '@/lib/publishers';
 
 /** Only posts published within this window are refreshed; older ones are settled. */
@@ -10,7 +11,6 @@ export const METRICS_WINDOW_DAYS = 30;
 export const METRICS_PER_TICK = 20;
 /** Wall-clock budget per tick: a slow provider must not hold up the next publishing tick. */
 export const METRICS_TICK_BUDGET_MS = 15_000;
-/** Upper bound on targets considered per tick (published in the window, newest first). */
 export const METRICS_CANDIDATE_LIMIT = 500;
 
 export type MetricOutcomeValue = 'ok' | 'unsupported' | 'auth_expired' | 'provider_error';
@@ -32,13 +32,20 @@ export function metricsOutcome(publisher: Publisher, metrics: PostMetrics | null
 }
 
 /** Fetches one target's metrics and maps every failure to a stored outcome. Never throws. */
-export async function fetchTargetMetrics(publisher: Publisher, credentials: Credentials, remoteId: string): Promise<TargetMetricsFetch> {
+export async function fetchTargetMetrics(publisher: Publisher, credentials: Credentials, remoteId: string, budgetMs?: number): Promise<TargetMetricsFetch> {
   if (!publisher.fetchMetrics) return { outcome: 'unsupported', metrics: null };
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return { outcome: 'ok', metrics: await publisher.fetchMetrics(credentials, remoteId) };
+    if (budgetMs !== undefined) {
+      if (budgetMs <= 0) return { outcome: 'provider_error', metrics: null };
+      timer = setTimeout(() => controller.abort(), budgetMs);
+    }
+    const metrics = await withAbortSignal(() => publisher.fetchMetrics!(credentials, remoteId, controller.signal), controller.signal);
+    return { outcome: 'ok', metrics };
   } catch (error) {
     return { outcome: metricsOutcome(publisher, null, error), metrics: null };
-  }
+  } finally { clearTimeout(timer); }
 }
 
 /** Backoff between refreshes: fresh posts are polled often, old posts rarely. */
@@ -65,6 +72,16 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
   // filling the candidate list and starving posts that can.
   const measurable = channelProvider.enumValues.filter(provider => Boolean(getPublisher(provider).fetchMetrics));
   if (!measurable.length) return 0;
+  const latest = db
+    .select({ targetId: postMetrics.targetId, fetchedAt: max(postMetrics.fetchedAt).as('fetched_at') })
+    .from(postMetrics)
+    .groupBy(postMetrics.targetId)
+    .as('latest_metrics');
+  const interval = sql`case
+    when ${postTargets.publishedAt} > ${new Date(now.getTime() - 24 * 3_600_000).toISOString()}::timestamptz then interval '1 hour'
+    when ${postTargets.publishedAt} > ${new Date(now.getTime() - 7 * 24 * 3_600_000).toISOString()}::timestamptz then interval '6 hours'
+    else interval '24 hours' end`;
+  const dueAt = sql`coalesce(${latest.fetchedAt} + ${interval}, ${postTargets.publishedAt})`;
   const candidates = await db
     .select({
       targetId: postTargets.id,
@@ -72,9 +89,11 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
       publishedAt: postTargets.publishedAt,
       provider: channels.provider,
       credentialsEnc: channels.credentialsEnc,
+      fetchedAt: latest.fetchedAt,
     })
     .from(postTargets)
     .innerJoin(channels, eq(channels.id, postTargets.channelId))
+    .leftJoin(latest, eq(latest.targetId, postTargets.id))
     .where(
       and(
         eq(postTargets.status, 'published'),
@@ -82,30 +101,28 @@ export async function refreshMetricsTick(db: Db = getDb(), budgetMs: number = ME
         gte(postTargets.publishedAt, windowStart),
         lte(postTargets.publishedAt, now),
         inArray(channels.provider, measurable),
+        lte(dueAt, now.toISOString()),
       ),
     )
-    // Newest first: fresh posts change fastest and have the shortest backoff.
-    .orderBy(desc(postTargets.publishedAt))
+    .orderBy(sql`${latest.fetchedAt} asc nulls first`, asc(dueAt), asc(postTargets.id))
     .limit(METRICS_CANDIDATE_LIMIT);
   if (!candidates.length) return 0;
-  const latestRows = await db
-    .select({ targetId: postMetrics.targetId, fetchedAt: max(postMetrics.fetchedAt) })
-    .from(postMetrics)
-    .where(inArray(postMetrics.targetId, candidates.map(c => c.targetId)))
-    .groupBy(postMetrics.targetId);
-  const latest = new Map<string, Date>();
-  for (const row of latestRows) if (row.fetchedAt) latest.set(row.targetId, new Date(row.fetchedAt));
   let refreshed = 0;
   for (const candidate of candidates) {
     if (refreshed >= METRICS_PER_TICK || Date.now() - started >= budgetMs) break;
     if (!candidate.remoteId || !candidate.publishedAt) continue;
-    const last = latest.get(candidate.targetId);
+    const last = candidate.fetchedAt ? new Date(candidate.fetchedAt) : null;
     const intervalMs = metricsRefreshIntervalMs(candidate.publishedAt, now);
     if (last && now.getTime() - last.getTime() < intervalMs) continue;
     refreshed += 1;
     try {
-      const publisher = getPublisher(candidate.provider);
-      const { outcome, metrics } = await fetchTargetMetrics(publisher, decryptCredentials(candidate.credentialsEnc), candidate.remoteId);
+      let result: TargetMetricsFetch = { outcome: 'provider_error', metrics: null };
+      try {
+        const publisher = getPublisher(candidate.provider);
+        const credentials = decryptCredentials(candidate.credentialsEnc);
+        result = await fetchTargetMetrics(publisher, credentials, candidate.remoteId, budgetMs - (Date.now() - started));
+      } catch {}
+      const { outcome, metrics } = result;
       await db.insert(postMetrics).values({
         targetId: candidate.targetId,
         provider: candidate.provider,

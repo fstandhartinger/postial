@@ -11,6 +11,17 @@ export async function publishingDeadline<T>(work: () => Promise<T>, parent?: Abo
   const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(failure('NETWORK', 'Publishing exceeded its 90 second deadline.')); }, 90_000); });
   try { return await deadlines.run(signal, () => Promise.race([work(), timeout])); } finally { clearTimeout(timer); }
 }
+export async function withAbortSignal<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  const error = () => failure('NETWORK', 'The provider request was cancelled. Please try again.');
+  if (signal.aborted) throw error();
+  let onAbort: () => void = () => {};
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(error());
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try { return await Promise.race([work(), aborted]); }
+  finally { signal.removeEventListener('abort', onAbort); }
+}
 export async function pollingPause() {
   deadlines.getStore()?.throwIfAborted();
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -80,15 +91,16 @@ async function request<T>(provider: string, url: string, init: RequestInit, cons
       timer = setTimeout(() => { controller.abort(); reject(failure('NETWORK', `${provider} did not respond within ${Math.round(timeoutMs / 1000)} seconds. Please try again.`)); }, timeoutMs);
     });
     try {
-      return await Promise.race([ (async () => {
-        const response = await safeFetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(deadlines.getStore() ? [deadlines.getStore()!] : [])]) }, maxBytes, timeoutMs);
+      const signal = AbortSignal.any([controller.signal, ...(init.signal ? [init.signal] : []), ...(deadlines.getStore() ? [deadlines.getStore()!] : [])]);
+      return await Promise.race([withAbortSignal(async () => {
+        const response = await safeFetch(url, { ...init, signal }, maxBytes, timeoutMs);
         if (!response.ok && !(allowMissing && response.status === 404)) {
           const body = await response.clone().json().catch(() => ({}));
           if (allowMissing && response.status === 400 && body.error === "RecordNotFound") return consume(response);
           throw responseError(provider, response.status, body ?? {}, response.headers);
         }
         return consume(response);
-      })(), timeout ]);
+      }, signal), timeout ]);
     } finally { clearTimeout(timer); }
   });
 }

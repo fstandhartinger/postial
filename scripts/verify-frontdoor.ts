@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { createIsolatedDatabase } from './isolated-db.mjs';
@@ -9,19 +9,19 @@ import { createIsolatedDatabase } from './isolated-db.mjs';
 const evidence = 'work/frontdoor-evidence';
 const rows: { step: string; observed: string; rating: string; correction: string }[] = [];
 const controller = new AbortController();
-let isolated: any;
+let isolated: { url: string; name: string; cleanup: () => Promise<void> } | undefined;
 let stripe: Stripe;
 let productId = '', starterPriceId = '', agencyPriceId = '', customerId = '';
 let sessionId = '', workspaceId = '', token = '';
-let server: any;
-function testOnly(value: any, label: string) {
+let server: ChildProcess | undefined;
+function testOnly<T>(value: T, label: string): T {
   if (value && typeof value === 'object' && 'livemode' in value) assert.equal(value.livemode, false, `${label} was live`);
   return value;
 }
 async function main() {
   await mkdir(evidence, { recursive: true });
   try {
-    isolated = await (createIsolatedDatabase as any)(process.env.VERIFY_ADMIN_DATABASE_URL, { signal: controller.signal });
+    isolated = await (createIsolatedDatabase as (source?: string, options?: { signal?: AbortSignal; migrate?: (url: string, signal?: AbortSignal) => Promise<void> }) => ReturnType<typeof createIsolatedDatabase>)(process.env.VERIFY_ADMIN_DATABASE_URL, { signal: controller.signal });
     const { getDb } = await import('../db');
     const { users, sessions, subscriptions } = await import('../db/schema');
     const { ensureWorkspace } = await import('../lib/workspaces');
@@ -61,7 +61,7 @@ async function main() {
     const base = process.env.VERIFY_BASE_URL!;
     const cookie = `authjs.session-token=${token}`;
     async function get(path: string) { return fetch(base + path, { headers: { Cookie: cookie } }); }
-    async function post(path: string, body?: any) { return fetch(base + path, { method: 'POST', headers: { Cookie: cookie, Origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }); }
+    async function post(path: string, body?: unknown) { return fetch(base + path, { method: 'POST', headers: { Cookie: cookie, Origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }); }
     const authBody = await (await get('/api/auth/session')).text(); assert.match(authBody, /Frontdoor verification|frontdoor-/i, 'auth session missing: ' + authBody.slice(0, 200));
     const noPortal = await post('/api/stripe/portal'); assert.equal(noPortal.status, 404); rows.push({ step: 'Kundenportal ohne Abonnement', observed: '404 mit verständlichem „Billing customer not found“ statt Portalzugang', rating: 'PASS', correction: 'keine' });
     for (const width of [390, 1280]) {

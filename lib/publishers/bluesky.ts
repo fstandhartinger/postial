@@ -88,9 +88,9 @@ export const bluesky: Publisher = {
   // app.bsky.feed.getPosts is a GET query on the public AppView. Engagement counts of a
   // public post need no session, and skipping createSession keeps metrics polling from
   // consuming the account's login rate limit that publishing depends on.
-  fetchMetrics(_credentials, remoteId) { return guarded('Bluesky', async () => {
+  fetchMetrics(_credentials, remoteId, signal) { return guarded('Bluesky', async () => {
     if (!remoteId.startsWith('at://')) throw failure('UNKNOWN', 'This Bluesky post reference is not valid.');
-    const result = await json<{ posts?: { uri?: string; likeCount?: number; repostCount?: number; replyCount?: number; quoteCount?: number }[] }>('Bluesky', `https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(remoteId)}`);
+    const result = await json<{ posts?: { uri?: string; likeCount?: number; repostCount?: number; replyCount?: number; quoteCount?: number }[] }>('Bluesky', `https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(remoteId)}`, { signal });
     const post = result.posts?.find(candidate => candidate.uri === remoteId);
     if (!post) throw failure('UNKNOWN', 'Bluesky did not return this post.');
     return {

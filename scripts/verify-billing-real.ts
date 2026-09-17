@@ -4,6 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import Stripe from 'stripe';
 import { sql } from 'drizzle-orm';
 import { createIsolatedDatabase } from './isolated-db.mjs';
+import type { getDb } from '../db';
+import type { workspaceEntitlements } from '../lib/entitlements';
 
 const webhookSecret = `whsec_isolated_${randomBytes(24).toString('hex')}`;
 const started = Math.floor(Date.now() / 1000) - 5;
@@ -14,7 +16,8 @@ let isolated: { url: string; name: string; cleanup: () => Promise<void> } | unde
 let stripe: Stripe;
 let customerId = '', productId = '', starterPriceId = '', agencyPriceId = '', subscriptionId = '', workspaceId = '';
 
-function assertTest(value: any, label: string) {
+type LiveResource = { livemode?: unknown; id?: unknown; subscription?: unknown };
+function assertTest<T>(value: T, label: string): T {
   if (value && typeof value === 'object' && 'livemode' in value) assert.equal(value.livemode, false, `${label} was live`);
   return value;
 }
@@ -26,7 +29,7 @@ function signed(body: string) {
 async function eventsSince(previous: Set<string>) {
   for (let attempt = 0; attempt < 40; attempt++) {
     const listed = await stripe.events.list({ created: { gte: started }, limit: 100 });
-    const wanted = listed.data.filter(e => e.data.object && 'livemode' in e.data.object && (e.data.object as any).livemode === false && !previous.has(e.id) && ((e.data.object as any).id === subscriptionId || (e.data.object as any).subscription === subscriptionId));
+    const wanted = listed.data.filter(e => e.data.object && 'livemode' in e.data.object && (e.data.object as LiveResource).livemode === false && !previous.has(e.id) && ((e.data.object as LiveResource).id === subscriptionId || (e.data.object as LiveResource).subscription === subscriptionId));
     if (wanted.length) return wanted.sort((a, b) => a.created - b.created);
     await new Promise(resolve => setTimeout(resolve, 250));
   }
@@ -45,8 +48,8 @@ async function deliver(events: Stripe.Event[]) {
   }
   return delivered;
 }
-async function snapshot(db: any, entitlements: any, step: string, events: Stripe.Event[], expected: string) {
-  const [sub] = await db.execute(sql`select status, plan, trial_end, current_period_end, cancel_at_period_end from subscriptions where workspace_id=${workspaceId}::uuid`);
+async function snapshot(db: ReturnType<typeof getDb>, entitlements: typeof workspaceEntitlements, step: string, events: Stripe.Event[], expected: string) {
+  const [sub] = await db.execute<{ status: string; plan: string; trial_end: string | Date | null; current_period_end: string | Date | null; cancel_at_period_end: boolean }>(sql`select status, plan, trial_end, current_period_end, cancel_at_period_end from subscriptions where workspace_id=${workspaceId}::uuid`);
   assert.ok(sub, `missing local subscription after ${step}`);
   const entitlement = await entitlements(workspaceId);
   const formatDate = (value: unknown) => value == null ? 'null' : value instanceof Date ? value.toISOString() : String(value);
@@ -107,7 +110,7 @@ async function main() {
   const scheduled = assertTest(await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true }), 'cancel at period end');
   ev = await eventsSince(beforeCancel); delivered = await deliver(ev); current = await snapshot(db, workspaceEntitlements, 'Kündigung zum Periodenende', delivered, 'Bis Periodenende Zugang; danach 3-Tage-Nachfrist, dann Entzug');
   assert.equal(current.sub.cancel_at_period_end, true); assert.equal(current.entitlement.publish, true);
-  assert.equal(hasAccess({ stripeSubscriptionId: subscriptionId, status: current.sub.status, trialEnd: current.sub.trial_end ? new Date(current.sub.trial_end) : null, currentPeriodEnd: new Date(current.sub.current_period_end) }, new Date(new Date(current.sub.current_period_end).getTime() + 3 * 86400000)), false);
+  assert.equal(hasAccess({ stripeSubscriptionId: subscriptionId, status: current.sub.status, trialEnd: current.sub.trial_end ? new Date(current.sub.trial_end) : null, currentPeriodEnd: new Date(current.sub.current_period_end!) }, new Date(new Date(current.sub.current_period_end!).getTime() + 3 * 86400000)), false);
   const last = delivered.at(-1)!; const duplicate = await deliver([last]); assert.equal(duplicate.length, 1);
   const afterDuplicate = await snapshot(db, workspaceEntitlements, 'Wiederholung desselben Ereignisses', [], 'Idempotent: Zustand unverändert'); assert.equal(afterDuplicate.sub.plan, 'starter'); assert.equal(afterDuplicate.sub.cancel_at_period_end, true);
   const old = eventIds.length > 1 ? (await stripe.events.retrieve(eventIds[0])) : last; const oldDelivered = await deliver([old]); const afterOld = await snapshot(db, workspaceEntitlements, 'Altes Ereignis nach neuem Ereignis', oldDelivered, 'Altes Ereignis dreht den neueren Zustand nicht zurück'); assert.equal(afterOld.sub.plan, 'starter'); assert.equal(afterOld.sub.cancel_at_period_end, true);

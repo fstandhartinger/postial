@@ -57,7 +57,7 @@ export const mastodon: Publisher = {
     const status = await json<{ id: string; url: string }>('Mastodon', `${origin}/api/v1/statuses`, { ...request, headers: { ...request.headers, ...headers, 'Idempotency-Key': input.idempotencyKey } });
     return { remoteId: status.id, url: status.url, ...((input.mediaUrls?.length ?? 0) > 4 ? { warnings: ['Mastodon allows four images; extra images were omitted.'] } : {}) };
   }), input.signal); },
-  fetchMetrics(credentials, remoteId) { return guarded('Mastodon', async () => {
+  fetchMetrics(credentials, remoteId, signal) { return guarded('Mastodon', async () => {
     const origin = httpsOrigin(credentials.instanceUrl);
     if (!remoteId) throw failure('UNKNOWN', 'This Mastodon post reference is not valid.');
     type Status = { id?: string; favourites_count?: number; reblogs_count?: number; replies_count?: number; quotes_count?: number };
@@ -67,11 +67,11 @@ export const mastodon: Publisher = {
     // public cannot see (followers-only: 401/403/404 anonymously) is retried with the token.
     let status: Status;
     try {
-      status = await json<Status>('Mastodon', url);
+      status = await json<Status>('Mastodon', url, { signal });
     } catch (anonymous) {
       if (!(anonymous instanceof PublishError) || !['AUTH_EXPIRED', 'UNKNOWN'].includes(anonymous.code)) throw anonymous;
       try {
-        status = await json<Status>('Mastodon', url, { headers: { Authorization: `Bearer ${credentials.accessToken}` } });
+        status = await json<Status>('Mastodon', url, { signal, headers: { Authorization: `Bearer ${credentials.accessToken}` } });
       } catch (authenticated) {
         // A hidden post plus a token without read:statuses is not an expired channel; keep the
         // anonymous "not found" instead of telling the user to reconnect a working channel.

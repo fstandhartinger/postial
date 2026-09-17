@@ -769,10 +769,14 @@ test('Telegram has no fetchMetrics and resolves to the unsupported outcome', asy
 /** Records inserts; throws on any update/delete so a test fails if the tick ever writes post/target status. */
 function fakeMetricsDb(candidates: unknown[], latestRows: unknown[], channelRows: Record<string, unknown>[]) {
   const writes: { table: unknown; rows: unknown[] }[] = [];
-  const queue: unknown[] = [candidates, latestRows, ...channelRows.map(row => [row])];
+  const latest = new Map((latestRows as { targetId: string; fetchedAt: Date }[]).map(row => [row.targetId, row.fetchedAt]));
+  const joined = (candidates as { targetId: string }[]).map(candidate => ({ ...candidate, fetchedAt: latest.get(candidate.targetId) ?? null }));
+  const queue: unknown[] = [[], joined, ...channelRows.map(row => [row])];
   const chain = (result: unknown) => {
     const self: Record<string, unknown> = { then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result).then(resolve, reject) };
-    for (const method of ['from', 'innerJoin', 'where', 'orderBy', 'limit', 'groupBy']) self[method] = () => self;
+    self.targetId = postMetrics.targetId;
+    self.fetchedAt = postMetrics.fetchedAt;
+    for (const method of ['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit', 'groupBy', 'as']) self[method] = () => self;
     return self;
   };
   return {
@@ -820,6 +824,125 @@ test('metrics refresh: backoff grows with post age', () => {
   assert.equal(metricsRefreshIntervalMs(new Date(now.getTime() - 2 * 86_400_000), now), 6 * 3_600_000);
   assert.equal(metricsRefreshIntervalMs(new Date(now.getTime() - 20 * 86_400_000), now), 24 * 3_600_000);
 });
+for (const provider of ['bluesky', 'mastodon'] as const) {
+  for (const phase of ['headers', 'body', 'decoded body'] as const) test(`metrics deadline: ${provider} stalled ${phase} uses remaining tick budget`, async t => {
+    process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    let clock = Date.now();
+    nodeMock.method(Date, 'now', () => clock);
+    const remoteId = provider === 'bluesky' ? 'at://did:plc:alice/app.bsky.feed.post/key' : '8';
+    const body = provider === 'bluesky' ? { posts: [{ uri: remoteId, likeCount: 7 }] } : { id: remoteId, favourites_count: 7 };
+    const candidate = { targetId: crypto.randomUUID(), remoteId, publishedAt: new Date(clock - 3_600_000), provider, credentialsEnc: encryptCredentials(credentials[provider]) };
+    const db = fakeMetricsDb([candidate, { ...candidate, targetId: crypto.randomUUID() }], [], []);
+    const calls: AbortSignal[] = [];
+    let release = () => {};
+    let bodyStarted = false;
+    if (phase === 'decoded body') nodeMock.method(Response.prototype, 'text', () => {
+      bodyStarted = true;
+      return new Promise<string>(resolve => { release = () => resolve(JSON.stringify(body)); });
+    });
+    globalThis.fetch = async (_url, init) => {
+      calls.push(init!.signal!);
+      if (phase === 'headers') return new Promise<Response>(resolve => { release = () => resolve(response(body)); });
+      if (phase === 'body') return new Response(new ReadableStream({ start(controller) {
+        bodyStarted = true;
+        release = () => { try { controller.enqueue(new TextEncoder().encode(JSON.stringify(body))); controller.close(); } catch {} };
+      } }));
+      return response(body);
+    };
+    const flush = () => new Promise<void>(resolve => setImmediate(resolve));
+    let settled = false;
+    const pending = refreshMetricsTick(db as never, 100).then(value => { settled = true; return value; });
+    clock += 40;
+    await flush();
+    assert.equal(calls.length, 1);
+    if (phase !== 'headers') assert.equal(bodyStarted, true);
+    clock += 59; t.mock.timers.tick(59); await flush();
+    assert.equal(settled, false);
+    clock += 1; t.mock.timers.tick(1); await flush();
+    const bounded = settled;
+    const aborted = calls[0].aborted;
+    const writesAtDeadline = JSON.stringify(db.writes.map(write => write.rows));
+    release();
+    await flush();
+    t.mock.timers.tick(20_000);
+    await pending;
+    await flush();
+    assert.equal(bounded, true, 'tick must settle at remaining 60ms, not the provider 20s timeout');
+    assert.equal(aborted, true, 'abort must reach the real adapter HTTP signal');
+    assert.equal(calls.length, 1, 'no later target or authenticated retry after deadline');
+    assert.equal(JSON.stringify(db.writes.map(write => write.rows)), writesAtDeadline, 'late completion cannot write success');
+    assert.equal(db.writes.length, 1);
+    const row = db.writes[0].rows[0] as Record<string, unknown>;
+    assert.equal(row.outcome, 'provider_error');
+    for (const key of ['likes', 'replies', 'reposts', 'quotes', 'impressions']) assert.equal(row[key], null);
+    t.mock.timers.reset();
+  });
+}
+for (const provider of ['bluesky', 'mastodon'] as const) test(`metrics deadline: ${provider} parent abort races decoded body and rejects pre-aborted calls`, async () => {
+  const controller = new AbortController();
+  const remoteId = provider === 'bluesky' ? 'at://did:plc:alice/app.bsky.feed.post/key' : '8';
+  const adapter = getPublisher(provider);
+  const calls = mock(() => response({}));
+  let release = () => {};
+  let consuming = false;
+  nodeMock.method(Response.prototype, 'text', () => {
+    consuming = true;
+    return new Promise<string>(resolve => { release = () => resolve('{}'); });
+  });
+  let settled = false;
+  const checked = assert.rejects(adapter.fetchMetrics!(credentials[provider], remoteId, controller.signal), errorCode('NETWORK', true)).then(() => { settled = true; });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(consuming, true);
+  controller.abort();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  const bounded = settled;
+  release(); await checked;
+  assert.equal(bounded, true, 'adapter itself must race body consumption, not just propagate the signal');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.signal?.aborted, true);
+  await assert.rejects(adapter.fetchMetrics!(credentials[provider], remoteId, controller.signal), errorCode('NETWORK', true));
+  assert.equal(calls.length, 1, 'already aborted adapter must not start HTTP');
+});
+test('metrics deadline: late rejecting adapter is contained and already expired budget starts zero calls', async t => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let clock = Date.now();
+  nodeMock.method(Date, 'now', () => clock);
+  const adapter = getPublisher('mastodon') as ReturnType<typeof getPublisher> & { fetchMetrics: NonNullable<ReturnType<typeof getPublisher>['fetchMetrics']> };
+  let rejectLate = () => {};
+  const fetch = nodeMock.method(adapter, 'fetchMetrics', () => new Promise<never>((_resolve, reject) => { rejectLate = () => reject(new Error('synthetic late failure')); }));
+  const candidate = { targetId: crypto.randomUUID(), remoteId: '8', publishedAt: new Date(clock - 3_600_000), provider: 'mastodon', credentialsEnc: encryptCredentials(credentials.mastodon) };
+  for (const budget of [0, -1]) assert.equal(await refreshMetricsTick(fakeMetricsDb([candidate], [], []) as never, budget), 0);
+  assert.equal(fetch.mock.callCount(), 0);
+  const db = fakeMetricsDb([candidate, candidate], [], []);
+  let settled = false;
+  const pending = refreshMetricsTick(db as never, 10).then(() => { settled = true; });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  clock += 10; t.mock.timers.tick(10);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  const bounded = settled;
+  rejectLate(); await pending;
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(bounded, true);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal((db.writes[0].rows[0] as Record<string, unknown>).outcome, 'provider_error');
+  t.mock.timers.reset();
+});
+test('metrics: malformed encrypted credentials store only a safe failed attempt', async () => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+  const candidate = { targetId: crypto.randomUUID(), remoteId: '8', publishedAt: new Date(Date.now() - 3_600_000), provider: 'mastodon', credentialsEnc: 'synthetic-malformed-ciphertext' };
+  const db = fakeMetricsDb([candidate], [], []);
+  const calls = mock();
+  const logs = [nodeMock.method(console, 'error', () => {}), nodeMock.method(console, 'warn', () => {}), nodeMock.method(console, 'log', () => {})];
+  assert.equal(await refreshMetricsTick(db as never), 1);
+  assert.equal(calls.length, 0);
+  assert.equal(db.writes.length, 1);
+  assert.equal(db.writes[0].table, postMetrics);
+  assert.deepEqual(db.writes[0].rows[0], { targetId: candidate.targetId, provider: 'mastodon', fetchedAt: (db.writes[0].rows[0] as Record<string, unknown>).fetchedAt, outcome: 'provider_error', likes: null, replies: null, reposts: null, quotes: null, impressions: null });
+  assert((db.writes[0].rows[0] as Record<string, unknown>).fetchedAt instanceof Date);
+  assert(logs.every(log => log.mock.callCount() === 0));
+});
 test('AN-3: populated previous period returns a real delta', () => {
   const now = new Date('2026-09-16T12:00:00Z');
   const day = 86_400_000;
@@ -833,6 +956,8 @@ test('AN-3: populated previous period returns a real delta', () => {
   const result = compareMetricHistory(points, now);
   assert.equal(result.state, 'compared');
   assert.deepEqual(result.deltas, [{ key: 'likes', delta: 26 }, { key: 'replies', delta: 6 }, { key: 'reposts', delta: 2 }]);
+  assert.deepEqual(result.previousPoint?.fetchedAt, points[1].fetchedAt);
+  assert.deepEqual(result.currentPoint?.fetchedAt, points[3].fetchedAt);
 });
 test('AN-3: empty previous period is an explicit no-previous state, never a fabricated 0 %', () => {
   const now = new Date('2026-09-16T12:00:00Z');
@@ -844,5 +969,5 @@ test('AN-3: empty previous period is an explicit no-previous state, never a fabr
   const result = compareMetricHistory(points, now);
   assert.equal(result.state, 'no_previous');
   assert.equal(result.deltas.length, 0);
-  assert.deepEqual(compareMetricHistory([], now), { state: 'no_data', currentWindow: null, previousWindow: null, deltas: [] });
+  assert.deepEqual(compareMetricHistory([], now), { state: 'no_data', currentWindow: null, previousWindow: null, deltas: [], currentPoint: null, previousPoint: null });
 });

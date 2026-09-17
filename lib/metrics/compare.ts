@@ -20,6 +20,8 @@ export interface MetricsComparison {
   previousWindow: { start: Date; end: Date } | null;
   /** Real differences only; metrics absent on either side are omitted. */
   deltas: { key: MetricKey; delta: number }[];
+  currentPoint: MetricPoint | null;
+  previousPoint: MetricPoint | null;
 }
 
 /** Default comparison window: the current period is the last 7 days. */
@@ -44,13 +46,13 @@ export function compareMetricHistory(
     const t = point.fetchedAt.getTime();
     return t >= start.getTime() && (includeEnd ? t <= end.getTime() : t < end.getTime());
   };
-  if (!sorted.length) return { state: 'no_data', currentWindow: null, previousWindow: null, deltas: [] };
+  if (!sorted.length) return { state: 'no_data', currentWindow: null, previousWindow: null, deltas: [], currentPoint: null, previousPoint: null };
   const current = sorted.filter(p => inWindow(p, currentWindow.start, currentWindow.end, true));
   const previous = sorted.filter(p => inWindow(p, previousWindow.start, previousWindow.end, false));
   // A delta needs a measurement on both sides; anything else is an explicit
   // absence, never a fabricated 0 % change.
   if (!current.length || !previous.length)
-    return { state: 'no_previous', currentWindow, previousWindow, deltas: [] };
+    return { state: 'no_previous', currentWindow, previousWindow, deltas: [], currentPoint: null, previousPoint: null };
   const currentPoint = current[current.length - 1];
   const previousPoint = previous[previous.length - 1];
   const deltas: { key: MetricKey; delta: number }[] = [];
@@ -59,6 +61,6 @@ export function compareMetricHistory(
     const b = previousPoint.values[key];
     if (typeof a === 'number' && typeof b === 'number') deltas.push({ key, delta: a - b });
   }
-  if (!deltas.length) return { state: 'no_previous', currentWindow, previousWindow, deltas: [] };
-  return { state: 'compared', currentWindow, previousWindow, deltas };
+  if (!deltas.length) return { state: 'no_previous', currentWindow, previousWindow, deltas: [], currentPoint: null, previousPoint: null };
+  return { state: 'compared', currentWindow, previousWindow, deltas, currentPoint, previousPoint };
 }

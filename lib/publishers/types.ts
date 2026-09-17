@@ -97,5 +97,5 @@ export interface Publisher {
    * simply omit this method, and the absence is a first-class "unsupported" state.
    * Throws PublishError (e.g. AUTH_EXPIRED) on failure; must never throw anything else.
    */
-  fetchMetrics?(credentials: Credentials, remoteId: string): Promise<PostMetrics>;
+  fetchMetrics?(credentials: Credentials, remoteId: string, signal?: AbortSignal): Promise<PostMetrics>;
 }

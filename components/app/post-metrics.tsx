@@ -38,6 +38,10 @@ function MetricValue({ label, value }: { label: string; value: number | null }) 
   );
 }
 
+function formatUtc(date: Date) {
+  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
 /** Telegram's Bot API has no post statistics; other networks do, Postial just does not collect them yet. */
 function noStatisticsReason(provider: string) {
   return provider === "telegram"
@@ -54,10 +58,10 @@ function MeasuredValues({ values, comparison }: { values: Record<MetricKey, numb
         ))}
       </dl>
       <p className="mt-3 text-sm text-gray-600">
-        {comparison.state === "compared"
-          ? `Compared to the previous period: ${comparison.deltas
+        {comparison.state === "compared" && comparison.previousPoint && comparison.currentPoint
+          ? `Change between cumulative lifetime snapshots: ${comparison.deltas
               .map((d) => `${d.delta >= 0 ? "+" : ""}${d.delta} ${METRIC_LABELS[d.key].toLowerCase()}`)
-              .join(", ")}.`
+              .join(", ")} — measured ${formatUtc(comparison.previousPoint.fetchedAt)} and ${formatUtc(comparison.currentPoint.fetchedAt)}. These counters accumulate over the post's lifetime, so this is snapshot change, not engagement earned in either period.`
           : "No previous data."}
       </p>
     </>
@@ -81,7 +85,14 @@ function TargetBlock({ view, now }: { view: TargetMetricsView; now: Date }) {
   } else if (view.latest.outcome === "unsupported") {
     body = <p className="mt-1 text-gray-600">{noStatisticsReason(view.provider)}</p>;
   } else if (view.latest.outcome === "ok") {
-    body = <MeasuredValues values={view.latest.values} comparison={comparison} />;
+    body = (
+      <>
+        <p className="mt-1 text-sm text-gray-600">
+          Last successfully measured {formatUtc(view.latest.fetchedAt)}.
+        </p>
+        <MeasuredValues values={view.latest.values} comparison={comparison} />
+      </>
+    );
   } else {
     const problem = view.latest.outcome === "auth_expired"
       ? "Channel access expired. Reconnect the channel to see statistics."
