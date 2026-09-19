@@ -1,12 +1,31 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import * as schema from '../db/schema';
 import { assertVerificationDatabase, createIsolatedDatabase, migrateVerificationDatabase } from './isolated-db.mjs';
 import { getDb } from '../db';
 import { users, workspaces, brands, channels, posts, postTargets, postMetrics } from '../db/schema';
 import { encryptCredentials } from '../lib/crypto';
 import { getPublisher, registerPublisher } from '../lib/publishers';
-import { refreshMetricsTick } from '../lib/metrics/refresh';
+import { METRICS_TICK_LOCK_KEY, refreshMetricsTick } from '../lib/metrics/refresh';
+
+async function bounded<T>(operation: PromiseLike<T>, label: string, signal?: AbortSignal): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
+  try {
+    signal?.throwIfAborted();
+    return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new assert.AssertionError({ message: `${label} exceeded 5000ms` })), 5000);
+      abort = () => reject(new Error('Verification interrupted'));
+      signal?.addEventListener('abort', abort, { once: true });
+    })]);
+  } finally {
+    clearTimeout(timer);
+    if (abort) signal?.removeEventListener('abort', abort);
+  }
+}
 
 async function main() {
   const controller = new AbortController();
@@ -22,6 +41,9 @@ async function main() {
   const originalFetch = globalThis.fetch;
   const originalPublisher = getPublisher('mastodon');
   const originalKey = process.env.APP_ENCRYPTION_KEY;
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  const userId = randomUUID();
+  let workspaceId: string | undefined;
   const calls: string[] = [];
   try {
     if (isolated) process.env.DATABASE_URL = isolated.url;
@@ -36,9 +58,9 @@ async function main() {
       },
     });
     db = getDb();
-    const userId = randomUUID();
     await db.insert(users).values({ id: userId, name: 'Metrics fairness fixture' });
     const [workspace] = await db.insert(workspaces).values({ ownerUserId: userId, name: 'Fixture', slug: userId }).returning();
+    workspaceId = workspace.id;
     const [brand] = await db.insert(brands).values({ workspaceId: workspace.id, name: 'Fixture', slug: 'fixture' }).returning();
     const [channel] = await db.insert(channels).values({ brandId: brand.id, provider: 'mastodon', displayName: 'Fixture', externalId: 'fixture', credentialsEnc: encryptCredentials({ accessToken: 'synthetic-fixture' }) }).returning();
     const now = new Date();
@@ -123,22 +145,97 @@ async function main() {
     assert.deepEqual(await db.select().from(channels).orderBy(channels.id), beforeChannels);
     console.log('PASS: 20 malformed encrypted credentials record null failures, back off, preserve publishing/channels and allow next-tick healthy progress');
     const raced = await targets(7, new Date(now.getTime() - 2 * hour), 'race');
-    calls.length = 0;
-    const [first, second] = await Promise.all([refreshMetricsTick(db), refreshMetricsTick(db)]);
-    assert.equal(first + second, 7, 'two overlapping ticks must measure the due set exactly once in total');
-    const raceRows = await db.select().from(postMetrics).where(inArray(postMetrics.targetId, raced.map(target => target.id)));
-    assert.equal(raceRows.length, 7, 'exactly one stored measurement per raced target, no duplicate concurrent writes');
-    assert.deepEqual([...calls].sort(), raced.map(target => target.remoteId).sort(), 'each raced target fetched exactly once across both ticks');
-    assert.equal(await refreshMetricsTick(db), 0, 'raced targets are within backoff on the following tick');
-    console.log('PASS: concurrent ticks share one advisory lock; no duplicate provider calls or metric rows; next tick respects backoff');
-    await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
-    await db.delete(users).where(eq(users.id, userId));
+    const raceCalls: string[] = [];
+    const contenderClient = postgres(process.env.DATABASE_URL!, {
+      prepare: false, max: 1, connect_timeout: 2, connection: { statement_timeout: 4000 },
+    });
+    const contenderDb = drizzle(contenderClient, { schema });
+    let enter!: () => void;
+    let release!: () => void;
+    let released = false;
+    let providerExited = false;
+    let firstSettled = false;
+    const entered = new Promise<void>(resolve => { enter = resolve; });
+    const held = new Promise<void>(resolve => { release = () => { released = true; resolve(); }; });
+    let first: Promise<number> | undefined;
+    let second: Promise<number> | undefined;
+    registerPublisher({
+      ...originalPublisher,
+      async fetchMetrics(_credentials, remoteId) {
+        raceCalls.push(remoteId);
+        if (raceCalls.length === 1) {
+          enter();
+          await held;
+          providerExited = true;
+        }
+        return { likes: 7, replies: 0, reposts: null, quotes: null, impressions: null };
+      },
+    });
+    try {
+      const [connection] = await bounded(contenderClient`select pg_backend_pid() as pid`, 'contender connection ready', controller.signal);
+      first = refreshMetricsTick(db).finally(() => { firstSettled = true; });
+      void first.catch(() => {});
+      await bounded(Promise.race([entered, first.then(() => { assert.fail('first tick completed before provider entry'); })]), 'first provider entry', controller.signal);
+      const locks = await bounded(contenderClient`select pid from pg_locks where locktype = 'advisory' and granted
+        and database = (select oid from pg_database where datname = current_database())
+        and classid = 0 and objid = ${METRICS_TICK_LOCK_KEY} and objsubid = 1`, 'first advisory lock observation', controller.signal);
+      assert.equal(locks.length, 1, 'first tick must hold the actual advisory lock at provider entry');
+      assert.notEqual(locks[0].pid, connection.pid, 'contender is a separate available PostgreSQL session');
+      assert.equal(firstSettled, false);
+      assert.equal(providerExited, false);
+      assert.equal(released, false);
+      assert.equal(raceCalls.length, 1);
+      second = refreshMetricsTick(contenderDb);
+      void second.catch(() => {});
+      assert.equal(await bounded(second, 'second tick while first provider is held', controller.signal), 0, 'second tick must return zero BEFORE first release');
+      assert.equal(firstSettled, false, 'first tick must still be blocked when second completes');
+      assert.equal(providerExited, false);
+      assert.equal(released, false);
+      assert.equal(raceCalls.length, 1, 'second tick must not enter the provider');
+      const beforeRelease = await bounded(contenderDb.select().from(postMetrics).where(inArray(postMetrics.targetId, raced.map(target => target.id))), 'rows before release', controller.signal);
+      assert.deepEqual(beforeRelease, [], 'no metric row may be committed before provider release');
+      release();
+      assert.equal(await bounded(first, 'first tick after release', controller.signal), 7);
+      const raceRows = await bounded(contenderDb.select().from(postMetrics).where(inArray(postMetrics.targetId, raced.map(target => target.id))), 'stored race rows', controller.signal);
+      assert.equal(raceRows.length, 7, 'exactly one stored measurement per raced target, no duplicate concurrent writes');
+      for (const row of raceRows) {
+        assert.equal(row.outcome, 'ok');
+        assert.equal(row.likes, 7);
+        assert.equal(row.replies, 0);
+      }
+      assert.deepEqual(raceRows.map(row => row.targetId).sort(), raced.map(target => target.id).sort());
+      assert.deepEqual([...raceCalls].sort(), raced.map(target => target.remoteId).sort(), 'each raced target fetched exactly once across both ticks');
+      assert.equal(await bounded(refreshMetricsTick(contenderDb), 'race backoff', controller.signal), 0, 'raced targets are within backoff on the following tick');
+      assert.equal(raceCalls.length, 7, 'backoff must not make further provider calls');
+      console.log('PASS: provider-entry barrier holds first lock; independent second connection returns zero before release; seven successful unique measurements and backoff');
+    } finally {
+      release();
+      try {
+        await bounded(Promise.allSettled([first, second].filter((tick): tick is Promise<number> => tick !== undefined)), 'settle overlapping ticks');
+      } finally {
+        await contenderClient.end({ timeout: 5 });
+      }
+    }
   } finally {
     globalThis.fetch = originalFetch;
     registerPublisher(originalPublisher);
     if (originalKey === undefined) delete process.env.APP_ENCRYPTION_KEY;
     else process.env.APP_ENCRYPTION_KEY = originalKey;
-    try { await db?.$client.end(); } finally { await isolated?.cleanup(); }
+    try {
+      if (db) {
+        if (workspaceId) await bounded(db.delete(workspaces).where(eq(workspaces.id, workspaceId)), 'delete fixture workspace');
+        await bounded(db.delete(users).where(eq(users.id, userId)), 'delete fixture user');
+      }
+    } finally {
+      try { await db?.$client.end({ timeout: 5 }); }
+      finally {
+        try { await isolated?.cleanup(); }
+        finally {
+          if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+          else process.env.DATABASE_URL = originalDatabaseUrl;
+        }
+      }
+    }
     console.log('CLEANUP: fixture connection closed and owned isolated database/role removed when provisioned');
   }
 }
