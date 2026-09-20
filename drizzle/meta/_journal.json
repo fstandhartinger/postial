@@ -197,6 +197,13 @@
       "when": 1789170522657,
       "tag": "0027_post_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1789910400000,
+      "tag": "0028_visit_daily",
+      "breakpoints": true
     }
   ]
 }

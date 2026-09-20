@@ -5,6 +5,7 @@ import { anonymousLimit } from '@/lib/rate-limit';
 import { actionBodyLimit } from '@/lib/http/action-limit';
 import { readBody } from '@/lib/http/body';
 import { apiError } from '@/lib/api/errors';
+import { countVisitRequest } from '@/lib/visit-counter';
 
 const defaultRedirectHosts = ['www.postial.co', 'postial.net', 'www.postial.net'];
 
@@ -42,6 +43,9 @@ export async function proxy(request: NextRequest) {
       if (configuredRedirectHosts().has(host) || (process.env.LEGACY_HOST_REDIRECT === '1' && host === 'socialmint.app.mintapis.com')) {
         if (host !== canonicalHost) return redirectToCanonical(request, origin);
       }
+    }
+    if (!request.nextUrl.pathname.startsWith('/api/')) {
+      try { countVisitRequest({ method: request.method, url: request.url, headers: request.headers }); } catch { /* statistics never break a page */ }
     }
     if (request.nextUrl.pathname.startsWith('/join/')) {
       const limited = await anonymousLimit(request.headers, 'join', 30);

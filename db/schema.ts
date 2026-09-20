@@ -460,3 +460,14 @@ export const errorEventHourly = pgTable('error_event_hourly', {
   hour: timestamp('hour', { withTimezone: true }).primaryKey(),
   count: integer('count').notNull().default(0),
 });
+
+// Aggregate-only daily visitor counts: five columns, no IP, user agent, hash, cookie,
+// session or workspace reference, so unique visitors are not measurable by design.
+// Decision record: docs/visitor-statistics-consent.md.
+export const postialVisitDaily = pgTable('postial_visit_daily', {
+  day: date('day', { mode: 'string' }).notNull(),
+  path: text('path').notNull(),
+  referrerHost: text('referrer_host').notNull().default(''),
+  views: integer('views').notNull().default(0),
+  visits: integer('visits').notNull().default(0),
+}, t => [primaryKey({ columns: [t.day, t.path, t.referrerHost] })]);
