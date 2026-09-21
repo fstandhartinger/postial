@@ -7,7 +7,7 @@ import { afterEach, test } from 'node:test';
 import { availableProviders, getPublisher, PublishError, type Credentials } from '../lib/publishers';
 import { validateConnection } from '../lib/publishers/connection';
 import { json } from '../lib/publishers/http';
-import { FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
+import { FACEBOOK_MEDIA_LIMIT, FACEBOOK_TEXT_LIMIT } from '../lib/publishers/facebook';
 import { INSTAGRAM_TEXT_LIMIT } from '../lib/publishers/instagram';
 import { TIKTOK_TEXT_LIMIT, tiktokChunkPlan } from '../lib/publishers/tiktok';
 import { fetchTargetMetrics, metricsRefreshIntervalMs, refreshMetricsTick } from '../lib/metrics/refresh';
@@ -208,17 +208,11 @@ test('LinkedIn: long text is rejected before HTTP and refresh without token is n
   await assert.rejects(adapter.publish(credentials.linkedin, { text: 'x'.repeat(3001), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
   assert.equal(calls.length, 0); assert.equal(await adapter.refreshCredentials?.({ accessToken: 'test-secret', expiresAt: '1' }), null);
 });
-test('Facebook: validate Page, text-only feed publish and media warning', async () => {
-  const calls = mock((url, init) => {
-    if (url.includes('/me?fields=id,name')) {
-      assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
-      return response({ id: 'page-1', name: 'Test Page' });
-    }
-    const parsed = new URL(url);
-    assert.equal(parsed.pathname, '/v21.0/page-1/feed');
+test('Facebook: validate Page and text-only feed publish without media or warnings', async () => {
+  let calls = mock((url, init) => {
+    assert(url.includes('/me?fields=id,name'));
     assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
-    assert.equal(new URLSearchParams(String(init?.body)).get('message'), 'hello');
-    return response({ id: 'post-1' });
+    return response({ id: 'page-1', name: 'Test Page' });
   });
   const adapter = getPublisher('facebook');
   const c = { accessToken: 'test-secret', externalId: 'page-1' };
@@ -226,11 +220,116 @@ test('Facebook: validate Page, text-only feed publish and media warning', async 
   assert.equal(account.externalId, 'page-1');
   assert.equal(account.displayName, 'Test Page');
   assert.equal(account.url, 'https://www.facebook.com/page-1');
-  const result = await adapter.publish(c, { text: 'hello', mediaUrls: ['https://image.test/x'], idempotencyKey: 'k' });
+  calls = mock((url, init) => {
+    const parsed = new URL(url);
+    assert.equal(parsed.pathname, '/v21.0/page-1/feed');
+    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+    const body = new URLSearchParams(String(init?.body));
+    assert.equal(body.get('message'), 'hello');
+    assert.equal(body.get('attached_media[0]'), null);
+    return response({ id: 'post-1' });
+  });
+  const result = await adapter.publish(c, { text: 'hello', idempotencyKey: 'k' });
   assert.equal(result.remoteId, 'post-1');
   assert.equal(result.url, 'https://www.facebook.com/post-1');
-  assert.equal(result.warnings?.length, 1);
-  assert.equal(calls.length, 2);
+  assert.equal(result.warnings, undefined);
+  assert.equal(calls.length, 1);
+});
+test('Facebook: one image uploads unpublished and attaches to a single feed post', async () => {
+  const calls = mock((url, init) => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    const parsed = new URL(url);
+    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-secret');
+    if (parsed.pathname === '/v21.0/page-1/photos') {
+      const body = new URLSearchParams(String(init?.body));
+      assert.equal(body.get('url'), 'https://image.test/one.png');
+      assert.equal(body.get('published'), 'false');
+      return response({ id: 'photo-1' });
+    }
+    if (parsed.pathname === '/v21.0/page-1/feed') {
+      const body = new URLSearchParams(String(init?.body));
+      assert.equal(body.get('message'), 'hello');
+      assert.equal(body.get('attached_media[0]'), '{"media_fbid":"photo-1"}');
+      assert.equal(body.get('attached_media[1]'), null);
+      return response({ id: 'feed-1' });
+    }
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const c = { accessToken: 'test-secret', externalId: 'page-1' };
+  const result = await getPublisher('facebook').publish(c, { text: 'hello', mediaUrls: ['https://image.test/one.png'], idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'feed-1');
+  assert.equal(result.url, 'https://www.facebook.com/feed-1');
+  assert.equal(result.warnings, undefined);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].url, 'https://image.test/one.png');
+  assert.equal(new URL(calls[1].url).pathname, '/v21.0/page-1/photos');
+  assert.equal(new URL(calls[2].url).pathname, '/v21.0/page-1/feed');
+});
+test('Facebook: three images upload in order and attach in order to one feed post', async () => {
+  let uploads = 0;
+  const calls = mock((url, init) => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    const parsed = new URL(url);
+    if (parsed.pathname === '/v21.0/page-1/photos') {
+      uploads++;
+      return response({ id: `photo-${uploads}` });
+    }
+    if (parsed.pathname === '/v21.0/page-1/feed') {
+      const body = new URLSearchParams(String(init?.body));
+      assert.equal(body.get('message'), 'album');
+      assert.equal(body.get('attached_media[0]'), '{"media_fbid":"photo-1"}');
+      assert.equal(body.get('attached_media[1]'), '{"media_fbid":"photo-2"}');
+      assert.equal(body.get('attached_media[2]'), '{"media_fbid":"photo-3"}');
+      assert.equal(body.get('attached_media[3]'), null);
+      return response({ id: 'feed-album' });
+    }
+    throw new Error(`Unexpected mock route: ${url}`);
+  });
+  const urls = ['https://image.test/a.png', 'https://image.test/b.png', 'https://image.test/c.png'];
+  const result = await getPublisher('facebook').publish({ accessToken: 'test-secret', externalId: 'page-1' }, { text: 'album', mediaUrls: urls, idempotencyKey: 'k' });
+  assert.equal(result.remoteId, 'feed-album');
+  assert.equal(result.warnings, undefined);
+  assert.equal(calls.length, 7);
+  assert.deepEqual(calls.slice(0, 3).map(call => call.url), urls);
+  const photoCalls = calls.filter(call => call.url.includes('/photos'));
+  assert.equal(photoCalls.length, 3);
+  assert.deepEqual(photoCalls.map(call => new URLSearchParams(String(call.init.body)).get('url')), urls);
+  assert.deepEqual(photoCalls.map(call => new URLSearchParams(String(call.init.body)).get('published')), ['false', 'false', 'false']);
+  assert.equal(calls.filter(call => new URL(call.url).pathname === '/v21.0/page-1/feed').length, 1);
+});
+test('Facebook: more than ten images rejected before any HTTP call', async () => {
+  const adapter = getPublisher('facebook');
+  assert.equal(FACEBOOK_MEDIA_LIMIT, 10); assert.equal(adapter.maxMediaBytes, 8000000);
+  const calls = mock();
+  await assert.rejects(adapter.publish({ accessToken: 'test-secret', externalId: 'page-1' }, { text: 'hello', mediaUrls: Array.from({ length: FACEBOOK_MEDIA_LIMIT + 1 }, (_, index) => `https://image.test/${index}.png`), idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.length, 0);
+});
+test('Facebook: a rejected photo upload fails CONTENT_REJECTED before any feed post', async () => {
+  const calls = mock(url => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    return response({ error: { message: 'test-secret' } }, 400);
+  });
+  await assert.rejects(getPublisher('facebook').publish({ accessToken: 'test-secret', externalId: 'page-1' }, { text: 'hello', mediaUrls: ['https://image.test/one.png'], idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.filter(call => call.url.includes('/photos')).length, 1);
+  assert.equal(calls.filter(call => new URL(call.url).pathname === '/v21.0/page-1/feed').length, 0);
+});
+test('Facebook: an unconfirmed photo upload fails UNKNOWN before any feed post', async () => {
+  const calls = mock(url => {
+    if (url.includes('image.test')) return new Response('image', { headers: { 'content-type': 'image/png' } });
+    return response({});
+  });
+  await assert.rejects(getPublisher('facebook').publish({ accessToken: 'test-secret', externalId: 'page-1' }, { text: 'hello', mediaUrls: ['https://image.test/one.png'], idempotencyKey: 'k' }), errorCode('UNKNOWN', false));
+  assert.equal(calls.filter(call => call.url.includes('/photos')).length, 1);
+  assert.equal(calls.filter(call => new URL(call.url).pathname === '/v21.0/page-1/feed').length, 0);
+});
+test('Facebook: a non-image media URL is rejected before any upload', async () => {
+  const calls = mock(url => {
+    if (url.includes('image.test')) return new Response('page', { headers: { 'content-type': 'text/html' } });
+    return response({});
+  });
+  await assert.rejects(getPublisher('facebook').publish({ accessToken: 'test-secret', externalId: 'page-1' }, { text: 'hello', mediaUrls: ['https://image.test/page.html'], idempotencyKey: 'k' }), errorCode('CONTENT_REJECTED', false));
+  assert.equal(calls.filter(call => call.url.includes('/photos')).length, 0);
+  assert.equal(calls.filter(call => call.url.includes('/feed')).length, 0);
 });
 test('Facebook: 401, 429 Retry-After, 5xx, long text and missing Page mappings', async () => {
   const adapter = getPublisher('facebook');

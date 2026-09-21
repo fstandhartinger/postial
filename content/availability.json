@@ -80,7 +80,7 @@
       "id": "facebook",
       "name": "Facebook",
       "status": "preparation",
-      "dependency": "Connect available (Early access) for Pages. Publishing supports text posts; images and videos are not attached yet. The app is in Development Mode pending Meta review."
+      "dependency": "Connect available (Early access) for Pages. Publishing supports text posts and up to ten images per post; videos are not supported yet. The app is in Development Mode pending Meta review."
     },
     {
       "id": "tiktok",
