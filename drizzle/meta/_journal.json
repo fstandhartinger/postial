@@ -204,6 +204,13 @@
       "when": 1789910400000,
       "tag": "0028_visit_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789996800000,
+      "tag": "0029_funnel_client_class_system",
+      "breakpoints": true
     }
   ]
 }

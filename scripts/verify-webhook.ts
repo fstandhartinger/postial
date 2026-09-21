@@ -4,10 +4,10 @@ import { deleteFixtureUsers } from './fixture-cleanup';
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "../db";
-import { users, workspaces, subscriptions } from "../db/schema";
+import { funnelEvents, users, workspaces, subscriptions } from "../db/schema";
 import { billingState, stripeEvents } from "../db/billing-schema";
 import { stripe, requiredEnv } from "../lib/stripe";
 import { hasAccess } from "../lib/billing";
@@ -16,6 +16,7 @@ import { POST } from "../app/api/stripe/webhook/route";
 async function main() {
   const db = getDb(), client = stripe();
   const userId = crypto.randomUUID(), workspaceId = crypto.randomUUID();
+  const user2Id = crypto.randomUUID(), workspace2Id = crypto.randomUUID();
   const eventId = `evt_fixture_${crypto.randomUUID()}`;
   const eventIds = [eventId];
   const subscriptionId = `sub_fixture_${crypto.randomUUID()}`;
@@ -72,10 +73,29 @@ async function main() {
     assert.equal(hasAccess({...rows[0], status: "past_due", pastDueSince: new Date(0)}, new Date(7 * 86400000)), false);
     assert.equal(hasAccess({...rows[0], status: "past_due"}), false); assert.equal(hasAccess({...rows[0], status: "canceled"}), false);
     assert.ok((await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)))[0].trialUsedAt);
+    async function funnelCount(workspace: string, event: string) {
+      const rows = await db.select({ n: sql<number>`count(*)::int` }).from(funnelEvents)
+        .where(and(eq(funnelEvents.event, event), eq(funnelEvents.workspaceId, workspace)));
+      return rows[0].n;
+    }
+    // (a) none -> trialing recorded one trial start and the legacy marker, no paid conversion;
+    // (c) the concurrent duplicates and the replay of the same event id recorded nothing more.
+    assert.equal(await funnelCount(workspaceId, "trial_started"), 1);
+    assert.equal(await funnelCount(workspaceId, "subscription_active"), 1);
+    assert.equal(await funnelCount(workspaceId, "subscription_paid"), 0);
+    assert.equal((await post(payload)).status, 200);
+    assert.equal(await funnelCount(workspaceId, "trial_started"), 1, "a replayed event id must not record again");
+    assert.equal(await funnelCount(workspaceId, "subscription_active"), 1, "a replayed event id must not record again");
     async function deliver(target: Stripe.Subscription) {
       const id = `evt_fixture_${crypto.randomUUID()}`; eventIds.push(id);
       return post(JSON.stringify({ id, type: "customer.subscription.updated", data: { object: target } }));
     }
+    // (b) trialing -> active pays: one subscription_paid, no second legacy marker, no trial start.
+    fixture.status = 'active';
+    assert.equal((await deliver(fixture)).status, 200);
+    assert.equal(await funnelCount(workspaceId, "subscription_paid"), 1);
+    assert.equal(await funnelCount(workspaceId, "subscription_active"), 1);
+    assert.equal(await funnelCount(workspaceId, "trial_started"), 1);
     const currentId = async () => (await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)))[0].stripeSubscriptionId;
     // A terminated predecessor permits a new active subscription under the lock.
     fixture.status = 'canceled';
@@ -109,14 +129,48 @@ async function main() {
       assert.equal(await currentId(), next.id);
     }
     assert.equal((await db.select().from(stripeEvents).where(inArray(stripeEvents.id, eventIds))).length, eventIds.length);
+    // (d) a fresh workspace: none -> active is one paid conversion plus the legacy marker, no trial start.
+    const fixture2 = {
+      id: `sub_fixture_${crypto.randomUUID()}`, object: "subscription", customer: `cus_fixture_${crypto.randomUUID()}`,
+      metadata: { app: "socialmint", workspace_id: workspace2Id, plan: "agency" },
+      status: "active", cancel_at_period_end: false, latest_invoice: null,
+      items: { data: [{ price: { id: "price_fixture" }, current_period_end: now + 14 * 86400 }] },
+    } as unknown as Stripe.Subscription;
+    fixtures.set(fixture2.id, fixture2);
+    await db.insert(users).values({ id: user2Id, name: "Webhook funnel fixture" });
+    await db.insert(workspaces).values({ id: workspace2Id, ownerUserId: user2Id, name: "Webhook funnel fixture", slug: `fixture-${workspace2Id}` });
+    assert.equal((await deliver(fixture2)).status, 200);
+    assert.equal(await funnelCount(workspace2Id, "subscription_paid"), 1);
+    assert.equal(await funnelCount(workspace2Id, "subscription_active"), 1);
+    assert.equal(await funnelCount(workspace2Id, "trial_started"), 0);
+    // (e) past_due -> active is a recovered payment and records no further paid conversion.
+    await db.update(subscriptions).set({ status: 'past_due' }).where(eq(subscriptions.workspaceId, workspace2Id));
+    assert.equal((await deliver(fixture2)).status, 200);
+    assert.equal(await funnelCount(workspace2Id, "subscription_paid"), 1);
+    // (f) active -> canceled -> trialing starts one further trial.
+    fixture2.status = 'canceled';
+    assert.equal((await deliver(fixture2)).status, 200);
+    fixture2.status = 'trialing';
+    assert.equal((await deliver(fixture2)).status, 200);
+    assert.equal(await funnelCount(workspace2Id, "trial_started"), 1);
+    assert.equal(await funnelCount(workspace2Id, "subscription_active"), 3);
+    assert.equal(await funnelCount(workspace2Id, "subscription_paid"), 1);
+    // Every webhook-recorded funnel row is system: the webhook has no request context.
+    const webhookFunnelRows = await db.select().from(funnelEvents).where(inArray(funnelEvents.workspaceId, [workspaceId, workspace2Id]));
+    assert.ok(webhookFunnelRows.length > 0);
+    assert.ok(webhookFunnelRows.every(row => row.clientClass === 'system'), 'webhook funnel rows must carry clientClass system');
+    assert.ok(webhookFunnelRows.every(row => ['subscription_active', 'trial_started', 'subscription_paid'].includes(row.event)));
     console.log('PASS replacements: ended predecessor replaced, late retired events ignored, duplicate active warned/200, incomplete_expired/unpaid replacement, trial eligibility persisted');
     console.log("PASS webhook HTTP :3992: signed update 200, concurrent/repeated replay one row/event, invalid/missing signature 400, unknown event 200, access boundaries");
   } finally {
     client.subscriptions.retrieve = retrieve; client.prices.retrieve = priceRetrieve;
     if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await db.delete(stripeEvents).where(inArray(stripeEvents.id, eventIds));
+    await db.delete(funnelEvents).where(inArray(funnelEvents.workspaceId, [workspaceId, workspace2Id]));
     await deleteFixtureUsers(db).where(eq(users.id, userId));
+    await deleteFixtureUsers(db).where(eq(users.id, user2Id));
     assert.equal((await db.select().from(billingState).where(eq(billingState.workspaceId, workspaceId))).length, 0);
+    assert.equal((await db.select().from(billingState).where(eq(billingState.workspaceId, workspace2Id))).length, 0);
     await db.$client.end();
   }
 }

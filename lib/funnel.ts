@@ -8,13 +8,17 @@ export const FUNNEL_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
   'signup_completed', 'signin_failed', 'workspace_created', 'channel_connected', 'post_scheduled',
   'post_published', 'checkout_started', 'subscription_active',
+  // Billing transitions that carry their own meaning: subscription_active is the legacy
+  // first-entry-into-trial-or-paid marker, while trial_started and subscription_paid
+  // separate a trial start from the moment a workspace actually begins paying.
+  'trial_started', 'subscription_paid',
   // Recorded by the browser itself, not during render: a crawler that sends a browser
   // user agent still does not execute JavaScript, so comparing this against landing_view
   // is what turns 'browser' from an upper bound into a measurement.
   'client_ready',
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
-export const CLIENT_CLASSES = ['browser', 'automated', 'internal', 'unknown'] as const;
+export const CLIENT_CLASSES = ['browser', 'automated', 'internal', 'unknown', 'system'] as const;
 export type ClientClass = typeof CLIENT_CLASSES[number];
 export const FUNNEL_SUCCESS_EVENTS = [
   'landing_view', 'pricing_view', 'docs_view', 'compare_view', 'signup_started',
@@ -88,6 +92,14 @@ export function isInternalRequest(headers: Headers): boolean {
 
 export function classifyRequest(headers: Headers): ClientClass {
   return isInternalRequest(headers) ? 'internal' : classifyUserAgent(headers.get('user-agent'));
+}
+
+/**
+ * Class for a funnel event recorded during a request. Falls back to 'system' outside any
+ * request scope so background callers never fail: measurement stays strictly best effort.
+ */
+export async function requestClientClass(): Promise<ClientClass> {
+  try { return classifyRequest(await headers()); } catch { return 'system'; }
 }
 
 export type SignInMethod = 'google' | 'email' | 'unknown';
@@ -176,8 +188,8 @@ export async function funnelReport(days: number) {
   const refs = await getDb().select({ host: funnelEvents.referrerHost, count: sql<number>`count(*)::int` }).from(funnelEvents)
     .where(and(gte(funnelEvents.day, since), sql`${funnelEvents.referrerHost} is not null`)).groupBy(funnelEvents.referrerHost)
     .orderBy(sql`count(*) desc`).limit(10);
-  const clientClassTotals: Record<ClientClass, Record<string, number>> = { browser: {}, automated: {}, internal: {}, unknown: {} };
-  const clientClassByDay: Record<ClientClass, Record<string, Record<string, number>>> = { browser: {}, automated: {}, internal: {}, unknown: {} };
+  const clientClassTotals: Record<ClientClass, Record<string, number>> = { browser: {}, automated: {}, internal: {}, unknown: {}, system: {} };
+  const clientClassByDay: Record<ClientClass, Record<string, Record<string, number>>> = { browser: {}, automated: {}, internal: {}, unknown: {}, system: {} };
   for (const row of rows) {
     const clientClass = CLIENT_CLASSES.includes(row.clientClass as ClientClass) ? row.clientClass as ClientClass : 'unknown';
     clientClassTotals[clientClass][row.event] = (clientClassTotals[clientClass][row.event] ?? 0) + row.count;
@@ -194,9 +206,43 @@ export async function funnelReport(days: number) {
     const previous = workspaceTotals[workspaceStages[i]] ?? 0, current = workspaceTotals[event] ?? 0;
     return [event, previous ? current / previous : null];
   }));
+  // Registrations as people saw them: account stages counted from the browser class only,
+  // so staff, agents and pre-attribution rows (unknown) never inflate these numbers.
+  const accountStages = ['signup_started', 'signup_completed', 'workspace_created', 'channel_connected', 'post_scheduled', 'post_published'] as const;
+  const accountTotals = Object.fromEntries(accountStages.map(event => [event, totals[event] ?? 0]));
+  // Billing events come from two honest sources: a real browser request starting checkout,
+  // and the system itself (worker, Stripe webhook). Old rows carry unknown and are shown as
+  // unknown, never silently counted as people; internal staff and automated clients are
+  // excluded on purpose.
+  const billingStages = ['checkout_started', 'trial_started', 'subscription_paid', 'subscription_active'] as const;
+  const billingTotals = Object.fromEntries(billingStages.map(event => [event, (totals[event] ?? 0) + (clientClassTotals.system[event] ?? 0)]));
+  // Paying conversion over distinct workspaces, like the class-agnostic workspace block:
+  // workspace_created -> trial_started -> subscription_paid. null means the denominator
+  // stage had no workspaces yet; it is never 0 and never NaN. past_due -> active is a
+  // recovered payment and deliberately not a conversion, so it has no stage here.
+  const billingWorkspaceStages = ['workspace_created', 'trial_started', 'subscription_paid'] as const;
+  const billingConversions = Object.fromEntries(billingWorkspaceStages.slice(1).map((event, i) => {
+    const previous = workspaceTotals[billingWorkspaceStages[i]] ?? 0, current = workspaceTotals[event] ?? 0;
+    return [event, previous ? current / previous : null];
+  }));
+  // First day account and billing events carry a real client class. Everything before it
+  // was recorded without a class (unknown); the readout must show that break honestly.
+  const attributedDays = rows.filter(row => !publicViewEvents.has(row.event)
+    && row.clientClass !== 'unknown' && CLIENT_CLASSES.includes(row.clientClass as ClientClass)).map(row => row.day).sort();
+  const classAttributionFrom = attributedDays.length ? attributedDays[0] : null;
+  const definitions = {
+    accountTotals: 'Registrations: account stages counted only from real browser requests (client class browser). Older rows carry unknown and are not counted as people.',
+    billingTotals: 'Checkout, trial and subscription events counted from real browser requests and from system processing (browser + system) together; internal staff and automated clients are excluded.',
+    billingConversions: 'Share of distinct workspaces moving workspace_created -> trial_started -> subscription_paid; null means the denominator stage had no workspaces yet.',
+    trial_started: 'A subscription entered the trialing state: a trial started. This alone is not a paying conversion.',
+    subscription_paid: 'A subscription moved to active from trialing or a fresh start: the workspace began paying. past_due -> active is a recovered payment and is not counted.',
+    subscription_active: 'Legacy marker: first entry into trial-or-paid. It records a trial start and a paid start alike, so it is not a paid conversion on its own.',
+    pastDueRecovery: 'past_due -> active is a recovered payment: the card came back, no new customer decision happened, so it is deliberately not counted as a conversion.',
+    classAttributionFrom: `First day on which account and billing events carry a real client class: ${classAttributionFrom ?? 'none yet'}. Rows before that day carry unknown and are shown as unknown, never counted as people.`,
+  };
   const ownReferralViews = refs.filter(row => isOwnReferrer(row.host)).reduce((sum, row) => sum + row.count, 0);
   const externalReferralViews = refs.filter(row => !isOwnReferrer(row.host)).reduce((sum, row) => sum + row.count, 0);
-  return { days, since, ownReferralViews, externalReferralViews, totals, byDay, clientClassTotals, clientClassByDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
+  return { days, since, ownReferralViews, externalReferralViews, totals, byDay, clientClassTotals, clientClassByDay, conversions: conversionRates(totals), eventConversions: conversionRates(totals), workspaceTotals, workspaceConversions, accountTotals, billingTotals, billingConversions, classAttributionFrom, definitions, topReferrers: refs.map(r => ({ host: r.host, count: r.count })) };
 }
 
 export function adminEmails(): string[] { return (process.env.ADMIN_EMAILS ?? '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean); }

@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { conversionRates, FUNNEL_EVENTS, recordFunnelEvent, adminEmails, isAdminEmail, OWN_REFERRER_HOSTS, isOwnReferrer } from '@/lib/funnel';
+import { eq } from 'drizzle-orm';
+import { conversionRates, FUNNEL_EVENTS, recordFunnelEvent, adminEmails, isAdminEmail, OWN_REFERRER_HOSTS, isOwnReferrer, funnelReport } from '@/lib/funnel';
+import { getDb } from '../db';
+import { funnelEvents, users, workspaces } from '../db/schema';
+import { deleteFixtureUsers } from './fixture-cleanup';
+
+// Tests above may blank DATABASE_URL on purpose (best-effort writes); the report and
+// migration checks below need the suite's isolated database, so the original URL is
+// captured before any test runs and restored when the database is first used.
+const suiteDatabaseUrl = process.env.DATABASE_URL;
+let db: ReturnType<typeof getDb> | undefined;
+function verifyDb() {
+  process.env.DATABASE_URL = suiteDatabaseUrl;
+  return db ??= getDb();
+}
 
 test('allowlist rejects unknown events and write failures are best effort', async () => {
   assert.equal(FUNNEL_EVENTS.includes('not_a_funnel_event' as never), false);
@@ -76,3 +90,101 @@ test('own redirect hops are not counted as arrivals', () => {
   assert.equal(isOwnReferrer(null), false);
   assert.equal(isOwnReferrer(''), false);
 });
+
+test('report separates people, billing and distinct workspaces across client classes', async () => {
+  const db = verifyDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const userId = crypto.randomUUID(), marker = `/verify-funnel-report-${userId}`;
+  let firstWorkspaceId = '', secondWorkspaceId = '';
+  try {
+    // Fresh suite database: before anything is seeded, both denominators are zero and the
+    // rates must be null — never 0 and never NaN.
+    const empty = await funnelReport(30);
+    if (empty.workspaceTotals.workspace_created === 0) assert.equal(empty.billingConversions.trial_started, null, 'a zero denominator must read null, not 0');
+    if (empty.workspaceTotals.trial_started === 0) assert.equal(empty.billingConversions.subscription_paid, null, 'a zero denominator must read null, not 0');
+    for (const rate of Object.values(empty.billingConversions)) assert.ok(rate === null || (Number.isFinite(rate) && rate >= 0 && rate <= 1), 'no rate may be NaN');
+
+    await db.insert(users).values({ id: userId, name: 'Funnel report fixture' });
+    const [first] = await db.insert(workspaces).values({ name: 'Funnel report fixture', slug: `fixture-${userId}`, ownerUserId: userId }).returning();
+    firstWorkspaceId = first.id;
+    const [second] = await db.insert(workspaces).values({ name: 'Funnel report fixture 2', slug: `fixture-2-${userId}`, ownerUserId: userId }).returning();
+    secondWorkspaceId = second.id;
+    const [third] = await db.insert(workspaces).values({ name: 'Funnel report fixture 3', slug: `fixture-3-${userId}`, ownerUserId: userId }).returning();
+    await db.insert(funnelEvents).values([
+      // Registrations: only the browser row counts as a person.
+      { event: 'signup_started', day: today, path: marker, clientClass: 'browser' },
+      { event: 'signup_started', day: today, path: marker, clientClass: 'internal' },
+      { event: 'signup_started', day: today, path: marker, clientClass: 'unknown' },
+      // Two of three workspaces were created by real browsers before the third appears.
+      { event: 'workspace_created', day: today, path: marker, workspaceId: firstWorkspaceId, clientClass: 'browser' },
+      { event: 'workspace_created', day: today, path: marker, workspaceId: secondWorkspaceId, clientClass: 'browser' },
+      // Billing: browser and system count, internal and automated are excluded.
+      { event: 'checkout_started', day: today, path: marker, workspaceId: firstWorkspaceId, clientClass: 'system' },
+      { event: 'trial_started', day: today, path: marker, workspaceId: firstWorkspaceId, clientClass: 'system' },
+      { event: 'trial_started', day: today, path: marker, workspaceId: firstWorkspaceId, clientClass: 'system' },
+      { event: 'trial_started', day: today, path: marker, clientClass: 'internal' },
+      { event: 'subscription_paid', day: today, path: marker, workspaceId: firstWorkspaceId, clientClass: 'system' },
+      { event: 'subscription_paid', day: today, path: marker, clientClass: 'system' },
+      { event: 'subscription_paid', day: today, path: marker, clientClass: 'internal' },
+      { event: 'subscription_paid', day: today, path: marker, clientClass: 'automated' },
+    ]);
+    const before = await funnelReport(30);
+    assert.equal(before.accountTotals.signup_started, before.totals.signup_started, 'account stages read the browser class only');
+    assert.equal(before.accountTotals.signup_started, 1);
+    assert.equal(before.billingTotals.checkout_started, 1);
+    assert.equal(before.billingTotals.trial_started, 2, 'browser + system; internal is excluded');
+    assert.equal(before.billingTotals.subscription_paid, 2, 'browser + system; internal and automated are excluded');
+    assert.equal(before.billingConversions.trial_started, 0.5, 'two workspaces created, one trialed');
+    assert.equal(before.billingConversions.subscription_paid, 1, 'one trialed workspace paid');
+    // Two rows for the same workspace count once over distinct workspaces, and the row
+    // without a workspace is billed but is not a workspace step.
+    assert.equal(before.workspaceTotals.workspace_created, 2);
+    assert.equal(before.workspaceTotals.trial_started, 1);
+    assert.equal(before.workspaceTotals.subscription_paid, 1);
+    // Every stored class stays in its own bucket.
+    assert.ok(before.clientClassTotals.internal.signup_started >= 1);
+    assert.ok(before.clientClassTotals.unknown.signup_started >= 1);
+    assert.ok(before.clientClassTotals.system.trial_started >= 2);
+    // Billing rows recorded here carry a real class from today on.
+    assert.equal(before.classAttributionFrom, today);
+
+    await db.insert(funnelEvents).values([
+      { event: 'workspace_created', day: today, path: marker, workspaceId: third.id, clientClass: 'browser' },
+    ]);
+    const after = await funnelReport(30);
+    assert.equal(after.accountTotals.workspace_created, 3, 'all three browser-created workspaces are people');
+    assert.equal(after.billingConversions.trial_started, 1 / 3, 'still one trialed workspace out of three created');
+    assert.equal(after.billingConversions.subscription_paid, 1);
+
+    // The plain-English definitions must carry the legacy marker, the past_due exclusion
+    // and the attribution break.
+    assert.match(after.definitions.subscription_active, /not a paid conversion/);
+    assert.match(after.definitions.pastDueRecovery, /past_due/);
+    assert.match(after.definitions.pastDueRecovery, /recovered payment/);
+    assert.match(after.definitions.classAttributionFrom, /unknown/);
+    assert.match(after.definitions.billingTotals, /browser \+ system/);
+    assert.match(after.definitions.accountTotals, /browser/);
+    assert.match(after.definitions.billingConversions, /null/);
+  } finally {
+    await db.delete(funnelEvents).where(eq(funnelEvents.path, marker));
+    await deleteFixtureUsers(db).where(eq(users.id, userId));
+  }
+});
+
+test('migration 0029 accepts the system class and still rejects others', async () => {
+  const db = verifyDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const marker = `/verify-funnel-0029-${crypto.randomUUID()}`;
+  try {
+    await db.insert(funnelEvents).values({ event: 'landing_view', day: today, path: marker, clientClass: 'system' });
+    await assert.rejects(
+      () => db.insert(funnelEvents).values({ event: 'landing_view', day: today, path: marker, clientClass: 'not-a-class' }),
+      (error: unknown) => String((error as { cause?: { message?: string } }).cause?.message ?? error).includes('funnel_events_client_class_check'),
+      'the 0029 check constraint must still reject unknown classes',
+    );
+  } finally {
+    await db.delete(funnelEvents).where(eq(funnelEvents.path, marker));
+  }
+});
+
+test.after(async () => { if (db) await db.$client.end(); });

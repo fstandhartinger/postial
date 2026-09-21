@@ -305,7 +305,7 @@ export async function tick() {
       });
       // Mail leaves only after the status transaction has committed; it never fails publishing.
       for (const alert of alertMails) await sendPendingChannelAlertMail(alert.workspaceId, alert.channelId, alert.kind);
-      if (finalStatus === 'published') await recordFunnelEvent('post_published', { workspaceId: brand.workspaceId });
+      if (finalStatus === 'published') await recordFunnelEvent('post_published', { workspaceId: brand.workspaceId, clientClass: 'system' });
     }),
   );
   await checkChannelHealth().catch(error => { void recordError(error, { route: 'worker:channel-health' }); });

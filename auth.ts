@@ -9,7 +9,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { getDb } from "@/db";
 import { users, accounts, sessions, verificationTokens } from "@/db/schema";
 import { configuredProviders } from "@/lib/auth-providers";
-import { recordFunnelEvent } from '@/lib/funnel';
+import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   validateConfig();
   const enabled = configuredProviders();
@@ -34,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
     ],
     callbacks: { session({ session, user }) { session.user.id = user.id; return session; } },
     events: { async signIn({ account, isNewUser }) {
-      if (isNewUser) await recordFunnelEvent('signup_completed', { props: { method: account?.provider === 'google' ? 'google' : 'email' } });
+      if (isNewUser) await recordFunnelEvent('signup_completed', { props: { method: account?.provider === 'google' ? 'google' : 'email' }, clientClass: await requestClientClass() });
     } },
     logger: { error() { console.error("Authentication request failed"); } },
   };

@@ -22,7 +22,7 @@ import { checkChannelHealth } from "@/lib/publishing/health";
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 import { ApiError } from "@/lib/api/errors";
 import { InputError, check, https, savePost, changeTarget, duplicatePost, reschedulePost } from "@/lib/api/post-service";
-import { recordFunnelEvent } from '@/lib/funnel';
+import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 export async function coreAction(
   _state: { error: string },
   form: FormData,
@@ -147,7 +147,7 @@ export async function coreAction(
               .where(eq(channels.id, existing.id));
           else { await tx.insert(channels).values(values); channelCreated = true; }
         });
-        if (channelCreated) await recordFunnelEvent('channel_connected', { workspaceId: workspace.id });
+        if (channelCreated) await recordFunnelEvent('channel_connected', { workspaceId: workspace.id, clientClass: await requestClientClass() });
       } else {
         const id = str(form, "channelId");
         check(isUuid(id), "Choose a channel.");
@@ -172,7 +172,7 @@ export async function coreAction(
       destination = `/app/posts/${id}`;
     } else if (action === "post") {
       const postId = await savePost({db, workspace, userId}, form);
-      if (form.get('intent') !== 'draft') await recordFunnelEvent('post_scheduled', { workspaceId: workspace.id });
+      if (form.get('intent') !== 'draft') await recordFunnelEvent('post_scheduled', { workspaceId: workspace.id, clientClass: await requestClientClass() });
       destination = `/app/posts/${postId}`;
     } else if (action === "retry" || action === "skip") {
       const postId = await changeTarget({db, workspace, userId}, form, action);

@@ -10,7 +10,7 @@ import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, FACEBOOK_GRAPH_VERSION, oauthConfig, type OAuthProvider } from './oauth-config';
 import { facebookInstagramToken, facebookPageToken, facebookToken, oauthJson, tiktokToken, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
-import { recordFunnelEvent } from '@/lib/funnel';
+import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 import { clearChannelAlertLocks } from '@/lib/alert-mail';
 
 async function authorizeBrand(brandId: string, userId: string) {
@@ -99,7 +99,7 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     // A reconnected channel is active again: its mail locks reset so future incidents mail.
     if (existing) await clearChannelAlertLocks(tx, existing.id);
   });
-  await recordFunnelEvent('channel_connected', { workspaceId });
+  await recordFunnelEvent('channel_connected', { workspaceId, clientClass: await requestClientClass() });
   return saved.brandId;
   } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
 }

@@ -2,7 +2,7 @@ import { isUuid } from '@/lib/api/input';
 import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { users, workspaces, workspaceMembers } from "@/db/schema";
-import { recordFunnelEvent } from '@/lib/funnel';
+import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 export async function ensureWorkspace(userId: string, activeId?: string) {
   let createdId: string | undefined;
   const workspace = await getDb().transaction(async tx => {
@@ -23,6 +23,6 @@ export async function ensureWorkspace(userId: string, activeId?: string) {
     createdId = workspace.id;
     return workspace;
   });
-  if (createdId) await recordFunnelEvent('workspace_created', { workspaceId: createdId });
+  if (createdId) await recordFunnelEvent('workspace_created', { workspaceId: createdId, clientClass: await requestClientClass() });
   return workspace;
 }

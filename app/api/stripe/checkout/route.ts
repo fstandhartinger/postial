@@ -11,7 +11,7 @@ import { billingState } from '@/db/billing-schema';
 import { billingOwner, billingError, BillingHttpError, lockWorkspace } from '@/lib/billing';
 import { stripe, appUrl, requiredEnv } from '@/lib/stripe';
 import { isPlan, plans } from '@/lib/plans';
-import { recordFunnelEvent } from '@/lib/funnel';
+import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 import { recordError } from '@/lib/error-visibility';
 import { trialEligibility } from '@/lib/trial-eligibility';
 export const runtime = 'nodejs';
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     });
     if (!checkout.url || checkout.status !== 'open') throw new BillingHttpError(409, 'Checkout expired; please retry');
     await db.update(billingState).set({ checkoutSessionId: checkout.id, checkoutPlan: plan }).where(eq(billingState.workspaceId, workspace.id));
-    await recordFunnelEvent('checkout_started', { workspaceId: workspace.id });
+    await recordFunnelEvent('checkout_started', { workspaceId: workspace.id, clientClass: await requestClientClass() });
     return Response.json({ url: checkout.url });
   } catch (error) { return error instanceof ApiError ? apiError(error) : billingError(error); }
   finally { if (release) { try { await release(); } catch (error) { void recordError(error, { route: '/api/stripe/checkout:lease-cleanup' }); } } }

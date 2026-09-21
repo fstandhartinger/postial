@@ -68,19 +68,19 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
     const applied = await getDb().transaction(async tx => {
       await lockWorkspace(tx, workspaceId);
       const [seen] = await tx.select().from(stripeEvents).where(eq(stripeEvents.id, event.id));
-      if (seen) return { applied: true, becameActive: false };
+      if (seen) return { applied: true, becameActive: false, trialStarted: false, paidConversion: false };
       const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId));
       const deleting = await tx.execute(sql`select 1 from workspace_deletions where workspace_id=${workspaceId}::uuid`);
-      if (deleting.length) { await tx.insert(stripeEvents).values({id:event.id}).onConflictDoNothing(); return { applied: true, becameActive: false }; }
+      if (deleting.length) { await tx.insert(stripeEvents).values({id:event.id}).onConflictDoNothing(); return { applied: true, becameActive: false, trialStarted: false, paidConversion: false }; }
       if (!workspace) throw new Error('Workspace not found');
       const [local] = await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
-      if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return { applied: false, becameActive: false };
+      if (local?.updatedAt.getTime() !== snapshot?.updatedAt.getTime() || local?.stripeSubscriptionId !== snapshot?.stripeSubscriptionId) return { applied: false, becameActive: false, trialStarted: false, paidConversion: false };
       if (local?.stripeCustomerId && local.stripeCustomerId !== customerId) throw new Error('Customer mismatch');
       if (current.metadata.workspace_id && current.metadata.workspace_id !== workspaceId) throw new Error('Workspace mismatch');
       const [retired] = await tx.select().from(retiredSubscriptions).where(eq(retiredSubscriptions.id, current.id));
       if (retired) {
         await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-        return { applied: true, becameActive: false };
+        return { applied: true, becameActive: false, trialStarted: false, paidConversion: false };
       }
       if (local?.stripeSubscriptionId && local.stripeSubscriptionId !== current.id) {
         const ended = ['canceled', 'incomplete_expired', 'unpaid'];
@@ -89,7 +89,7 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
         } else {
           if (!ended.includes(current.status)) console.warn('Conflicting workspace subscriptions ignored');
           await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-          return { applied: true, becameActive: false };
+          return { applied: true, becameActive: false, trialStarted: false, paidConversion: false };
         }
       }
       if (current.trial_start || current.trial_end) {
@@ -114,9 +114,25 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
       await tx.insert(billingState).values({ workspaceId, pastDueSince })
         .onConflictDoUpdate({ target: billingState.workspaceId, set: { pastDueSince } });
       await tx.insert(stripeEvents).values({ id: event.id }).onConflictDoNothing();
-      return { applied: true, becameActive: !['active', 'trialing'].includes(local?.status ?? '') && ['active', 'trialing'].includes(current.status) };
+      // Funnel transitions are computed beside becameActive from the same previous and
+      // current status: a trial start is any first entry into trialing, a paid conversion
+      // is the move to active. past_due -> active is a recovered payment, not a new
+      // customer decision, so it is deliberately excluded from paidConversion.
+      const prev = local?.status ?? '';
+      return {
+        applied: true,
+        becameActive: !['active', 'trialing'].includes(prev) && ['active', 'trialing'].includes(current.status),
+        trialStarted: !['trialing', 'active'].includes(prev) && current.status === 'trialing',
+        paidConversion: prev !== 'active' && prev !== 'past_due' && current.status === 'active',
+      };
     });
-    if (applied.applied) { if (applied.becameActive) await recordFunnelEvent('subscription_active', { workspaceId }); return; }
+    // Webhook events have no request context and are labelled system explicitly.
+    if (applied.applied) {
+      if (applied.becameActive) await recordFunnelEvent('subscription_active', { workspaceId, clientClass: 'system' });
+      if (applied.trialStarted) await recordFunnelEvent('trial_started', { workspaceId, clientClass: 'system' });
+      if (applied.paidConversion) await recordFunnelEvent('subscription_paid', { workspaceId, clientClass: 'system' });
+      return;
+    }
   }
   throw new Error("Concurrent billing update; retry event");
 }
