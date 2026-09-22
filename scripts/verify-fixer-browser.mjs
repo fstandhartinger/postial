@@ -51,6 +51,11 @@ try {
           assert.ok(await page.getByRole('button', { name: 'Open interactive demo' }).isVisible());
         }
       }
+      if (route === '/login?next=/pricing&plan=agency') {
+        assert.ok(await page.getByRole('complementary', { name: 'Selected trial plan' }).isVisible());
+        assert.ok(await page.getByText('Agency trial selected').isVisible());
+        assert.ok(await page.getByText('Sign in to start your 14-day free trial. No card needed.').isVisible());
+      }
       if (route === '/pricing') assert.ok(await page.getByText(/Available today:/).count());
       if (route === '/pricing' && width === 1440) await page.screenshot({ path: '/tmp/socialmint-fixer-pricing.png', fullPage: true });
       if (route === '/' && width === 320) await page.screenshot({ path: '/tmp/socialmint-fixer-mobile.png', fullPage: true });

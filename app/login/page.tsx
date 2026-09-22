@@ -11,6 +11,7 @@ import { recordFunnelEvent, requestClientClass, signInFailureDetails } from '@/l
 import { seoMetadata } from '@/lib/seo';
 import { signInActionLimited } from '@/lib/auth-email';
 import { LoginSubmitButton } from '@/components/auth/login-submit-button';
+import type { Plan } from '@/lib/plans';
 export const dynamic = "force-dynamic";
 export const metadata = seoMetadata({ title: 'Sign in to Postial', description: 'Sign in to your Postial workspace with Google or a magic link to manage brands, posts, channels, approvals, and publishing.', path: '/login' });
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; plan?: string; callbackUrl?: string }> }) {
@@ -28,7 +29,9 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     } catch { /* Invalid destinations fall back to the workspace. */ }
   }
   const redirectTo = params.next || params.plan ? loginTarget(params.next, params.plan) : callbackPath ?? '/app';
+  const selectedPlan: Plan | undefined = params.plan === 'starter' || params.plan === 'agency' ? params.plan : undefined;
   return <Card className="mx-auto max-w-md"><h1 className="text-3xl font-semibold">Welcome to Postial</h1><p className="mt-3 text-gray-600">Your brands, together in one place.</p>
+    {selectedPlan && <aside className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950" aria-label="Selected trial plan"><strong className="capitalize">{selectedPlan} trial selected</strong><p className="mt-1 text-emerald-900">Sign in to start your 14-day free trial. No card needed.</p></aside>}
     {!enabled.google && !enabled.email && <p className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">We’re getting sign-in ready. Please come back soon.</p>}
     {params.error && <>{void recordFunnelEvent('signin_failed', { props: signInFailureDetails(params.error) })}<p role="alert" className="mt-4 text-sm text-red-700">We couldn’t sign you in. Please try again.</p></>}
     {/* Each provider keeps its own form, so Enter inside the email field submits the magic-link form instead of starting the Google flow. */}
