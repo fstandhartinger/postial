@@ -44,6 +44,13 @@ try {
       assert.ok(!csp.includes("'unsafe-eval'"), 'CSP must never allow unsafe-eval');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${route} overflow`);
       if (route === '/' || route === '/pricing') assert.ok(await page.getByText('Early access', { exact: true }).count());
+      if (route === '/') {
+        const placeholder = page.getByRole('heading', { name: 'See a client approval from request to publish' });
+        if (await placeholder.count()) {
+          assert.ok(await placeholder.isVisible(), 'lazy demo has a useful visible preview');
+          assert.ok(await page.getByRole('button', { name: 'Open interactive demo' }).isVisible());
+        }
+      }
       if (route === '/pricing') assert.ok(await page.getByText(/Available today:/).count());
       if (route === '/pricing' && width === 1440) await page.screenshot({ path: '/tmp/socialmint-fixer-pricing.png', fullPage: true });
       if (route === '/' && width === 320) await page.screenshot({ path: '/tmp/socialmint-fixer-mobile.png', fullPage: true });

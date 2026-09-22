@@ -57,6 +57,11 @@ button:disabled { cursor: wait; opacity: .7; }
 .steps { list-style: none; padding: 0; }
 .steps li { border-top: 2px solid #10b981; padding-top: 24px; }
 .demo-section { max-width: 720px; margin-inline: auto; }
+.demo-lazy { min-height: 420px; }
+.demo-placeholder { min-height: 280px; margin-top: 24px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
+.demo-placeholder .badge { margin: 0 0 16px; }
+.demo-placeholder p { max-width: 58ch; }
+.demo-placeholder button { margin-top: 24px; }
 .demo-disclosure { font-size: 14px; line-height: 20px; margin-block: 24px 16px; }
 .panel { background: white; border: 1px solid #e4e4e7; border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px #09090b0a; }
 .demo-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

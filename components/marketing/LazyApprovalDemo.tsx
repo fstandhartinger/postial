@@ -15,7 +15,12 @@ export function LazyApprovalDemo({ notice }: { notice?: React.ReactNode }) {
     if (container.current) observer.observe(container.current);
     return () => observer.disconnect();
   }, []);
-  return <div ref={container} style={{minHeight:420}}>
-    {visible ? <Demo notice={notice} /> : <button type="button" className="secondary" onClick={() => setVisible(true)}>Load interactive demo</button>}
+  return <div ref={container} className="demo-lazy">
+    {visible ? <Demo notice={notice} /> : <div className="panel demo-placeholder">
+      <span className="badge">Interactive preview</span>
+      <h3>See a client approval from request to publish</h3>
+      <p>Review a sample post, request a change, approve it, and walk through a simulated retry. Nothing is sent or published.</p>
+      <button type="button" className="secondary" onClick={() => setVisible(true)}>Open interactive demo</button>
+    </div>}
   </div>;
 }
