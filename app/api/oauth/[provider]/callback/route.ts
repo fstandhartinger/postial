@@ -11,8 +11,9 @@ const handle = auth(async request => {
   const url = new URL(request.url), provider = url.pathname.split('/')[3];
   if (!isOAuthProvider(provider)) return back('/app/brands', 'provider_error');
   try {
-    const brandId = await finishAuth(provider, url.searchParams.get('state') ?? '', url.searchParams.has('error') ? null : url.searchParams.get('code'), request.auth.user.id);
-    return new Response(null, { status: 303, headers: { Location: `${appOrigin()}/app/brands/${brandId}?connected=${provider}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    const result = await finishAuth(provider, url.searchParams.get('state') ?? '', url.searchParams.has('error') ? null : url.searchParams.get('code'), request.auth.user.id);
+    if (result.pickState) return new Response(null, { status: 303, headers: { Location: `${appOrigin()}/app/brands/${result.brandId}/facebook-pages?pick=${result.pickState}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    return new Response(null, { status: 303, headers: { Location: `${appOrigin()}/app/brands/${result.brandId}?connected=${provider}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
   } catch (error) {
     const e = error instanceof OAuthCallbackError ? error : new OAuthCallbackError('provider_error');
     return back(e.brandId ? `/app/brands/${e.brandId}` : '/app/brands', e.code);

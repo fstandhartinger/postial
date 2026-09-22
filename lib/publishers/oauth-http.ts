@@ -50,12 +50,27 @@ export async function tiktokToken(body: Record<string, string>) {
   if (!r.access_token) throw failure('AUTH_EXPIRED', 'TikTok did not issue a token.');
   return { token: { access_token: r.access_token, refresh_token: r.refresh_token, expires_in: r.expires_in }, openId: r.open_id };
 }
-/** Facebook publishes as a Page: resolve the first manageable Page and keep its long-lived Page token. */
-export async function facebookPageToken(userToken: string) {
-  const r = await oauthJson<{ data?: Array<{ id?: string; name?: string; access_token?: string }> }>('facebook', `/${FACEBOOK_GRAPH_VERSION}/me/accounts?${new URLSearchParams({ fields: 'id,name,access_token', access_token: userToken })}`);
-  const page = r.data?.[0];
-  if (!page?.id || !page.access_token) throw failure('AUTH_EXPIRED', 'No Facebook Page was found for this account. Grant the app access to a Page and reconnect.');
-  return { accessToken: page.access_token, externalId: page.id, pageName: page.name ?? page.id };
+export type FacebookPage = { id: string; name: string; accessToken: string };
+type FacebookAccountsResponse = { data?: Array<{ id?: string; name?: string; access_token?: string }>; paging?: { next?: string } };
+/** Facebook publishes as a Page: collect every usable Page returned by the Graph API. */
+export async function facebookPages(userToken: string): Promise<FacebookPage[]> {
+  const pages: FacebookPage[] = [];
+  const seen = new Set<string>();
+  const facebookOrigin = new URL(oauthEndpoint('facebook', '/')).origin;
+  let path = `/${FACEBOOK_GRAPH_VERSION}/me/accounts?${new URLSearchParams({ fields: 'id,name,access_token', limit: '100', access_token: userToken })}`;
+  for (let request = 0; request < 5; request++) {
+    const r = await oauthJson<FacebookAccountsResponse>('facebook', path);
+    for (const entry of r.data ?? []) {
+      if (!entry.id || !entry.access_token || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      pages.push({ id: entry.id, name: entry.name ?? entry.id, accessToken: entry.access_token });
+    }
+    if (!r.paging?.next || request === 4) break;
+    const next = new URL(r.paging.next, oauthEndpoint('facebook', '/'));
+    if (next.origin !== facebookOrigin || next.username || next.password) break;
+    path = next.pathname + next.search;
+  }
+  return pages;
 }
 /** Instagram Business publishing uses the Page token of the first manageable Page that has a linked Instagram account. */
 export async function facebookInstagramToken(userToken: string) {

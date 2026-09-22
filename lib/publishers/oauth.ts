@@ -9,11 +9,12 @@ import { ownBrand, isUuid } from '@/lib/core';
 import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, FACEBOOK_GRAPH_VERSION, oauthConfig, type OAuthProvider } from './oauth-config';
-import { facebookInstagramToken, facebookPageToken, facebookToken, oauthJson, tiktokToken, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import { facebookInstagramToken, facebookPages, facebookToken, oauthJson, tiktokToken, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import type { Credentials } from './types';
 import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 import { clearChannelAlertLocks } from '@/lib/alert-mail';
 
-async function authorizeBrand(brandId: string, userId: string) {
+export async function authorizeBrand(brandId: string, userId: string) {
   if (!isUuid(brandId)) throw failure('AUTH_EXPIRED', 'Brand not found.');
   const [row] = await getDb().select({ brand: brands, role: workspaceMembers.role }).from(brands)
     .innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, brands.workspaceId))
@@ -49,14 +50,45 @@ export async function createAuth(provider: OAuthProvider, brandId: string, userI
 export class OAuthCallbackError extends Error {
   constructor(public code: 'denied' | 'expired' | 'provider_error', public brandId?: string) { super(code); }
 }
-export async function finishAuth(provider: OAuthProvider, state: string, code: string | null, userId: string) {
+export type OAuthFinishResult = { brandId: string; pickState?: string };
+export type FacebookPick = { pages: import('./oauth-http').FacebookPage[]; expiresIn: string };
+export function encryptFacebookPick(pages: FacebookPick['pages'], expiresIn?: number): string {
+  return encryptCredentials({ pages: JSON.stringify(pages), expiresIn: String(expiresIn ?? '') });
+}
+export function decryptFacebookPick(value: string): FacebookPick {
+  const raw = decryptCredentials(value);
+  if (typeof raw.pages !== 'string' || typeof raw.expiresIn !== 'string') throw new Error('Invalid Facebook Page selection');
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw.pages); } catch { throw new Error('Invalid Facebook Page selection'); }
+  if (!Array.isArray(parsed)) throw new Error('Invalid Facebook Page selection');
+  const pages = parsed.filter((page): page is FacebookPick['pages'][number] => !!page && typeof page === 'object' && typeof (page as { id?: unknown }).id === 'string' && typeof (page as { name?: unknown }).name === 'string' && typeof (page as { accessToken?: unknown }).accessToken === 'string');
+  return { pages, expiresIn: raw.expiresIn };
+}
+/** Shared validate, upsert-in-transaction, reconnect-mail reset and funnel step for OAuth and Page selection. The publisher is validated exactly once here. */
+export async function connectOAuthChannel(provider: OAuthProvider, issuedCredentials: Credentials, brandId: string, userId: string) {
+  const account = await getPublisher(provider).validate(issuedCredentials);
+  const credentials = { ...issuedCredentials, ...(provider === 'linkedin' || provider === 'facebook' || provider === 'instagram' || provider === 'tiktok' ? { externalId: account.externalId } : {}) };
+  const workspaceId = await authorizeBrand(brandId, userId);
+  const db = getDb();
+  await db.transaction(async tx => {
+    await tx.select().from(brands).where(eq(brands.id, brandId)).for('update');
+    const [existing] = await tx.select({ id: channels.id }).from(channels).where(and(eq(channels.brandId, brandId), eq(channels.provider, provider), eq(channels.externalId, account.externalId)));
+    const values = { brandId, provider, credentialsEnc: encryptCredentials(credentials), externalId: account.externalId, displayName: visibleIdentifier(account.displayName, "Channel name"), url: account.url ? linkInput(account.url) : null, meta: account.meta ?? {}, status: 'active' as const, lastCheckedAt: new Date(), lastHealthError: null };
+    if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
+    else await tx.insert(channels).values(values);
+    // A reconnected channel is active again: its mail locks reset so future incidents mail.
+    if (existing) await clearChannelAlertLocks(tx, existing.id);
+  });
+  await recordFunnelEvent('channel_connected', { workspaceId, clientClass: await requestClientClass() });
+  return { workspaceId, account };
+}
+export async function finishAuth(provider: OAuthProvider, state: string, code: string | null, userId: string): Promise<OAuthFinishResult> {
   if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw new OAuthCallbackError('expired');
   const db = getDb();
   // Atomic consumption commits BEFORE the provider call, including denied or failed exchanges.
   const [saved] = await db.delete(oauthStates).where(and(eq(oauthStates.state, state), eq(oauthStates.provider, provider), eq(oauthStates.userId, userId), gt(oauthStates.expiresAt, new Date()))).returning();
   if (!saved) throw new OAuthCallbackError('expired');
-  let workspaceId: string;
-  try { workspaceId = await authorizeBrand(saved.brandId, userId); } catch { throw new OAuthCallbackError('expired'); }
+  try { await authorizeBrand(saved.brandId, userId); } catch { throw new OAuthCallbackError('expired'); }
   if (!code || code.length > 4096) throw new OAuthCallbackError('denied', saved.brandId);
   try {
   const config = oauthConfig(provider);
@@ -80,26 +112,23 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
       const ig = await facebookInstagramToken(longToken);
       token = { access_token: ig.accessToken, expires_in: long.expires_in };
       discoveredExternalId = ig.externalId;
-    } else token = { access_token: (await facebookPageToken(longToken)).accessToken, expires_in: long.expires_in };
+    } else {
+      const pages = await facebookPages(longToken);
+      if (!pages.length) throw failure('AUTH_EXPIRED', 'No Facebook Page was found for this account. Grant the app access to a Page and reconnect.');
+      if (pages.length > 1) {
+        const pickState = randomBytes(32).toString('base64url');
+        await db.insert(oauthStates).values({ state: pickState, codeVerifier: encryptFacebookPick(pages, long.expires_in), brandId: saved.brandId, userId, provider: 'facebook:pick', expiresAt: new Date(Date.now() + 600000) });
+        return { brandId: saved.brandId, pickState };
+      }
+      token = { access_token: pages[0].accessToken, expires_in: long.expires_in };
+    }
   } else if (provider === 'tiktok') {
     const issued = await tiktokToken({ grant_type: 'authorization_code', code, code_verifier: decryptCredentials(saved.codeVerifier).verifier, redirect_uri: callbackUrl(provider) });
     token = issued.token;
     discoveredExternalId = issued.openId;
   } else token = await linkedinToken({ grant_type: 'authorization_code', code, redirect_uri: callbackUrl(provider) });
   const issuedCredentials = discoveredExternalId ? { ...tokenCredentials(token), externalId: discoveredExternalId } : tokenCredentials(token);
-  const account = await getPublisher(provider).validate(issuedCredentials);
-  const credentials = { ...issuedCredentials, ...(provider === 'linkedin' || provider === 'facebook' || provider === 'instagram' || provider === 'tiktok' ? { externalId: account.externalId } : {}) };
-  workspaceId = await authorizeBrand(saved.brandId, userId);
-  await db.transaction(async tx => {
-    await tx.select().from(brands).where(eq(brands.id, saved.brandId)).for('update');
-    const [existing] = await tx.select().from(channels).where(and(eq(channels.brandId, saved.brandId), eq(channels.provider, provider), eq(channels.externalId, account.externalId)));
-    const values = { brandId: saved.brandId, provider, credentialsEnc: encryptCredentials(credentials), externalId: account.externalId, displayName: visibleIdentifier(account.displayName,"Channel name"), url: account.url ? linkInput(account.url) : null, meta: account.meta ?? {}, status: 'active' as const, lastCheckedAt: new Date(), lastHealthError: null };
-    if (existing) await tx.update(channels).set(values).where(eq(channels.id, existing.id));
-    else await tx.insert(channels).values(values);
-    // A reconnected channel is active again: its mail locks reset so future incidents mail.
-    if (existing) await clearChannelAlertLocks(tx, existing.id);
-  });
-  await recordFunnelEvent('channel_connected', { workspaceId, clientClass: await requestClientClass() });
-  return saved.brandId;
+  await connectOAuthChannel(provider, issuedCredentials, saved.brandId, userId);
+  return { brandId: saved.brandId };
   } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
 }

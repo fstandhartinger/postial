@@ -1,15 +1,17 @@
 # Connect Facebook
 
 In **Brands → your brand → Connect a channel**, choose **Connect Facebook** and
-approve the Page access request. Facebook login returns to Postial, which stores
-the long-lived **Page token** for the first manageable Page and connects it to
-your brand. **Coming soon** means the operator still needs to configure the
-developer app. No Facebook password is stored in Postial.
+approve the Page access request. Facebook login returns to Postial. If your
+Facebook account manages exactly one Page, Postial stores its long-lived
+**Page token** and connects it to your brand. With several Pages, Postial
+shows a Page list on a Postial page — the Pages you granted in the Facebook
+dialog — and connects the Page you choose. **Coming soon** means the operator
+still needs to configure the developer app. No Facebook password is stored in
+Postial.
 
-Each connection publishes as one Facebook Page. If the authorizing account
-manages several Pages, Postial currently uses the first Page returned by
-`/me/accounts`. Disconnect and reconnect after selecting the intended Page if
-that is not the right one.
+Each connection publishes as one Facebook Page. The Page selection expires
+after ten minutes; if it does, connect Facebook again. To connect a different
+Page later, disconnect and reconnect, then choose the intended Page.
 
 Posts support up to 63,206 characters and up to **ten images**. Ten is
 Postial's own conservative cap across channels, narrower than the Graph API's
@@ -58,8 +60,10 @@ and, for the local mock suite, [X verification instructions](connect-x.md#verifi
 2. `finishAuth` exchanges the code at
    `GET /<version>/oauth/access_token`, then swaps the short user token for a
    long-lived one via `grant_type=fb_exchange_token`, then reads
-   `GET /<version>/me/accounts?fields=id,name,access_token` and keeps the first
-   Page token.
+   `GET /<version>/me/accounts?fields=id,name,access_token&limit=100`,
+   following `paging.next` for at most five requests, same origin only. One Page is
+   connected immediately; several Pages are kept encrypted in a ten-minute
+   pending row, and the Page picker on Postial connects the chosen Page token.
 3. Validation reads `GET /<version>/me?fields=id,name` with the Page token;
    the returned Page id becomes the channel `externalId`.
 4. Publishing uploads each image to `POST /<version>/<page-id>/photos` as an
