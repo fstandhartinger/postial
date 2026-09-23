@@ -9,8 +9,8 @@ import { ownBrand, isUuid } from '@/lib/core';
 import { getPublisher } from './index';
 import { failure } from './http';
 import { callbackUrl, FACEBOOK_GRAPH_VERSION, oauthConfig, type OAuthProvider } from './oauth-config';
-import { facebookInstagramToken, facebookPages, facebookToken, oauthJson, tiktokToken, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
-import type { Credentials } from './types';
+import { facebookExpiresIn, facebookInstagramToken, facebookPages, facebookToken, oauthJson, tiktokToken, tokenCredentials, xToken, linkedinToken, type TokenResponse } from './oauth-http';
+import { PublishError, type Credentials } from './types';
 import { recordFunnelEvent, requestClientClass } from '@/lib/funnel';
 import { clearChannelAlertLocks } from '@/lib/alert-mail';
 
@@ -110,17 +110,17 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
     // Keep the long-lived Page token; it does not expire while the user token stays valid, so no refresh is needed.
     if (meta === 'instagram') {
       const ig = await facebookInstagramToken(longToken);
-      token = { access_token: ig.accessToken, expires_in: long.expires_in };
+      token = { access_token: ig.accessToken, expires_in: facebookExpiresIn(long.expires_in) };
       discoveredExternalId = ig.externalId;
     } else {
       const pages = await facebookPages(longToken);
       if (!pages.length) throw failure('AUTH_EXPIRED', 'No Facebook Page was found for this account. Grant the app access to a Page and reconnect.');
       if (pages.length > 1) {
         const pickState = randomBytes(32).toString('base64url');
-        await db.insert(oauthStates).values({ state: pickState, codeVerifier: encryptFacebookPick(pages, long.expires_in), brandId: saved.brandId, userId, provider: 'facebook:pick', expiresAt: new Date(Date.now() + 600000) });
+        await db.insert(oauthStates).values({ state: pickState, codeVerifier: encryptFacebookPick(pages, facebookExpiresIn(long.expires_in)), brandId: saved.brandId, userId, provider: 'facebook:pick', expiresAt: new Date(Date.now() + 600000) });
         return { brandId: saved.brandId, pickState };
       }
-      token = { access_token: pages[0].accessToken, expires_in: long.expires_in };
+      token = { access_token: pages[0].accessToken, expires_in: facebookExpiresIn(long.expires_in) };
     }
   } else if (provider === 'tiktok') {
     const issued = await tiktokToken({ grant_type: 'authorization_code', code, code_verifier: decryptCredentials(saved.codeVerifier).verifier, redirect_uri: callbackUrl(provider) });
@@ -130,5 +130,12 @@ export async function finishAuth(provider: OAuthProvider, state: string, code: s
   const issuedCredentials = discoveredExternalId ? { ...tokenCredentials(token), externalId: discoveredExternalId } : tokenCredentials(token);
   await connectOAuthChannel(provider, issuedCredentials, saved.brandId, userId);
   return { brandId: saved.brandId };
-  } catch { throw new OAuthCallbackError('provider_error', saved.brandId); }
+  } catch (error) {
+    logOAuthConnectFailed(provider, saved.brandId, error);
+    throw new OAuthCallbackError('provider_error', saved.brandId);
+  }
+}
+/** One secrets-free diagnostic line per failed OAuth connect: publish-error code, provider and brand id only — never messages, tokens, OAuth codes, states, verifiers or expiry values. */
+export function logOAuthConnectFailed(provider: OAuthProvider, brandId: string, error: unknown) {
+  console.error(JSON.stringify({ event: 'oauth_connect_failed', provider, brandId, code: error instanceof PublishError ? error.code : 'UNEXPECTED' }));
 }

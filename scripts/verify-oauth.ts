@@ -31,6 +31,8 @@ async function main() {
   process.env.TIKTOK_CLIENT_KEY = 'local-tiktok'; process.env.TIKTOK_CLIENT_SECRET = 'local-tiktok-secret';
   const db = getDb(), userId = crypto.randomUUID(), foreignId = crypto.randomUUID(), sessionToken = randomBytes(32).toString('hex');
   let tokenFailure = false;
+  // Phase switches: Meta may omit expires_in on the long-lived exchange; non-FB/IG strictness must not change (CH-FB-5).
+  let omitFacebookLongExpiresIn = false, omitLinkedinExpiresIn = false;
   // Facebook Page fixtures: the accounts payload switches per phase; /me answers the Page whose token authorizes the request.
   type AccountsPayload = { data: unknown[]; paging?: { next?: string } };
   const singlePage: AccountsPayload = { data: [{ id: 'facebook-page', name: 'Facebook Test', access_token: 'facebook-page-token', instagram_business_account: { id: 'ig-account', username: 'ig.test' } }] };
@@ -50,18 +52,24 @@ async function main() {
     if (url.pathname === '/v21.0/oauth/access_token') {
       const long = url.searchParams.get('grant_type') === 'fb_exchange_token';
       res.writeHead(200, {'Content-Type':'application/json'});
-      res.end(JSON.stringify(long ? { access_token: 'facebook-long', expires_in: 5184000 } : { access_token: 'facebook-short', expires_in: 3600 }));
+      res.end(JSON.stringify(long
+        ? (omitFacebookLongExpiresIn ? { access_token: 'facebook-long' } : { access_token: 'facebook-long', expires_in: 5184000 })
+        : { access_token: 'facebook-short', expires_in: 3600 }));
       return;
     }
     if (url.pathname === '/v21.0/me/accounts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(accountsResponse(url))); return; }
     if (url.pathname === '/v21.0/me') { const page = pageTokens[(req.headers.authorization ?? '').replace(/^Bearer\s+/, '')]; res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(page ?? {})); return; }
+    if (url.pathname === '/oauth/v2/accessToken') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(omitLinkedinExpiresIn ? { access_token: 'linkedin-access' } : { access_token: 'linkedin-access', expires_in: 5184000 }));
+      return;
+    }
     const responses: Record<string, unknown> = {
       '/2/oauth2/token': { access_token: 'x-access', refresh_token: 'x-refresh', expires_in: 7200 },
       '/2/users/me': { data: { id: 'x-account', username: 'test' } },
       '/oauth/access_token': { access_token: 'threads-short' },
       '/access_token': { access_token: 'threads-long', expires_in: 5184000 },
       '/v1.0/me': { id: 'threads-account', username: 'test' },
-      '/oauth/v2/accessToken': { access_token: 'linkedin-access', expires_in: 5184000 },
       '/v2/userinfo': { sub: 'linkedin-account', name: 'LinkedIn Test', vanityName: 'linkedin-test' },
       '/v21.0/ig-account': { id: 'ig-account', username: 'ig.test' },
       '/v2/oauth/token/': { access_token: 'tiktok-access', refresh_token: 'tiktok-refresh', expires_in: 86400, open_id: 'tiktok-account' },
@@ -175,6 +183,13 @@ async function main() {
     const fbChannelsFor = (brandId: string) => db.select().from(channels).where(and(eq(channels.brandId, brandId), eq(channels.provider, 'facebook')));
     const connectedCount = async () => (await db.select({ id: funnelEvents.id }).from(funnelEvents).where(and(eq(funnelEvents.event, 'channel_connected'), eq(funnelEvents.workspaceId, workspace.id)))).length;
     const pickForm = (pick: string, brandId: string, pageId: string) => { const form = new FormData(); form.set('pick', pick); form.set('brandId', brandId); form.set('pageId', pageId); return form; };
+    // Captures console.error lines (e.g. oauth_connect_failed) for exactly one operation, restoring the original handler afterwards.
+    const captureErrors = async <T>(run: () => Promise<T>): Promise<{ result: T; lines: string[] }> => {
+      const lines: string[] = [];
+      const original = console.error;
+      console.error = (...args: unknown[]) => { lines.push(args.map(String).join(' ')); };
+      try { return { result: await run(), lines }; } finally { console.error = original; }
+    };
     const pickLocation = async (slug: string) => {
       const brand = await newBrand(slug);
       const completed = await finishFacebook(brand.id);
@@ -276,6 +291,21 @@ async function main() {
     const zeroPickState = new URL(zeroPick.headers.get('location')!);
     assert.equal(zeroPickState.searchParams.has('pick'), false);
     accountsResponse = () => singlePage;
+    // (i) CH-FB-5: single-Page Facebook connect with expires_in omitted from the long-token response still connects under the 60-day fallback.
+    omitFacebookLongExpiresIn = true;
+    const loneNoExpiry = await newBrand('oauth-fb-single-no-expiry');
+    const loneNoExpiryFunnelBefore = await connectedCount();
+    const loneNoExpiryDone = await finishFacebook(loneNoExpiry.id);
+    assert.equal(new URL(loneNoExpiryDone.headers.get('location')!).pathname, `/app/brands/${loneNoExpiry.id}`);
+    assert.match(loneNoExpiryDone.headers.get('location')!, /\?connected=facebook$/);
+    const loneNoExpiryChannels = await fbChannelsFor(loneNoExpiry.id);
+    assert.equal(loneNoExpiryChannels.length, 1);
+    assert.equal(loneNoExpiryChannels[0].externalId, 'facebook-page');
+    assert.equal(decryptCredentials(loneNoExpiryChannels[0].credentialsEnc).accessToken, 'facebook-page-token');
+    assert(Math.abs(Number(decryptCredentials(loneNoExpiryChannels[0].credentialsEnc).expiresAt) - (Date.now() + 5184000000)) < 60000);
+    assert.equal((await pickRowsFor(loneNoExpiry.id)).length, 0);
+    assert.equal(await connectedCount(), loneNoExpiryFunnelBefore + 1);
+    omitFacebookLongExpiresIn = false;
     // (a) A single Page keeps connecting directly with the same token and external id as before.
     const lone = await newBrand('oauth-fb-single');
     const loneDone = await finishFacebook(lone.id);
@@ -286,6 +316,93 @@ async function main() {
     assert.equal(loneChannel.externalId, 'facebook-page');
     assert.equal(decryptCredentials(loneChannel.credentialsEnc).accessToken, 'facebook-page-token');
     assert.equal((await pickRowsFor(lone.id)).length, 0);
+    // (j) CH-FB-5: multi-Page pick with expires_in omitted — the pick row stores the fallback and choosing a Page connects exactly one channel.
+    omitFacebookLongExpiresIn = true;
+    accountsResponse = () => ({ data: [
+      { id: 'facebook-page', name: 'Facebook Test', access_token: 'facebook-page-token' },
+      { id: 'facebook-page-2', name: 'Facebook Second', access_token: 'facebook-page-token-2' },
+    ] });
+    const noExpiryFunnelBefore = await connectedCount();
+    const noExpiry = await pickLocation('oauth-fb-pick-no-expiry');
+    const [noExpiryRow] = await pickRowsFor(noExpiry.brand.id);
+    assert(noExpiryRow);
+    assert.equal(decryptFacebookPick(noExpiryRow.codeVerifier).expiresIn, '5184000');
+    assert(!noExpiryRow.codeVerifier.includes('facebook-page-token'));
+    assert.equal(await chooseRedirect(pickForm(noExpiry.pick, noExpiry.brand.id, 'facebook-page-2')), `/app/brands/${noExpiry.brand.id}?connected=facebook`);
+    const noExpiryChannels = await fbChannelsFor(noExpiry.brand.id);
+    assert.equal(noExpiryChannels.length, 1);
+    assert.equal(noExpiryChannels[0].externalId, 'facebook-page-2');
+    assert.equal(decryptCredentials(noExpiryChannels[0].credentialsEnc).accessToken, 'facebook-page-token-2');
+    assert(Math.abs(Number(decryptCredentials(noExpiryChannels[0].credentialsEnc).expiresAt) - (Date.now() + 5184000000)) < 60000);
+    assert.equal((await pickRowsFor(noExpiry.brand.id)).length, 0);
+    assert.equal(await connectedCount(), noExpiryFunnelBefore + 1);
+    accountsResponse = () => singlePage;
+    omitFacebookLongExpiresIn = false;
+    // (l) CH-FB-5: Instagram connect with expires_in omitted from the long-token response still connects under the 60-day fallback.
+    omitFacebookLongExpiresIn = true;
+    const igNoExpiry = await newBrand('oauth-ig-no-expiry');
+    const igNoExpiryStart = await fetch(`${appUrl}/api/oauth/instagram/start`, { method: 'POST', headers, body: new URLSearchParams({ brandId: igNoExpiry.id }), redirect: 'manual' });
+    assert.equal(igNoExpiryStart.status, 303);
+    const igNoExpiryState = new URL(igNoExpiryStart.headers.get('location')!).searchParams.get('state')!;
+    const igNoExpiryDone = await fetch(`${appUrl}/api/oauth/instagram/callback?state=${igNoExpiryState}&code=mock-code`, { headers, redirect: 'manual' });
+    assert.equal(igNoExpiryDone.status, 303);
+    assert.match(igNoExpiryDone.headers.get('location')!, /\?connected=instagram$/);
+    const [igNoExpiryChannel] = await db.select().from(channels).where(and(eq(channels.brandId, igNoExpiry.id), eq(channels.provider, 'instagram')));
+    assert(igNoExpiryChannel);
+    assert.equal(igNoExpiryChannel.externalId, 'ig-account');
+    assert.equal(decryptCredentials(igNoExpiryChannel.credentialsEnc).accessToken, 'facebook-page-token');
+    assert(Math.abs(Number(decryptCredentials(igNoExpiryChannel.credentialsEnc).expiresAt) - (Date.now() + 5184000000)) < 60000);
+    omitFacebookLongExpiresIn = false;
+    // (k) CH-FB-5: a failing provider exchange logs exactly one secrets-free structured line (finishAuth catch and chooser catch).
+    const failBrand = await newBrand('oauth-fb-exchange-fail');
+    const failStart = await fetch(`${appUrl}/api/oauth/facebook/start`, { method: 'POST', headers, body: new URLSearchParams({ brandId: failBrand.id }), redirect: 'manual' });
+    assert.equal(failStart.status, 303);
+    const failState = new URL(failStart.headers.get('location')!).searchParams.get('state')!;
+    const [failPending] = await db.select().from(oauthStates).where(eq(oauthStates.state, failState));
+    const failVerifier = decryptCredentials(failPending.codeVerifier).verifier;
+    tokenFailure = true;
+    const failCapture = await captureErrors(() => callback('facebook', failState)).finally(() => { tokenFailure = false; });
+    assert.equal(failCapture.result.status, 303);
+    assert.match(failCapture.result.headers.get('location')!, /connect_error=provider_error$/);
+    const failLines = failCapture.lines.filter(line => line.includes('oauth_connect_failed'));
+    assert.equal(failLines.length, 1);
+    assert(failLines[0].includes('"provider":"facebook"'));
+    assert(failLines[0].includes(failBrand.id));
+    assert(failLines[0].includes('"code":"PROVIDER_DOWN"'));
+    for (const secret of ['facebook-long', 'facebook-short', 'facebook-page-token', 'facebook-page-token-2', 'mock-code', failState, failVerifier]) assert(!failLines[0].includes(secret));
+    assert.equal((await fbChannelsFor(failBrand.id)).length, 0);
+    // Chooser catch folded in: a failing connect while choosing a Page logs the same secrets-free line.
+    accountsResponse = () => ({ data: [
+      { id: 'facebook-page', name: 'Facebook Test', access_token: 'facebook-page-token' },
+      { id: 'facebook-page-2', name: 'Facebook Second', access_token: 'facebook-page-token-2' },
+    ] });
+    const chooserFail = await pickLocation('oauth-fb-pick-fail');
+    tokenFailure = true;
+    const chooserFailCapture = await captureErrors(() => chooseRedirect(pickForm(chooserFail.pick, chooserFail.brand.id, 'facebook-page-2'))).finally(() => { tokenFailure = false; });
+    assert.equal(chooserFailCapture.result, `/app/brands/${chooserFail.brand.id}?connect_error=provider_error`);
+    const chooserFailLines = chooserFailCapture.lines.filter(line => line.includes('oauth_connect_failed'));
+    assert.equal(chooserFailLines.length, 1);
+    assert(chooserFailLines[0].includes('"provider":"facebook"'));
+    assert(chooserFailLines[0].includes(chooserFail.brand.id));
+    assert(chooserFailLines[0].includes('"code":"PROVIDER_DOWN"'));
+    for (const secret of ['facebook-page-token', 'facebook-page-token-2']) assert(!chooserFailLines[0].includes(secret));
+    assert.equal((await fbChannelsFor(chooserFail.brand.id)).length, 0);
+    accountsResponse = () => singlePage;
+    // (m) CH-FB-5 STRICTNESS INVARIANT: a non-FB/IG exchange (LinkedIn) whose token response omits expires_in still fails with provider_error — tokenCredentials stays strict.
+    const strictBrand = await newBrand('oauth-li-strict');
+    const strictStart = await fetch(`${appUrl}/api/oauth/linkedin/start`, { method: 'POST', headers, body: new URLSearchParams({ brandId: strictBrand.id }), redirect: 'manual' });
+    assert.equal(strictStart.status, 303);
+    const strictState = new URL(strictStart.headers.get('location')!).searchParams.get('state')!;
+    omitLinkedinExpiresIn = true;
+    const strictCapture = await captureErrors(() => callback('linkedin', strictState)).finally(() => { omitLinkedinExpiresIn = false; });
+    assert.equal(strictCapture.result.status, 303);
+    assert.match(strictCapture.result.headers.get('location')!, /connect_error=provider_error$/);
+    assert.equal((await db.select().from(channels).where(and(eq(channels.brandId, strictBrand.id), eq(channels.provider, 'linkedin')))).length, 0);
+    const strictLines = strictCapture.lines.filter(line => line.includes('oauth_connect_failed'));
+    assert.equal(strictLines.length, 1);
+    assert(strictLines[0].includes('"provider":"linkedin"'));
+    assert(strictLines[0].includes('"code":"AUTH_EXPIRED"'));
+    for (const secret of ['linkedin-access', strictState]) assert(!strictLines[0].includes(secret));
     assert.equal(requests.find(r => r.path === '/2/oauth2/token')?.body.get('grant_type'), 'authorization_code');
     assert.equal(requests.find(r => r.path === '/oauth/access_token')?.body.get('client_id'), 'local-threads');
     const tiktokExchange = requests.find(r => r.path === '/v2/oauth/token/');

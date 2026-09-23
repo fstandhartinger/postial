@@ -24,7 +24,9 @@ current media flow.
 If the token is rejected, choose **Reconnect** and approve the Page again. Page
 tokens minted from a long-lived user token do not expire on their own, so Postial
 does not run a refresh flow; revoking the app, changing the Page or Instagram
-role, or removing the Page from the account requires reconnection. If a
+role, or removing the Page from the account requires reconnection. Meta may omit
+`expires_in` on re-authorization; the connection then succeeds and the token is
+kept under Meta's 60-day long-lived window (no refresh flow). If a
 publishing result is uncertain, check the Instagram account before retrying to
 avoid a duplicate.
 

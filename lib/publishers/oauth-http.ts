@@ -26,6 +26,12 @@ export function tokenCredentials(token: TokenResponse, previous: Credentials = {
   if (!token.access_token || !Number.isFinite(token.expires_in) || Number(token.expires_in) <= 0) throw failure('AUTH_EXPIRED', 'The provider did not issue a valid token. Reconnect the channel.');
   return { ...previous, accessToken: token.access_token, ...(token.refresh_token ? { refreshToken: token.refresh_token } : {}), expiresAt: String(Date.now() + Number(token.expires_in) * 1000), issuedAt: String(Date.now()) };
 }
+/** Meta's long-lived user token window: 60 days in seconds. */
+export const FACEBOOK_LONG_LIVED_EXPIRES_IN = 5_184_000;
+/** Meta may omit `expires_in` on re-authorization; Facebook/Instagram issuance falls back to the 60-day long-lived window. tokenCredentials stays strict for every provider. */
+export function facebookExpiresIn(value?: number): number {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : FACEBOOK_LONG_LIVED_EXPIRES_IN;
+}
 export async function xToken(body: Record<string, string>) {
   const config = oauthConfig('x');
   if (!config) throw failure('AUTH_EXPIRED', 'X connection is not configured.');

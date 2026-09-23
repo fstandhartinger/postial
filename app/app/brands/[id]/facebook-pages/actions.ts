@@ -4,8 +4,8 @@ import { and, eq, gt } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { oauthStates } from '@/db/schema';
 import { coreContext, isUuid } from '@/lib/core';
-import { authorizeBrand, connectOAuthChannel, decryptFacebookPick, type FacebookPick } from '@/lib/publishers/oauth';
-import { tokenCredentials } from '@/lib/publishers/oauth-http';
+import { authorizeBrand, connectOAuthChannel, decryptFacebookPick, logOAuthConnectFailed, type FacebookPick } from '@/lib/publishers/oauth';
+import { facebookExpiresIn, tokenCredentials } from '@/lib/publishers/oauth-http';
 
 export async function chooseFacebookPage(formData: FormData) {
   const { userId } = await coreContext();
@@ -24,7 +24,10 @@ export async function chooseFacebookPage(formData: FormData) {
   } catch { page = null; }
   if (!page) redirect(`/app/brands/${brandId}?connect_error=expired`);
   try {
-    await connectOAuthChannel('facebook', tokenCredentials({ access_token: page.accessToken, expires_in: expiresIn }), brandId, userId);
-  } catch { redirect(`/app/brands/${brandId}?connect_error=provider_error`); }
+    await connectOAuthChannel('facebook', tokenCredentials({ access_token: page.accessToken, expires_in: facebookExpiresIn(expiresIn) }), brandId, userId);
+  } catch (error) {
+    logOAuthConnectFailed('facebook', brandId, error);
+    redirect(`/app/brands/${brandId}?connect_error=provider_error`);
+  }
   redirect(`/app/brands/${brandId}?connected=facebook`);
 }
