@@ -51,12 +51,12 @@ async function resolvePlan(subscription: Stripe.Subscription): Promise<Plan> {
   if (isPlan(subscription.metadata.plan)) return subscription.metadata.plan;
   throw new Error('Unknown Postial subscription plan');
 }
-async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
+async function reconcile(event: Stripe.Event, stripeSubscriptionId: string): Promise<'applied' | 'skipped-foreign'> {
   const preliminary = await stripe().subscriptions.retrieve(stripeSubscriptionId);
   const customerId = id(preliminary.customer)!;
   const [known] = await getDb().select().from(subscriptions).where(eq(subscriptions.stripeCustomerId, customerId)).limit(1);
   // A shared Stripe account also emits events belonging to other applications.
-  if (!known && preliminary.metadata.app !== 'socialmint') return;
+  if (!known && preliminary.metadata.app !== 'socialmint') return 'skipped-foreign';
   const workspaceId = known?.workspaceId ?? preliminary.metadata.workspace_id;
   if (!workspaceId) throw new Error('Missing workspace mapping');
   // Optimistic revision check: retrieve Stripe outside the transaction; if any
@@ -131,7 +131,7 @@ async function reconcile(event: Stripe.Event, stripeSubscriptionId: string) {
       if (applied.becameActive) await recordFunnelEvent('subscription_active', { workspaceId, clientClass: 'system' });
       if (applied.trialStarted) await recordFunnelEvent('trial_started', { workspaceId, clientClass: 'system' });
       if (applied.paidConversion) await recordFunnelEvent('subscription_paid', { workspaceId, clientClass: 'system' });
-      return;
+      return 'applied';
     }
   }
   throw new Error("Concurrent billing update; retry event");
@@ -151,22 +151,26 @@ export async function POST(request: Request) {
   try {
     const target = subscriptionId(event);
     if (target) {
-      await reconcile(event, target);
-      if (event.type === 'customer.subscription.trial_will_end' || event.type === 'invoice.payment_failed') {
-        await sendSubscriptionReminder(target, event.type === 'customer.subscription.trial_will_end' ? 'trial_will_end' : 'payment_failed');
-      }
-      // A card-less trial ends in silence otherwise: Stripe simply cancels, publishing stops
-      // and the person hears nothing at the moment the consequence becomes real. The same
-      // event fires when a paying customer deliberately cancels, and sending them a
-      // win-back note would be tactless, so anything short of certainty stays quiet.
-      // Until now the only mail a trial user ever got was a warning that it is ending.
-      // Stripe sends nothing for a zero-amount trial, so the start was silent. One factual
-      // notice, once per subscription through the same lock as the others.
-      if (event.type === 'customer.subscription.created' && event.data.object.status === 'trialing') {
-        await sendSubscriptionReminder(target, 'trial_started');
-      }
-      if (event.type === 'customer.subscription.deleted' && lapsedWithoutPayment(event.data.object)) {
-        await sendSubscriptionReminder(target, 'trial_ended');
+      const reconciled = await reconcile(event, target);
+      // Reminders are for Postial's own subscriptions only: a foreign event belongs to a
+      // sibling venture on the shared Stripe account and must not reach the mailer.
+      if (reconciled === 'applied') {
+        if (event.type === 'customer.subscription.trial_will_end' || event.type === 'invoice.payment_failed') {
+          await sendSubscriptionReminder(target, event.type === 'customer.subscription.trial_will_end' ? 'trial_will_end' : 'payment_failed');
+        }
+        // A card-less trial ends in silence otherwise: Stripe simply cancels, publishing stops
+        // and the person hears nothing at the moment the consequence becomes real. The same
+        // event fires when a paying customer deliberately cancels, and sending them a
+        // win-back note would be tactless, so anything short of certainty stays quiet.
+        // Until now the only mail a trial user ever got was a warning that it is ending.
+        // Stripe sends nothing for a zero-amount trial, so the start was silent. One factual
+        // notice, once per subscription through the same lock as the others.
+        if (event.type === 'customer.subscription.created' && event.data.object.status === 'trialing') {
+          await sendSubscriptionReminder(target, 'trial_started');
+        }
+        if (event.type === 'customer.subscription.deleted' && lapsedWithoutPayment(event.data.object)) {
+          await sendSubscriptionReminder(target, 'trial_ended');
+        }
       }
     }
     return Response.json({ received: true });

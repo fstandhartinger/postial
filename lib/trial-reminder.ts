@@ -49,6 +49,15 @@ function content(kind: ReminderKind, trialEnd: Date | null, workspace?: string):
 
 export async function sendSubscriptionReminder(subscriptionId: string, kind: ReminderKind): Promise<void> {
   const db = getDb();
+  // A shared Stripe account delivers events for other applications too. With no local
+  // subscriptions row this is not a Postial subscription at all, so it is a quiet skip:
+  // no reservation, no error signal, no mail. A local row whose owner email cannot be
+  // resolved still throws below, because that is a genuine data-integrity defect.
+  const [local] = await db.select({ id: subscriptions.id }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subscriptionId)).limit(1);
+  if (!local) {
+    console.info(JSON.stringify({ event: 'subscription_reminder_skipped', reason: 'unknown_subscription', subscriptionId, kind }));
+    return;
+  }
   const reserved = await db.insert(subscriptionReminderEmails).values({ subscriptionId, kind }).onConflictDoNothing().returning({ subscriptionId: subscriptionReminderEmails.subscriptionId });
   if (!reserved.length) {
     // A row already exists. Skip only when the mail actually went out: reserving before
