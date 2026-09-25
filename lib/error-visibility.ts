@@ -100,14 +100,46 @@ function errorDetails(error: unknown) {
 }
 
 export type ErrorEventOptions = { route: string; status?: number; authenticated?: boolean; action?: string; now?: Date; requestId?: string };
+type CauseLevel = { message: string; code?: string; severity?: string };
+
+function causeLevel(cause: unknown): CauseLevel {
+  const record = cause as { message?: unknown; code?: unknown; severity?: unknown } | null;
+  const rawMessage = cause instanceof Error ? cause.message : record?.message;
+  const level: CauseLevel = { message: redactErrorValue(rawMessage ?? '') };
+  if (record?.code !== undefined && record?.code !== null) level.code = redactErrorValue(record.code);
+  if (record?.severity !== undefined && record?.severity !== null) level.severity = redactErrorValue(record.severity);
+  return level;
+}
+
+function formatCauseChain(error: unknown): CauseLevel[] | null {
+  const levels: CauseLevel[] = [];
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+  while (levels.length < MAX_CAUSE_DEPTH && current !== null && current !== undefined && !seen.has(current)) {
+    seen.add(current);
+    const next = (current as { cause?: unknown }).cause;
+    if (next === null || next === undefined) break;
+    levels.push(causeLevel(next));
+    current = next;
+  }
+  return levels.length ? levels : null;
+}
+
+export function formatErrorLogLine(error: unknown, options: ErrorEventOptions): string {
+  const now = options.now ?? new Date();
+  const details = errorDetails(error);
+  const route = (options.action ? `action:${options.action}` : options.route).slice(0, 512);
+  const id = options.requestId ?? errorRequestId();
+  return JSON.stringify({ event: 'error', timestamp: now.toISOString(), route, status: options.status ?? null, errorClass: details.errorClass, message: details.logMessage, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated), requestId: id, cause: formatCauseChain(error) });
+}
+
 export async function recordError(error: unknown, options: ErrorEventOptions): Promise<void> {
   try {
     const now = options.now ?? new Date();
     const hourKey = Math.floor(now.getTime() / 3600000);
     const details = errorDetails(error);
     const route = (options.action ? `action:${options.action}` : options.route).slice(0, 512);
-    const id = options.requestId ?? errorRequestId();
-    try { console.error(JSON.stringify({ event: 'error', timestamp: now.toISOString(), route, status: options.status ?? null, errorClass: details.errorClass, message: details.logMessage, fingerprint: details.fingerprint, authenticated: Boolean(options.authenticated), requestId: id })); } catch { /* Logging must not affect the operation. */ }
+    try { console.error(formatErrorLogLine(error, { ...options, now })); } catch { /* Logging must not affect the operation. */ }
     const cap = Number(process.env.ERROR_VISIBILITY_TEST_CAP ?? MAX_PER_HOUR);
     const count = processHourlyCounts.get(hourKey) ?? 0;
     if (count >= cap) return;

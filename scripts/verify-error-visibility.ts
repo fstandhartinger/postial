@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { extractSourceLocation, redactErrorValue, recordError, recentErrorCount } from '../lib/error-visibility';
+import { extractSourceLocation, formatErrorLogLine, redactErrorValue, recordError, recentErrorCount } from '../lib/error-visibility';
 import { errorEvents } from '../db/schema';
-import { getDb } from '../db';
+import { dbPoolOptions, getDb } from '../db';
 import { sql } from 'drizzle-orm';
 
 async function verify() {
@@ -10,6 +10,18 @@ async function verify() {
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('alice@example.com'));
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('sm_live_abc'));
   assert(!redactErrorValue('mail alice@example.com token=sm_live_abc content=private post').includes('private post'));
+  assert.ok(dbPoolOptions.idle_timeout >= 60, 'pool idle_timeout must outlive the 30s worker tick');
+  assert.ok(dbPoolOptions.connect_timeout >= 10, 'pool connect_timeout must tolerate slow PgBouncer handshakes');
+  const drizzleShaped = new Error('Failed query: select 1\nparams: ');
+  drizzleShaped.cause = { message: 'connection lost token=SECRET123', code: 'ECONNRESET', severity: 'ERROR' };
+  const logLine = formatErrorLogLine(drizzleShaped, { route: 'worker:publishing' });
+  const parsedLine = JSON.parse(logLine);
+  assert.ok(Array.isArray(parsedLine.cause) && parsedLine.cause.length === 1, 'the log line carries the cause chain');
+  assert.match(parsedLine.cause[0].message, /connection lost/, 'the cause message is logged');
+  assert.equal(parsedLine.cause[0].code, 'ECONNRESET', 'the postgres code is logged');
+  assert.equal(parsedLine.cause[0].severity, 'ERROR', 'the postgres severity is logged');
+  assert.ok(!logLine.includes('SECRET123'), 'the fake token in the cause chain is redacted');
+  assert.match(parsedLine.fingerprint, /^[0-9a-f]{8}$/, 'the fingerprint keeps its 8-hex-char shape');
   const personal = 'Alice Example lives at alice@example.com and wrote: Please publish this private post about the garden.';
   function knownSourceFunction() { return new Error(`route ${personal}`); }
   const known = knownSourceFunction();
@@ -33,7 +45,7 @@ async function verify() {
   const capped = await db.select().from(errorEvents).where(sql`${errorEvents.route} like ${`%${marker}%`}`);
   assert.equal(capped.length, 4);
   await db.delete(errorEvents).where(sql`${errorEvents.route} like ${`%${marker}%`}`);
-  console.log('error visibility: API+worker, redaction, best-effort path, cap PASS');
+  console.log('error visibility: API+worker, redaction, best-effort path, cap, pool-config, cause-chain logging PASS');
 }
 verify().catch(error => { console.error(error instanceof Error ? error.message : 'verification failed'); process.exit(1); });
 
