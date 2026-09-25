@@ -48,7 +48,7 @@
     },
     {
       "label": "Sub",
-      "text": "For agencies whose clients publish on Bluesky, Mastodon and Telegram — with X, Threads and LinkedIn available to connect in Early access, subject to provider conditions. Get client approval without a login, follow publishing errors and retries, and pay one monthly price for your agency."
+      "text": "Send clients one review link, no login needed. Schedule to Bluesky, Mastodon and Telegram, see every error and retry, and pay one monthly price for your agency."
     },
     {
       "label": "Primary CTA → /signup",
@@ -64,7 +64,7 @@
     },
     {
       "label": "Plan note",
-      "text": "Client approval links, API, and n8n workflows are included with Agency. The native n8n node is on npm as n8n-nodes-postial 0.2.0 and appears as “Postial” inside n8n; only the package name still carries the former brand."
+      "text": "Approval links, REST API and the native n8n node come with Agency."
     }
   ],
   "Social-proof alternative": [
@@ -162,7 +162,7 @@
     },
     {
       "label": "Body",
-      "text": "Connect your workflows through the REST API and signed webhooks. Bring automated post preparation into the same review and publishing process. The native n8n node is on npm as n8n-nodes-postial 0.2.0 and appears as “Postial” inside n8n; only the package name still carries the former brand."
+      "text": "Connect your workflows through the REST API, signed webhooks or the native n8n node. Automated drafts go through the same review and publishing process."
     }
   ],
   "How it works": [
@@ -382,7 +382,7 @@
     },
     {
       "label": "Body",
-      "text": "Agency includes API access for connecting your own automations. The native n8n node is on npm as n8n-nodes-postial 0.2.0 and appears as “Postial” inside n8n; only the package name still carries the former brand."
+      "text": "Agency includes API access and a native n8n node for connecting your own automations."
     },
     {
       "label": "Fair-comparison note",

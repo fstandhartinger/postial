@@ -1,0 +1,417 @@
+{
+  "_note": "Copy for the four solution landing pages. Tokens in braces are filled at render time from lib/plans.ts: {starterPrice} {agencyPrice} {starterBrands} {agencyBrands} {starterSeats} {agencySeats} {starterStorage} {agencyStorage} {trialDays}. Inline links use [label](/path).",
+  "pages": [
+    {
+      "slug": "bluesky-scheduler",
+      "name": "Bluesky scheduler",
+      "linkLabel": "Bluesky scheduler",
+      "title": "Schedule Bluesky Posts for Multiple Accounts | Postial",
+      "description": "Schedule Bluesky posts for several client accounts with app passwords, a 300-character check, image warnings, client approval and visible retries.",
+      "eyebrow": "Bluesky scheduler for agencies",
+      "h1": "Schedule Bluesky posts for every client account",
+      "sub": "Connect each client's Bluesky account with an app password, plan posts on a calendar in the brand's timezone, and see exactly what happened when a post goes out. Built for agencies running several accounts at once.",
+      "sections": [
+        {
+          "heading": "What to know before you schedule on Bluesky",
+          "intro": "Bluesky has a few rules that catch people out when posts are prepared in advance. Postial checks them before the post is due, not after it fails.",
+          "columns": "two",
+          "cards": [
+            {
+              "title": "Use an app password, never the main password",
+              "body": "Bluesky lets you create app passwords under Settings → App Passwords. Create one named Postial for each client account. Postial signs in with a fresh session for each operation and does not store session tokens. If you revoke the app password, publishing stops until you reconnect with a new one."
+            },
+            {
+              "title": "300 characters, links included",
+              "body": "Bluesky counts graphemes, so an emoji or accented letter counts as one character. Postial counts the same way and includes any link you attach in the total, so a post that fits in the composer also fits on Bluesky."
+            },
+            {
+              "title": "Images: four per post, 1 MB each",
+              "body": "Bluesky accepts up to four images per post and downloads each one at no more than 1 MB. Postial uploads up to 5 MiB per file, so a large photo can upload fine and still be too big for Bluesky. In that case the image is left out, the text is published, and the post shows a warning. Add image descriptions in the composer; Postial forwards them to Bluesky as alt text."
+            },
+            {
+              "title": "Links become clickable",
+              "body": "URLs in the post text are published as clickable links. Postial does not generate a link preview card, so write the text so it makes sense without one."
+            }
+          ]
+        },
+        {
+          "heading": "Running several Bluesky accounts without mixing them up",
+          "columns": "three",
+          "cards": [
+            {
+              "title": "One brand per client",
+              "body": "Each client gets a brand with its own connected channels and timezone. Starter includes {starterBrands} brands, Agency {agencyBrands}. When you connect, Postial shows the handle it signed in as, so you can confirm it is the right account."
+            },
+            {
+              "title": "Custom PDS handles work",
+              "body": "Enter the handle or the account email as the identifier. If the account lives on its own PDS rather than bsky.social, use the handle so Postial can find the right server."
+            },
+            {
+              "title": "Retries that do not double-post",
+              "body": "Each post gets a stable record key. Before creating the post, Postial checks whether that record already exists, so an automatic retry after a timeout does not publish a second copy."
+            }
+          ]
+        }
+      ],
+      "stepsHeading": "How to schedule Bluesky posts with Postial",
+      "steps": [
+        {
+          "title": "1. Create an app password",
+          "body": "In Bluesky, open Settings → App Passwords and create one named Postial. Copy it once; Bluesky will not show it again."
+        },
+        {
+          "title": "2. Connect the account to a brand",
+          "body": "In Postial, open Brands, pick the client's brand and choose Connect a channel → bluesky. Enter the handle and the app password, then check the displayed handle."
+        },
+        {
+          "title": "3. Write, schedule and follow the result",
+          "body": "Compose the post, add up to four images, pick a time in the brand's timezone and save. For a campaign, use [Plan several posts](/docs/bulk-csv) to prepare up to 200 rows from a CSV. After the time passes, check the post status for the published link or any warning."
+        }
+      ],
+      "limitsHeading": "What Postial does not do on Bluesky",
+      "limits": [
+        "It publishes single posts. It does not create threads or reply chains.",
+        "It does not upload video. Images only: JPEG, PNG, WebP or GIF.",
+        "It does not build link preview cards.",
+        "It does not resize images. Keep files under 1 MB for Bluesky.",
+        "A scheduled time is not a delivery guarantee. The worker runs periodically, and Bluesky itself can delay or reject a post."
+      ],
+      "faq": [
+        {
+          "question": "Can I schedule posts for several Bluesky accounts from one login?",
+          "answer": "Yes. Connect each account to the brand it belongs to. Starter covers {starterBrands} brands for one user; Agency covers {agencyBrands} brands and {agencySeats} users. Each connection uses its own app password."
+        },
+        {
+          "question": "Why does Postial ask for an app password?",
+          "answer": "App passwords are Bluesky's way of giving a tool access without sharing the main password. You can revoke one at any time in Bluesky without changing your login. Never paste the main password into Postial."
+        },
+        {
+          "question": "What happens if my post is over 300 characters?",
+          "answer": "The composer counts characters the way Bluesky does, including an attached link, and shows when a Bluesky channel is over the limit. Shorten the text before scheduling, or send a longer version to Mastodon or Telegram, which allow more."
+        },
+        {
+          "question": "What happens if a scheduled Bluesky post fails?",
+          "answer": "Temporary failures retry automatically after 1, 4, 15 and 60 minutes, with at most five attempts. An expired app password needs you to reconnect. The post shows the error in plain language. See [publishing reliability](/docs/publishing-reliability)."
+        },
+        {
+          "question": "Can a client approve Bluesky posts before they go out?",
+          "answer": "On Agency, yes. Request approval when you schedule and send the client a review link. The post is held until they approve. See [client approval](/social-media-client-approval)."
+        }
+      ],
+      "helpSlug": "connect-bluesky",
+      "helpLabel": "Step-by-step guide: connect Bluesky",
+      "finalHeading": "Put your Bluesky clients on one calendar",
+      "finalBody": "Try Postial free for {trialDays} days without a card. Connect one Bluesky account, schedule a post, and check the result before you move the rest."
+    },
+    {
+      "slug": "mastodon-scheduler",
+      "name": "Mastodon scheduler",
+      "linkLabel": "Mastodon scheduler",
+      "title": "Mastodon Scheduler: Plan Toots on Your Instance | Postial",
+      "description": "Schedule Mastodon posts for accounts on different instances via access token. Postial reads each instance's character limit and shows every retry.",
+      "eyebrow": "Mastodon scheduler",
+      "h1": "Schedule Mastodon posts across instances",
+      "sub": "Your clients are not all on mastodon.social. Postial connects each account with its own instance URL and access token, reads that instance's character limit, and publishes at the time you set.",
+      "sections": [
+        {
+          "heading": "Check your instance rules first",
+          "intro": "This matters more on Mastodon than anywhere else. Every instance sets its own rules, and moderators can suspend an account that posts on a schedule without saying so.",
+          "columns": "two",
+          "cards": [
+            {
+              "title": "Mark the account as automated",
+              "body": "Many instances require accounts that post unattended to enable Preferences → Profile → This is an automated account, and may suspend accounts that do not. A suspended account cannot publish again, so read the instance's rules before you connect. Postial's Channels page shows a warning when Mastodon does not list a connected account as automated."
+            },
+            {
+              "title": "New accounts deserve extra care",
+              "body": "If you open a fresh account for a client and it starts publishing on a schedule straight away, it can look like spam to moderators. Fill in the profile, check the rules, and consider asking the instance admins if you are unsure."
+            }
+          ]
+        },
+        {
+          "heading": "How Postial handles Mastodon specifics",
+          "columns": "three",
+          "cards": [
+            {
+              "title": "The real character limit",
+              "body": "The Mastodon default is 500 characters, but many instances allow more. When you connect, Postial asks the instance for its configured limit and checks posts against that number, falling back to 500 if the instance does not report one."
+            },
+            {
+              "title": "Images and descriptions",
+              "body": "Up to four images per post. Image descriptions from the composer are sent to Mastodon as alt text. Mastodon processes uploads before they can be attached; Postial waits for that, and treats a slow instance as a temporary failure that retries."
+            },
+            {
+              "title": "No duplicate toots on retry",
+              "body": "Every status is sent with a stable idempotency key, so when a retry follows a timeout, Mastodon can recognise the repeated request instead of creating a second post."
+            }
+          ]
+        }
+      ],
+      "stepsHeading": "How to schedule Mastodon posts with Postial",
+      "steps": [
+        {
+          "title": "1. Create an application on the instance",
+          "body": "Sign in to the client's instance and open Preferences → Development → New application. Name it Postial and enable only write:statuses, write:media and read:accounts."
+        },
+        {
+          "title": "2. Connect with instance URL and token",
+          "body": "Copy Your access token. In Postial, choose Connect a channel → mastodon on the client's brand, enter the instance origin, such as https://mastodon.social, and paste the token. Check the displayed account and instance."
+        },
+        {
+          "title": "3. Schedule and review the outcome",
+          "body": "Write the post, attach images with descriptions, pick a time in the brand's timezone and save. Use the [calendar](/docs/calendar) to move posts by date. After publishing, the post links to the status on the instance."
+        }
+      ],
+      "limitsHeading": "What Postial does not do on Mastodon",
+      "limits": [
+        "It does not set per-post visibility. Statuses use the account's default posting visibility.",
+        "It has no content warning (CW) field, and no polls.",
+        "It publishes single statuses, not threads.",
+        "It does not upload video. Images only, up to 5 MiB per upload in Postial.",
+        "It is built and documented for the Mastodon API. Other fediverse servers are not tested or promised.",
+        "It cannot protect an account from an instance's moderation decisions."
+      ],
+      "faq": [
+        {
+          "question": "Can I schedule toots for accounts on different Mastodon instances?",
+          "answer": "Yes. Each connection stores its own instance URL and access token, so one brand can hold an account on mastodon.social and another on a smaller instance. Each is checked against its own character limit."
+        },
+        {
+          "question": "Is scheduling posts allowed on Mastodon?",
+          "answer": "That depends on the instance. Many allow it if the account is marked as automated; some restrict it further. Check the rules of the specific instance before connecting, because a suspended account cannot publish again."
+        },
+        {
+          "question": "Which access token scopes does Postial need?",
+          "answer": "write:statuses to publish, write:media to upload images, and read:accounts to confirm which account you connected. Nothing more. If you revoke the token, create a new one and reconnect."
+        },
+        {
+          "question": "Why was my image not attached?",
+          "answer": "Mastodon has to process an image before a status can use it. If the instance is still processing after Postial's wait, the attempt fails as temporary and retries later. Oversized or unsupported files are rejected. See [uploads](/docs/uploads)."
+        },
+        {
+          "question": "Can I schedule the same post to Mastodon and Bluesky?",
+          "answer": "Yes, select both channels. Keep the text within Bluesky's 300 characters and images under 1 MB, or the Bluesky side will need changes. See the [Bluesky scheduler](/bluesky-scheduler) page."
+        }
+      ],
+      "helpSlug": "connect-mastodon",
+      "helpLabel": "Step-by-step guide: connect Mastodon",
+      "finalHeading": "Schedule your first Mastodon post today",
+      "finalBody": "Start a {trialDays}-day trial without a card, connect one client account, and check the published status before adding more clients."
+    },
+    {
+      "slug": "telegram-channel-scheduler",
+      "name": "Telegram channel scheduler",
+      "linkLabel": "Telegram channel scheduler",
+      "title": "Telegram Channel Scheduler: Schedule Channel Posts | Postial",
+      "description": "Schedule posts to Telegram channels through your own bot. Postial checks the 4096-character limit, splits long captions and flags uncertain sends.",
+      "eyebrow": "Telegram channel scheduler",
+      "h1": "Schedule Telegram channel posts with your own bot",
+      "sub": "Postial publishes to a Telegram channel through a bot you create and control. Add the bot as a channel admin, paste its token, and schedule posts with text and images for each client's channel.",
+      "sections": [
+        {
+          "heading": "How posting to a Telegram channel works",
+          "intro": "Telegram does not let outside tools post as you. Channel posts from a scheduler go through a bot, and that bot needs the right permissions in the channel.",
+          "columns": "two",
+          "cards": [
+            {
+              "title": "The bot is yours",
+              "body": "Create it with the official @BotFather using /newbot, and keep the token private. Postial stores the token encrypted and uses it only to post to the channel you name. You can revoke it in BotFather at any time."
+            },
+            {
+              "title": "The bot must be a channel admin",
+              "body": "Open the channel's administrator settings and add the bot with permission to post messages. Without that permission every send fails. This is the most common cause of a Telegram connection error."
+            },
+            {
+              "title": "Public and private channels",
+              "body": "Enter the channel's @username, or its numeric chat ID, including the leading minus sign, for a private channel. Public channels get a link to the published message. Private channels may not expose one, so the post status shows the result without a link."
+            },
+            {
+              "title": "Text is sent as written",
+              "body": "Postial does not apply Telegram's Markdown or HTML formatting, so asterisks and underscores appear exactly as typed. Links in the text stay as links."
+            }
+          ]
+        },
+        {
+          "heading": "Long posts and images",
+          "columns": "three",
+          "cards": [
+            {
+              "title": "Up to 4096 characters",
+              "body": "Telegram allows 4096 characters per text message, and Postial counts an attached link in that total. Longer drafts are flagged before scheduling."
+            },
+            {
+              "title": "Captions over 1024 characters",
+              "body": "Telegram limits image captions to 1024 characters. Postial puts the first part on the image and sends the remaining text as a separate message right after it."
+            },
+            {
+              "title": "Albums of up to four images",
+              "body": "Postial sends up to four images per post as an album with the caption on the first image. Telegram allows ten, but Postial's composer stops at four."
+            }
+          ]
+        }
+      ],
+      "stepsHeading": "How to schedule Telegram channel posts with Postial",
+      "steps": [
+        {
+          "title": "1. Create the bot",
+          "body": "Message @BotFather, send /newbot and follow the prompts. Copy the bot token it gives you."
+        },
+        {
+          "title": "2. Make it a channel admin",
+          "body": "In the channel's settings, add the bot as an administrator with permission to post messages."
+        },
+        {
+          "title": "3. Connect and confirm",
+          "body": "In Postial, open the client's brand, choose Connect a channel → telegram, paste the token and enter the @username or chat ID. Check that the displayed channel is the right one."
+        },
+        {
+          "title": "4. Schedule and check the channel",
+          "body": "Write the post, add images, pick a time in the brand's timezone and save. After it is sent, the post status shows the result and, for public channels, the message link."
+        }
+      ],
+      "limitsHeading": "What Postial does not do on Telegram",
+      "limits": [
+        "It posts to channels through a bot. It does not post as your personal account.",
+        "It does not send video, polls or files. Images only.",
+        "It does not apply Telegram formatting or pin messages.",
+        "It does not deliver Postial's own alerts over Telegram. Team notifications go to Slack, Discord or Mattermost.",
+        "If Telegram's response is unclear, Postial marks the post as needs review instead of resending, because the message may already be in the channel."
+      ],
+      "faq": [
+        {
+          "question": "Why does my Telegram connection fail?",
+          "answer": "Check three things: the bot token is current, the chat ID or @username is correct (private channel IDs start with a minus sign), and the bot is an admin with permission to post messages."
+        },
+        {
+          "question": "What does needs review mean for a Telegram post?",
+          "answer": "Telegram's reply was uncertain, so the message may or may not have arrived. Postial never retries this automatically. Look at the channel first, then choose Retry or Skip. See [publishing reliability](/docs/publishing-reliability)."
+        },
+        {
+          "question": "What if the text after the image caption fails?",
+          "answer": "The images and caption are already published. Postial shows a warning. Send the remaining text manually instead of reposting the whole post, or the images will appear twice."
+        },
+        {
+          "question": "Can I schedule posts for several clients' channels?",
+          "answer": "Yes. Connect each channel to its client's brand. Starter includes {starterBrands} brands and Agency {agencyBrands}. Each brand has its own timezone, so 9:00 means 9:00 for that client."
+        },
+        {
+          "question": "Can a client approve Telegram posts first?",
+          "answer": "On Agency, yes. The client opens a review link, sees the text, images and schedule, and approves or asks for changes without a Postial account. See [client approval](/social-media-client-approval)."
+        }
+      ],
+      "helpSlug": "connect-telegram",
+      "helpLabel": "Step-by-step guide: connect Telegram",
+      "finalHeading": "Put your Telegram channel on a schedule",
+      "finalBody": "Try Postial for {trialDays} days without a card. Connect one channel, send a scheduled test post, and confirm it in Telegram before you rely on it."
+    },
+    {
+      "slug": "social-media-client-approval",
+      "name": "Client approval",
+      "linkLabel": "Client approval workflow",
+      "title": "Social Media Client Approval Tool for Agencies | Postial",
+      "description": "Send clients a private review link to approve social posts or request changes, without an account or a paid seat. Approved posts publish on schedule.",
+      "eyebrow": "Client approval for agencies",
+      "h1": "Social media approval your clients will actually use",
+      "sub": "Send one private link per post. Your client sees the post as it will go out, approves it or asks for changes, and never has to create an account. The post only publishes once it is approved.",
+      "sections": [
+        {
+          "heading": "Why approvals get stuck",
+          "columns": "three",
+          "cards": [
+            {
+              "title": "Feedback lives everywhere",
+              "body": "A thumbs-up in WhatsApp, a correction in an email, a screenshot in Slack. When it is time to publish, nobody is sure which version the client agreed to."
+            },
+            {
+              "title": "Clients will not sign up",
+              "body": "Asking a client to create an account in yet another tool for a two-minute check is how approvals stall for days."
+            },
+            {
+              "title": "Edits after approval",
+              "body": "Someone fixes a typo after the client said yes, and the approved version is no longer the one that goes out."
+            }
+          ]
+        },
+        {
+          "heading": "How approval works in Postial",
+          "columns": "two",
+          "cards": [
+            {
+              "title": "What the client sees",
+              "body": "The review page shows the brand and a preview of the post: text, images, link, scheduled time and channel names. The reviewer types their name and approves, or requests changes with a required comment."
+            },
+            {
+              "title": "What your team sees",
+              "body": "The Approvals page groups posts into Awaiting, Changes requested, Approved and Published, with the latest reviewer name and comment. Owners can send a notice to Slack, Discord or Mattermost when a client decides."
+            },
+            {
+              "title": "Edits reset approval",
+              "body": "Saving a content change resets approval, so the client always approves what will actually be published. Moving only the date keeps the approval."
+            },
+            {
+              "title": "Links you can revoke",
+              "body": "Anyone holding a link can open its review page. If a link was forwarded too widely, use Regenerate link: the old one stops working and earlier decisions stay in the history."
+            }
+          ]
+        }
+      ],
+      "stepsHeading": "How to set up client approval with Postial",
+      "steps": [
+        {
+          "title": "1. Compose and request approval",
+          "body": "On Agency, write the post, choose channels and a time, and turn on approval. For a campaign, set requires_approval per row in a [CSV import](/docs/bulk-csv)."
+        },
+        {
+          "title": "2. Send the link",
+          "body": "Open Approvals, copy the post's link and send it to the reviewer through your usual channel. Postial does not email it for you."
+        },
+        {
+          "title": "3. Act on the decision",
+          "body": "An approved post publishes at its scheduled time. For requested changes, edit, save and ask for another review."
+        },
+        {
+          "title": "4. Confirm it went out",
+          "body": "Approved is not the same as published. Check each channel's status afterwards, and follow any retries on the post."
+        }
+      ],
+      "limitsHeading": "What to know before you rely on it",
+      "limits": [
+        "Approval links are an Agency feature ({agencyPrice}). Starter has no client links; you review drafts yourself.",
+        "Each post carries one current decision. There is no multi-stage chain with several required sign-offs.",
+        "Approved posts publish to Postial's live networks: Bluesky, Mastodon and Telegram. Other networks are Early access and subject to each provider's conditions.",
+        "The link is the only access control. Share it privately and regenerate it if it leaks.",
+        "Published or already publishing posts cannot get a new link."
+      ],
+      "faq": [
+        {
+          "question": "Does my client need a Postial account or a seat?",
+          "answer": "No. The review link works without a login, and reviewers do not use one of your {agencySeats} Agency seats."
+        },
+        {
+          "question": "What happens if the client never responds?",
+          "answer": "The post stays held. It does not publish without approval. You can see every waiting post under Awaiting on the Approvals page and follow up."
+        },
+        {
+          "question": "Does an edit after approval go out unreviewed?",
+          "answer": "No. Saving a content edit resets approval, so the post waits for a new decision. Only date-only rescheduling keeps the existing approval."
+        },
+        {
+          "question": "Can I automate approval requests?",
+          "answer": "Yes, on Agency. The REST API returns an approval link when you create a post with approval, and the n8n node and webhooks can react to approval.decided events. See the [n8n guide](/docs/n8n-postial)."
+        },
+        {
+          "question": "Can I try it before signing up?",
+          "answer": "Yes. The [interactive demo](/#demo) shows the client's side of the review with sample content. Nothing is sent or published."
+        },
+        {
+          "question": "Which networks does approval work with?",
+          "answer": "Any channel you schedule to. Bluesky, Mastodon and Telegram are live today; see the [Bluesky](/bluesky-scheduler), [Mastodon](/mastodon-scheduler) and [Telegram](/telegram-channel-scheduler) pages for the details of each."
+        }
+      ],
+      "helpSlug": "approvals",
+      "helpLabel": "Step-by-step guide: client approvals",
+      "finalHeading": "Get your next post approved without the email chain",
+      "finalBody": "Agency is {agencyPrice} for {agencyBrands} brands and {agencySeats} users, and the {trialDays}-day trial needs no card. Send your first review link today."
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 [
   {
+    "date": "2026-09-26",
+    "title": "A clearer, faster website with dark mode",
+    "body": "The public site has a new design that follows your system's light or dark setting, plus guides for scheduling on Bluesky, Mastodon and Telegram and for running client approvals. Nothing changed inside the app."
+  },
+  {
     "date": "2026-09-12",
     "title": "Notices for every billing step",
     "body": "A trial now sends one factual notice when it starts, another three days before it ends, and one when it lapses without a payment method. Each names the workspace it concerns and links to the page it talks about."

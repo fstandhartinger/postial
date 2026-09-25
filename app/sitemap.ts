@@ -10,7 +10,8 @@ import { siteUrl } from '@/lib/seo';
 const contentUpdated = new Date(
   (changelog as ReadonlyArray<{ date: string }>).map(entry => entry.date).sort().at(-1) ?? '2026-09-09',
 );
+const solutionPaths = new Set(['/social-media-client-approval', '/bluesky-scheduler', '/mastodon-scheduler', '/telegram-channel-scheduler']);
 export default function sitemap(): MetadataRoute.Sitemap {
-  const paths = ['/', '/pricing', '/roadmap', '/impressum', '/privacy', '/terms', '/legal', '/legal/dpa', '/docs', '/docs/api', ...helpIndex.map(article => `/docs/${article.slug}`), '/compare', ...compare.pages.map(page => `/compare/${page.slug}`)];
-  return paths.map(path => ({ url: new URL(path, siteUrl).href, lastModified: contentUpdated, changeFrequency: 'monthly', priority: path === '/' ? 1 : 0.7 }));
+  const paths = ['/', '/pricing', '/roadmap', '/impressum', '/privacy', '/terms', '/legal', '/legal/dpa', '/docs', '/docs/api', ...helpIndex.map(article => `/docs/${article.slug}`), '/social-media-client-approval', '/bluesky-scheduler', '/mastodon-scheduler', '/telegram-channel-scheduler', '/compare', ...compare.pages.map(page => `/compare/${page.slug}`)];
+  return paths.map(path => ({ url: new URL(path, siteUrl).href, lastModified: contentUpdated, changeFrequency: 'monthly', priority: path === '/' ? 1 : solutionPaths.has(path) ? 0.8 : 0.7 }));
 }

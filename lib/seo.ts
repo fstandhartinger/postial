@@ -26,10 +26,25 @@ export function seoMetadata({
       url,
       images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Postial — scheduling and client approvals for social agencies' }],
     },
-    twitter: { card: 'summary', title, description },
+    twitter: { card: 'summary_large_image', title, description, images: ['/opengraph-image'] },
     ...(robots ? { robots } : { robots: { index: true, follow: true } }),
   };
 }
+
+export const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Postial',
+  url: siteUrl,
+  logo: `${siteUrl}/icon.svg`,
+  email: 'info@productivity-boost.com',
+  parentOrganization: {
+    '@type': 'Organization',
+    name: 'productivity-boost.com Betriebs UG (haftungsbeschränkt) & Co. KG',
+    vatID: 'DE296812612',
+    address: { '@type': 'PostalAddress', addressLocality: 'Passau', addressCountry: 'DE' },
+  },
+};
 
 export function jsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, '\\u003c');

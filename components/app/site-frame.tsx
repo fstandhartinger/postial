@@ -13,12 +13,12 @@ export function SiteFrame({
   return app ? (
     <>{children}</>
   ) : (
-    <>
+    <div className="site">
       {header}
       <main id="main-content" className="container main-content">
         {children}
       </main>
       {footer}
-    </>
+    </div>
   );
 }
