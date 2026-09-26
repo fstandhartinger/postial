@@ -37,9 +37,11 @@ console, add the **Facebook Login for Business** product, and request only the
 permissions the adapter uses:
 
 - `pages_show_list`
-- `pages_read_engagement`
 - `instagram_basic`
 - `instagram_content_publish`
+
+(`pages_read_engagement` belongs to the Facebook adapter's scope set, not Instagram's;
+the Instagram authorize step requests exactly the three permissions above.)
 
 In development, only accounts holding an app role or tester role can authorize.
 Serving unrelated customers requires App Review for the permissions above and a
