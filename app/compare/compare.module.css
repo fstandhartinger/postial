@@ -10,6 +10,6 @@
 .table th:first-child { width: 24%; }
 .table td { color: var(--muted); }
 .citations { display: inline-flex; gap: 6px; color: var(--accent); font-size: 14px; }
-.citations a { text-decoration: underline; text-underline-offset: 3px; }
+.citations a { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; border-radius: 4px; text-decoration: underline; text-underline-offset: 3px; }
 .sources ol { padding: 0; list-style: none; margin-top: 24px; }
 .sources li { margin-top: 16px; scroll-margin-top: 24px; }

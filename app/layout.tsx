@@ -28,7 +28,7 @@ const inter = localFont({
     { path: "../public/fonts/Inter-latin-600.woff2", weight: "600", style: "normal" },
     { path: "../public/fonts/Inter-latin-700.woff2", weight: "700", style: "normal" },
   ],
-  preload: false,
+  preload: true,
   variable: "--font-inter",
   display: "swap",
 });

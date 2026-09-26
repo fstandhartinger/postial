@@ -26,7 +26,9 @@ const earlyAccessNetworkNames = networkNames('preparation');
 const hydrateNetworkText = (text: string) => text.replace(/\{(liveNetworkNames|earlyAccessNetworkNames)\}/g, (_, key) => key === 'liveNetworkNames' ? liveNetworkNames : earlyAccessNetworkNames);
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = comparison((await params).slug);
-  return seoMetadata({ title: hydrateNetworkText(page.title), description: hydrateNetworkText(page.description), path: `/compare/${page.slug}` });
+  const title = `${page.vendor} alternative for agencies`;
+  const description = `Compare ${page.vendor} with Postial for agency approvals, pricing and publishing. Postial is early access, with ${liveNetworkNames} live today.`;
+  return seoMetadata({ title, description, path: `/compare/${page.slug}` });
 }
 export default async function ComparePage({ params }: Props) {
   const { slug } = await params;
