@@ -30,7 +30,7 @@ async function main() {
     process.env.STRIPE_PRICE_STARTER = 'price_placeholder';
     process.env.STRIPE_PRICE_AGENCY = 'price_placeholder';
     process.env.STRIPE_PORTAL_CONFIG = 'bpc_placeholder';
-    process.env.SMTP_URL = 'smtp://127.0.0.1:1'; process.env.EMAIL_FROM = 'Postial <verify@example.invalid>';
+    process.env.SMTP_URL = 'smtp://127.0.0.1:1'; process.env.EMAIL_FROM = 'Postial <verify@mail.postial.co>';
     process.env.APP_URL = process.env.VERIFY_BASE_URL!;
     process.env.AUTH_URL = process.env.VERIFY_BASE_URL!;
     process.env.NEXT_PUBLIC_APP_URL = process.env.VERIFY_BASE_URL!;

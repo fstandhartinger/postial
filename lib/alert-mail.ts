@@ -1,4 +1,5 @@
 import { createTransport } from 'nodemailer';
+import { DEFAULT_POSTIAL_SENDER, requirePostialSender } from './mail-sender';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { channelAlertEmails, channels, users, workspaces } from '@/db/schema';
@@ -93,8 +94,9 @@ export async function sendPendingChannelAlertMail(workspaceId: string, channelId
       .where(eq(channels.id, channelId)).limit(1);
     if (!channel) throw new Error('Channel is unavailable');
     const mail = alertMailContent(kind, channel.displayName, channel.provider, [...new Set(claimed.postIds)]);
+    const from = requirePostialSender(process.env.EMAIL_FROM ?? DEFAULT_POSTIAL_SENDER);
     const transport = createTransport(process.env.SMTP_URL);
-    const result = await transport.sendMail({ to: normalizeEmail(recipient.email), from: process.env.EMAIL_FROM ?? 'Postial <noreply@mail.postial.co>', subject: mail.subject, text: mail.text, html: mail.html });
+    const result = await transport.sendMail({ to: normalizeEmail(recipient.email), from, subject: mail.subject, text: mail.text, html: mail.html });
     const failed = [...(result.rejected || []), ...(result.pending || [])].filter(Boolean);
     if (failed.length) throw new Error(`Email (${failed.join(', ')}) could not be sent`);
     await db.update(channelAlertEmails).set({ sentAt: new Date() }).where(key);

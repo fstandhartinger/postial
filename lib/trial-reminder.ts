@@ -1,4 +1,5 @@
 import { createTransport } from 'nodemailer';
+import { DEFAULT_POSTIAL_SENDER, requirePostialSender } from './mail-sender';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { users, workspaces, subscriptions } from '@/db/schema';
@@ -83,8 +84,9 @@ export async function sendSubscriptionReminder(subscriptionId: string, kind: Rem
     if (!row?.email) throw new Error('Subscription owner email is unavailable');
     const recipient = normalizeEmail(row.email);
     const mail = content(kind, row.trialEnd, row.workspace ?? undefined);
+    const from = requirePostialSender(process.env.EMAIL_FROM ?? DEFAULT_POSTIAL_SENDER);
     const transport = createTransport(process.env.SMTP_URL);
-    const result = await transport.sendMail({ to: recipient, from: process.env.EMAIL_FROM ?? 'Postial <noreply@mail.postial.co>', subject: mail.subject, text: mail.text, html: mail.html });
+    const result = await transport.sendMail({ to: recipient, from, subject: mail.subject, text: mail.text, html: mail.html });
     const failed = [...(result.rejected || []), ...(result.pending || [])].filter(Boolean);
     if (failed.length) throw new Error(`Email (${failed.join(', ')}) could not be sent`);
     await db.update(subscriptionReminderEmails).set({ sentAt: new Date() }).where(and(eq(subscriptionReminderEmails.subscriptionId, subscriptionId), eq(subscriptionReminderEmails.kind, kind)));

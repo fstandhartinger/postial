@@ -8,6 +8,7 @@ import { sendPostialVerificationRequest, SIGN_IN_LINK_MAX_AGE_SECONDS, signInLin
 test('Postial sign-in mail has matching HTML and text content', async () => {
   let sent: Record<string, unknown> | undefined;
   const provider = Nodemailer({ server: { host: 'unused' }, maxAge: SIGN_IN_LINK_MAX_AGE_SECONDS });
+  provider.from = 'verify@mail.postial.co';
   provider.sendVerificationRequest = sendPostialVerificationRequest;
   provider.server = { name: 'fixture', version: '1', send(mail: { data: Record<string, unknown> }, callback: (error: null, result: unknown) => void) {
     sent = mail.data;
