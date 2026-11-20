@@ -195,7 +195,7 @@ async function main() {
     if(oldEnabled===undefined) delete process.env.WORKER_ENABLED; else process.env.WORKER_ENABLED=oldEnabled;
     console.log('S07 missing CRON exits, migration and worker health fields, stale worker 503/disabled 200 pass');
     let mailCount=0;
-    const provider=Nodemailer({server:{host:'unused'},maxAge:SIGN_IN_LINK_MAX_AGE_SECONDS}); provider.sendVerificationRequest=sendPostialVerificationRequest;
+    const provider=Nodemailer({server:{host:'unused'},maxAge:SIGN_IN_LINK_MAX_AGE_SECONDS}); provider.from='verify@mail.postial.co'; provider.sendVerificationRequest=sendPostialVerificationRequest;
     provider.server={name:'fixture',version:'1',send(mail:{data:Record<string,unknown>},callback:(e:null,result:unknown)=>void){
       const d=mail.data;assert.equal(d.to,'review@example.invalid');assert(!('raw' in d));assert(!('resolveContent' in d));assert.match(String(d.text),/fixture-token/);assert.match(String(d.html),/Sign in to Postial/);assert.equal(d.subject,'Your Postial sign-in link');mailCount++;
       callback(null,{accepted:['review@example.invalid'],rejected:[],pending:[]});

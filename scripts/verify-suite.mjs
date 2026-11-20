@@ -38,7 +38,7 @@ try {
     STRIPE_SECRET_KEY: 'sk_test_fixture', STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
     STRIPE_PRICE_STARTER: 'price_fixture_starter', STRIPE_PRICE_AGENCY: 'price_fixture_agency',
     STRIPE_PORTAL_CONFIG: 'bpc_fixture', WORKER_ENABLED: 'false', AUTH_TRUST_HOST: 'true',
-    SMTP_URL: 'smtp://127.0.0.1:1', EMAIL_FROM: 'Postial <verify@example.invalid>',
+    SMTP_URL: 'smtp://127.0.0.1:1', EMAIL_FROM: 'Postial <verify@mail.postial.co>',
     APPROVAL_TRUST_PROXY: 'true', PLAYWRIGHT_MODULE: env.PLAYWRIGHT_MODULE || 'playwright', VERIFY_MODE: '1',
     ADMIN_EMAILS: 'admin-fixture@example.invalid',
     VERIFY_EVIDENCE_DIR: resolve(process.env.VERIFY_EVIDENCE_DIR || '../work/verification'),

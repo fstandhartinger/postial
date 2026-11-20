@@ -10,7 +10,7 @@ import { alertMailContent, clearChannelAlertLocks, recordChannelAlert, sendPendi
 
 process.env.NEXT_PUBLIC_APP_URL = 'https://postial.co';
 process.env.AUTH_URL = 'https://postial.co';
-process.env.EMAIL_FROM = 'Postial <verify@example.invalid>';
+process.env.EMAIL_FROM = 'Postial <verify@mail.postial.co>';
 
 const db = getDb();
 const userId = crypto.randomUUID();
@@ -213,7 +213,7 @@ async function main() {
     const expiredMail = decoded(messages.at(-1)!);
     assert(expiredMail.includes(`To: ${ownerEmail}`), 'mail goes to the workspace owner');
     assert(expiredMail.includes('Subject: Channel access expired: Fixture X-One'), 'token subject');
-    assert(expiredMail.includes('verify@example.invalid'), 'sender follows EMAIL_FROM like the trial reminder');
+    assert(expiredMail.includes('verify@mail.postial.co'), 'sender follows EMAIL_FROM like the trial reminder');
     assert(/From:.*Postial/i.test(expiredMail), 'sender is Postial');
     assert(expiredMail.includes('https://postial.co/app/channels'), 'token mail links to channels');
     const expiredRow = await alertRow(channelA, 'token_expired');

@@ -24,6 +24,7 @@ test('unconfigured public cards and sign-in do not advertise unavailable connect
 });
 test('configured cards preserve provider limits; partial sign-in advertises only the configured method', async () => {
   for (const key of keys) process.env[key] = 'fixture-only';
+  process.env.EMAIL_FROM = 'Postial <verify@mail.postial.co>';
   const cards = renderToStaticMarkup(await NetworkAvailability({}));
   assert.equal((cards.match(/Connect available/g) || []).length, 5);
   assert.match(cards, /pay-per-use/); assert.match(cards, /approved testers/); assert.match(cards, /company pages is under review/); assert.match(cards, /images and videos are not attached yet/); assert.match(cards, /text-only posts are rejected/);

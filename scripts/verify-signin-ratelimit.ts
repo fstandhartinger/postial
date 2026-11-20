@@ -22,6 +22,7 @@ const url = 'https://postial.co/api/auth/callback/nodemailer?token=fixture-token
 
 function providerFor(counter: { sent: number }) {
   const provider = Nodemailer({ server: { host: 'unused' }, maxAge: SIGN_IN_LINK_MAX_AGE_SECONDS });
+  provider.from = 'verify@mail.postial.co';
   provider.sendVerificationRequest = sendPostialVerificationRequest;
   provider.server = {
     name: 'fixture', version: '1',
