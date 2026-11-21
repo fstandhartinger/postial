@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored zero-dependency logger (canonical copy /home/flori/tools/logkit).
+    "ops/logkit/**",
   ]),
 ]);
 

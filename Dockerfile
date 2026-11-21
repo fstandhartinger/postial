@@ -28,7 +28,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.mjs ./scripts/migrate.mjs
+# Structured JSON logs + request ids (logging standard; ops/logkit/README.md). No IPs or user agents in logs.
+COPY --from=builder --chown=nextjs:nodejs /app/ops/logkit ./logkit
+ENV LOG_APP=postial LOG_IP=0 LOG_UA=0
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["sh", "-c", "node -e \"require('./runtime-config.cjs').validateRuntimeConfig()\" && node scripts/migrate.mjs && exec node server.js"]
+CMD ["sh", "-c", "node -e \"require('./runtime-config.cjs').validateRuntimeConfig()\" && node scripts/migrate.mjs && exec node -r ./logkit/logkit-preload.cjs server.js"]
