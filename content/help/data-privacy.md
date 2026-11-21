@@ -22,7 +22,7 @@ Workspace deletion does not delete members’ accounts. Account deletion removes
 
 ## Retention and requests
 
-Unused media and webhook deliveries are removed after 30 days; notifications and offboarding events after 90 days. Post and approval history remains until post/workspace deletion. Container logs rotate at three files of 10 MB, not after a fixed number of days. Proxy/build-log time retention is unverified. Host backups keep the latest two successful dumps; release dumps remain through acceptance and restricted copies may persist until cleanup. Random deletion identifiers and timestamps remain to prevent reuse. See the [Privacy Policy](/privacy) for the complete lifecycle and recipients.
+Unused media and webhook deliveries are removed after 30 days; notifications and offboarding events after 90 days. Post and approval history remains until post/workspace deletion. Container logs rotate at three files of 10 MB and contain no IP addresses or user-agent strings; a copy with secrets removed and e-mail addresses hashed is kept for 14 days on our own Hetzner servers for debugging. Proxy/build-log time retention is unverified. Host backups keep the latest two successful dumps; release dumps remain through acceptance and restricted copies may persist until cleanup. Random deletion identifiers and timestamps remain to prevent reuse. See the [Privacy Policy](/privacy) for the complete lifecycle and recipients.
 
 Network waitlist registrations are for one launch notice, not a newsletter; request removal or withdraw consent by emailing [privacy support](mailto:info@productivity-boost.com). Use the same contact for access, correction, deletion or export assistance.
 
